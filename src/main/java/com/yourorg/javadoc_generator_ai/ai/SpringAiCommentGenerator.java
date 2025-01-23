@@ -22,7 +22,7 @@ public class SpringAiCommentGenerator {
      */
     public String generateClassComment(String classBody, String className) {
         logger.info("Calling AI Client for class description");
-        String systemPrompt = "As an expert in Java, your task is to provide a concise and informative description. Highlight the class's main responsibilities and its role within the application. " + "Focus on delivering a clear overview that adheres to standard documentation practices.";
+        String systemPrompt = "As an expert in Java, follow proper java document standards and summarize the purpose of the class and its key features.";
         return aiClient.callApi(systemPrompt, className);
     }
 
@@ -31,7 +31,7 @@ public class SpringAiCommentGenerator {
      */
     public String generateMethodComment(String code, String className) {
         logger.info("Calling AI Client for method description for class: " + className);
-        String systemPrompt = "As an expert in Java, your task is to craft comprehensive Javadoc documentation for the provided method." + "Describe the method's purpose, its parameters, and the values it returns. " + "Provide examples of how to use the method and any additional information that would be helpful to developers.";
+        String systemPrompt = "As an expert in Java, explain me the purpose of the below and its key features in bulleted points.";
         return aiClient.callApi(systemPrompt, code);
     }
 }

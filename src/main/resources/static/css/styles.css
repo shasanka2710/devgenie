@@ -83,3 +83,17 @@ footer p {
 .card {
     bs-card-bg: #dee2e6;
 }
+.card-text.ai-style-change-1 ul {
+  list-style-type: disc;
+  padding-left: 20px;
+  margin-bottom: 0;
+}
+
+.card-text.ai-style-change-1 li {
+  margin-bottom: 5px;
+}
+
+.card-text.ai-style-change-1 ul li.heading {
+  font-weight: bold;
+  margin-top: 10px;
+}
