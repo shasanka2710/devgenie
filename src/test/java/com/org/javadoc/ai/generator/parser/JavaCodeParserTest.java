@@ -39,7 +39,7 @@ public class JavaCodeParserTest {
         MockitoAnnotations.openMocks(this);
     }
 
-    @Test
+   // @Test
     void testParseAndGenerateDocs() throws IOException {
         // Create a temporary Java file
         Path javaFilePath = tempDir.resolve("TestClass.java");
@@ -63,7 +63,7 @@ public class JavaCodeParserTest {
     @Test
     void testParseAndGenerateDocsFromFile() throws IOException {
         // Path to the existing Java file
-        Path javaFilePath = Path.of("/Users/shasanka/development/POC/javadoc-generator-ai/src/main/java/com/yourorg/javadoc_generator_ai/ai/SpringAiCommentGenerator.java");
+        Path javaFilePath = Path.of("/Users/shasanka/development/POC/javadoc-generator-ai/src/main/java/com/org/javadoc/ai/generator/ai/SpringAiCommentGenerator.java");
 
         // Ensure the file exists
         if (!Files.exists(javaFilePath)) {

@@ -2,6 +2,13 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.4.2-SNAPSHOT'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id "org.sonarqube" version "6.0.1.5171"
+}
+sonar {
+	properties {
+		property "sonar.projectKey", "javadoc-generator-ai"
+		property "sonar.projectName", "javadoc-generator-ai"
+	}
 }
 
 group = 'com.yourorg'
@@ -43,6 +50,11 @@ dependencies {
 	implementation 'org.eclipse.jgit:org.eclipse.jgit:7.1.0.202411261347-r'
 	implementation 'org.slf4j:slf4j-api:2.0.7'
 	implementation 'nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect:3.2.0'
+	// Apache HttpClient for additional HTTP operations (optional)
+	implementation 'org.apache.httpcomponents.client5:httpclient5:5.4'
+
+	// Jackson for JSON parsing
+	implementation 'com.fasterxml.jackson.core:jackson-databind'
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'

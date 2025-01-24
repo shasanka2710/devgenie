@@ -15,6 +15,9 @@
         <li class="nav-item">
           <a class="nav-link" href="/docs/dashboard" th:classappend="${activeTab == 'dashboard'} ? 'active' : ''">Dashboard</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/insights-metrics"th:classappend="${activeTab == 'insights'} ? 'active' : ''">Insights</a>
+        </li>
       </ul>
       <form class="d-flex">
         <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">

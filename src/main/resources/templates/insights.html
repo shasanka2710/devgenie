@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{base.html}">
+<head>
+  <title>Insights & Metrics</title>
+</head>
+<body>
+<div layout:fragment="content">
+  <h1>Insights & Metrics</h1>
+  <table class="table table-bordered">
+    <thead>
+    <tr>
+      <th>Issue ID</th>
+      <th>Type</th>
+      <th>Severity</th>
+      <th>Description</th>
+      <th>Action</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="issue : ${issues}">
+      <td th:text="${issue.id}"></td>
+      <td th:text="${issue.type}"></td>
+      <td th:text="${issue.severity}"></td>
+      <td th:text="${issue.message}"></td>
+      <td>
+        <button class="btn btn-primary" th:onclick="'fixIssue(' + ${issue.id} + ')'">Fix It</button>
+      </td>
+    </tr>
+    </tbody>
+  </table>
+</div>
+<script>
+  function fixIssue(issueId) {
+      fetch(`/api/fix-issue/${issueId}`, { method: 'POST' })
+          .then(response => {
+              if (response.ok) {
+                  alert('Issue resolved successfully!');
+                  // Optional: Reload the page or update the row's status dynamically
+              } else {
+                  alert('Failed to resolve the issue.');
+              }
+          });
+  }
+</script>
+</body>
+</html>
