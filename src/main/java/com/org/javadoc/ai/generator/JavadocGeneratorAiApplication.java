@@ -27,10 +27,7 @@ public class JavadocGeneratorAiApplication {
      *     - It starts up the Spring container, which manages the components (beans) of your application.
      *     - It handles common configurations and setups required for a Spring Boot application to run.
      *
-     * **In essence, this `main` method is the ignition key that starts your Spring Boot application, and the `SpringApplication.run` line takes care of getting your Spring engine up and running.**
-     *
-     * @param args TODO: Add parameter description.
-     */
+     * **In essence, this `main` method is the ignition key that starts your Spring Boot application, and the `SpringApplication.run` line takes care of getting your Spring engine up and running.**/
     public static void main(String[] args) {
         SpringApplication.run(JavadocGeneratorAiApplication.class, args);
     }
