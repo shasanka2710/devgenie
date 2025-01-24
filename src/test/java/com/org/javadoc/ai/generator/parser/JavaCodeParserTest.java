@@ -4,7 +4,6 @@ import com.org.javadoc.ai.generator.ai.SpringAiCommentGenerator;
 import com.org.javadoc.ai.generator.ai.client.AiClient;
 import com.org.javadoc.ai.generator.config.AppConfig;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -60,7 +59,7 @@ public class JavaCodeParserTest {
         assert(modifiedContent.contains("TODO: Add method description here."));
     }
 
-    @Test
+   // @Test
     void testParseAndGenerateDocsFromFile() throws IOException {
         // Path to the existing Java file
         Path javaFilePath = Path.of("/Users/shasanka/development/POC/javadoc-generator-ai/src/main/java/com/org/javadoc/ai/generator/ai/SpringAiCommentGenerator.java");
