@@ -3,11 +3,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-      - name: Run SonarQube analysis
-        run: ./gradlew sonar --stacktrace
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    - name: Check SonarQube server connectivity
+      run: curl -I ${{ secrets.SONAR_HOST_URL }}
+
+    - name: Run SonarQube analysis
+      run: ./gradlew sonar --stacktrace --debug
+      env:
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
