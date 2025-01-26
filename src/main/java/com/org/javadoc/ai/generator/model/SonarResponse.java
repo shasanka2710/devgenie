@@ -1,4 +1,1 @@
-package com.org.javadoc.ai.generator.model;
-
-public class SonarResponse {
-}
+Ly8gVGhpcyBjbGFzcyBpcyBrZXB0IGVtcHR5IGludGVudGlvbmFsbHkgYXMgaXQncyBhIHBsYWNlaG9sZGVyIGZvciBmdXR1cmUgaW1wbGVtZW50YXRpb24uCnB1YmxpYyBpbnRlcmZhY2UgU29uYXJSZXNwb25zZSB7Cn0K
