@@ -1,4 +1,7 @@
 package com.org.javadoc.ai.generator.model;
 
-public class SonarResponse {
+/**
+ * This interface represents a response from SonarQube.
+ */
+public interface SonarResponse {
 }
