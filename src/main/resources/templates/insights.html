@@ -1,108 +1,135 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.w3.org/1999/xhtml" layout:decorate="~{base.html}">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.w3.org/1999/xhtml"
+      layout:decorate="~{base.html}">
 <head>
   <link rel="stylesheet" href="/css/styles.css">
   <style>
     /* General Styles */
     body {
-      font-family: 'Arial', sans-serif;
-      background-color: #f8f9fa;
-      color: #333;
+        font-family: 'Arial', sans-serif;
+        background-color: #f8f9fa;
+        color: #333;
     }
+
     .section-header {
-      margin-bottom: 20px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #ddd;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #ddd;
     }
+
     .section-header h3 {
-      color: #333;
+        color: #333;
     }
+
     /* Search Bar */
     .search-container {
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
     }
+
     #searchInput {
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      margin-right: 10px;
-      flex-grow: 1;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        margin-right: 10px;
+        flex-grow: 1;
     }
+
     #searchButton {
-      padding: 8px 15px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
+        padding: 8px 15px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
     }
+
     /* Table Styles */
     .table-container {
-      overflow-x: auto;
+        overflow-x: auto;
     }
+
     .table {
-      width: 100%;
-      margin-bottom: 1rem;
-      color: #212529;
-      border-collapse: collapse;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      background-color: #fff;
+        width: 100%;
+        margin-bottom: 1rem;
+        color: #212529;
+        border-collapse: collapse;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        background-color: #fff;
     }
+
     .table thead th {
-      vertical-align: bottom;
-      border-bottom: 2px solid #dee2e6;
-      background-color: #e9ecef;
-      color: #495057;
-      position: sticky;
-      top: 0;
-      z-index: 1;
+        vertical-align: bottom;
+        border-bottom: 2px solid #dee2e6;
+        background-color: #e9ecef;
+        color: #495057;
+        position: sticky;
+        top: 0;
+        z-index: 1;
     }
+
     .table td, .table th {
-      padding: 1rem;
-      vertical-align: top;
-      border-top: 1px solid #dee2e6;
+        padding: 1rem;
+        vertical-align: top;
+        border-top: 1px solid #dee2e6;
     }
+
     .table-bordered {
-      border: 1px solid #dee2e6;
+        border: 1px solid #dee2e6;
     }
+
     .table-bordered td, .table-bordered th {
-      border: 1px solid #dee2e6;
+        border: 1px solid #dee2e6;
     }
+
     .table-striped tbody tr:nth-of-type(odd) {
-      background-color: rgba(0, 0, 0, 0.05);
+        background-color: rgba(0, 0, 0, 0.05);
     }
+
     .apply-fix {
-      transition: background-color 0.3s ease;
+        transition: background-color 0.3s ease;
     }
+
     .apply-fix:hover {
-      background-color: #0069d9;
+        background-color: #0069d9;
     }
+
     .form-select {
-      width: auto;
-      display: inline-block;
+        width: auto;
+        display: inline-block;
     }
+
     .mb-3 {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
+
     /* Responsive Design */
     @media (max-width: 768px) {
-      .mb-3 {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .form-select {
-        width: 100%;
-      }
+        .mb-3 {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .form-select {
+            width: 100%;
+        }
     }
+
     /* Loading Indicator */
     .loading {
-      display: none;
-      text-align: center;
-      margin-top: 20px;
+        display: none;
+        text-align: center;
+        margin-top: 20px;
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 20px;
+        font-style: italic;
+        color: #666;
     }
   </style>
 </head>
@@ -122,11 +149,9 @@
   <div class="mb-3">
     <label for="issueTypeFilter" class="form-label">Filter by Issue Type:</label>
     <select id="issueTypeFilter" class="form-select" onchange="filterIssues(this.value)">
-      <option th:each="type : ${issueTypes}"
-              th:value="${type}"
-              th:text="${type}"
+      <option value="">All</option>
+      <option th:each="type : ${issueTypes}" th:value="${type}" th:text="${type}"
               th:selected="${selectedType == type}"></option>
-      <option th:if="${selectedType == null}" value="" selected>All</option>
     </select>
   </div>
 
@@ -154,7 +179,13 @@
         <td>
           <button class="btn btn-primary btn-sm apply-fix"
                   th:data-category="${issue.category}"
-                  th:data-description="${issue.description}">Apply Fix</button>
+                  th:data-description="${issue.description}">Apply Fix
+          </button>
+        </td>
+      </tr>
+      <tr th:if="${#lists.isEmpty(issues)}">
+        <td colspan="5">
+          <div class="no-data">No data available</div>
         </td>
       </tr>
       </tbody>
@@ -167,64 +198,69 @@
   </div>
 </div>
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('searchInput');
-    const searchButton = document.getElementById('searchButton');
-    const table = document.getElementById('issuesTable');
-    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    const paginationControls = document.getElementById('paginationControls');
+  document.addEventListener('DOMContentLoaded', function () {
+      const searchInput = document.getElementById('searchInput');
+      const searchButton = document.getElementById('searchButton');
+      const table = document.getElementById('issuesTable');
+      const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const paginationControls = document.getElementById('paginationControls');
 
-    function filterTable() {
-      const searchTerm = searchInput.value.toLowerCase();
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const cells = row.getElementsByTagName('td');
-        let found = false;
-        for (let j = 0; j < cells.length; j++) {
-          const cell = cells[j];
-          if (cell.textContent.toLowerCase().indexOf(searchTerm) > -1) {
-            found = true;
-            break;
+      function filterTable() {
+          const searchTerm = searchInput.value.toLowerCase();
+          for (let i = 0; i < rows.length; i++) {
+              const row = rows[i];
+              const cells = row.getElementsByTagName('td');
+              let found = false;
+              for (let j = 0; j < cells.length; j++) {
+                  const cell = cells[j];
+                  if (cell.textContent.toLowerCase().indexOf(searchTerm) > -1) {
+                      found = true;
+                      break;
+                  }
+              }
+              row.style.display = found ? '' : 'none';
           }
-        }
-        row.style.display = found ? '' : 'none';
-      }
-    }
-
-    function showLoadingIndicator(show) {
-      loadingIndicator.style.display = show ? 'block' : 'none';
-    }
-
-    function paginateTable(page, rowsPerPage) {
-      const totalRows = rows.length;
-      const totalPages = Math.ceil(totalRows / rowsPerPage);
-      paginationControls.innerHTML = '';
-
-      for (let i = 0; i < totalRows; i++) {
-        rows[i].style.display = 'none';
       }
 
-      const start = (page - 1) * rowsPerPage;
-      const end = start + rowsPerPage;
-      for (let i = start; i < end && i < totalRows; i++) {
-        rows[i].style.display = '';
+      function showLoadingIndicator(show) {
+          loadingIndicator.style.display = show ? 'block' : 'none';
       }
 
-      for (let i = 1; i <= totalPages; i++) {
-        const button = document.createElement('button');
-        button.textContent = i;
-        button.className = 'btn btn-secondary mx-1';
-        button.addEventListener('click', () => paginateTable(i, rowsPerPage));
-        paginationControls.appendChild(button);
+      function paginateTable(page, rowsPerPage) {
+          const displayedRows = Array.from(rows).filter(row => row.style.display !== 'none');
+          const totalRows = displayedRows.length;
+          const totalPages = Math.ceil(totalRows / rowsPerPage);
+          paginationControls.innerHTML = '';
+
+          // Hide all rows
+          for (let i = 0; i < rows.length; i++) {
+              rows[i].style.display = 'none';
+          }
+
+          // Display the selected page
+          const start = (page - 1) * rowsPerPage;
+          const end = start + rowsPerPage;
+          for (let i = start; i < end && i < totalRows; i++) {
+              const rowIndex = Array.from(rows).indexOf(displayedRows[i])
+              rows[rowIndex].style.display = '';
+          }
+
+          // Add pagination buttons
+          for (let i = 1; i <= totalPages; i++) {
+              const button = document.createElement('button');
+              button.textContent = i;
+              button.className = 'btn btn-secondary mx-1';
+              button.addEventListener('click', () => paginateTable(i, rowsPerPage));
+              paginationControls.appendChild(button);
+          }
       }
-    }
 
-    searchButton.addEventListener('click', filterTable);
-    searchInput.addEventListener('input', filterTable);
+      searchButton.addEventListener('click', filterTable);
+      searchInput.addEventListener('input', filterTable);
 
-    // Initial pagination setup
-    paginateTable(1, 10);
+      // Initial pagination setup
+      paginateTable(1, 10);
   });
 </script>
 </body>

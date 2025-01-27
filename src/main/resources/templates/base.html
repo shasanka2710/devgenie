@@ -21,6 +21,14 @@
   </div>
 </main>
 
+<!-- Modal -->
+<div id="progressModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+  <div id="progressModalContent" style="background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%;">
+    <div id="progressBar" style="width: 0%; height: 30px; background-color: #4CAF50; text-align: center; line-height: 30px; color: white;"></div>
+    <div id="progressText" style="margin-top: 20px; white-space: pre-line;">Request sent to application...</div>
+  </div>
+</div>
+
 <!-- Include the Footer -->
 <footer th:replace="fragments/Footer.html :: body"></footer>
 
@@ -30,63 +38,128 @@
 
   // Dropdown filter logic for insights.html
   function filterIssues(selectedType) {
-    const url = selectedType ? `/sonar/issues?filterType=${encodeURIComponent(selectedType)}` : '/sonar/issues';
-    window.location.href = url; // Reload the page with the selected filter
+      const url = selectedType ? '/sonar/issues?filterType=' + encodeURIComponent(selectedType) : '/sonar/issues';
+      window.location.href = url; // Reload the page with the selected filter
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    // Get the current page name from the data-page attribute
-    const currentPage = document.body.getAttribute('data-page');
+      // Get the current page name from the data-page attribute
+      const currentPage = document.body.getAttribute('data-page');
 
-    // Check if the current page is 'insights'
-    if (currentPage === 'insights') {
-      console.log('Insights-specific script is running');
+      // Check if the current page is 'insights'
+      if (currentPage === 'insights') {
+          console.log('Insights-specific script is running');
 
-      // Attach event listener to the dropdown (if present)
-      const issueTypeFilter = document.getElementById('issueTypeFilter');
-      if (issueTypeFilter) {
-        issueTypeFilter.addEventListener('change', function () {
-          filterIssues(this.value);
-        });
-      }
+          // Attach event listener to the dropdown (if present)
+          const issueTypeFilter = document.getElementById('issueTypeFilter');
+          if (issueTypeFilter) {
+              issueTypeFilter.addEventListener('change', function () {
+                  filterIssues(this.value);
+              });
+          }
 
-      // Logic for "Apply Fix" buttons
-      const fixButtons = document.querySelectorAll('button.apply-fix');
-      fixButtons.forEach(button => {
-        button.addEventListener('click', function (event) {
-          event.preventDefault();
-          const className = this.getAttribute('data-category');
-          const description = this.getAttribute('data-description');
-          applyFix(this, className, description);
-        });
-      });
-
-      function applyFix(linkElement, className, description) {
-        const url = `/sonar/issue/apply-fix/${encodeURIComponent(className)}/desc/${encodeURIComponent(description)}`;
-        linkElement.textContent = 'Processing...';
-        linkElement.style.pointerEvents = 'none';
-
-        fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        })
-          .then(response => {
-            if (response.ok) return response.json();
-            throw new Error(`Error ${response.status}: ${response.statusText}`);
-          })
-          .then(data => {
-            alert('Fix applied successfully. Operation ID: ' + data.operationId);
-            linkElement.textContent = 'Fix Applied';
-            linkElement.style.color = 'green';
-          })
-          .catch(error => {
-            console.error('Error:', error);
-            alert('Error applying fix: ' + error.message);
-            linkElement.textContent = 'Apply Fix';
-            linkElement.style.pointerEvents = 'auto';
+          // Logic for "Apply Fix" buttons
+          const fixButtons = document.querySelectorAll('button.apply-fix');
+          fixButtons.forEach(button => {
+              button.addEventListener('click', function (event) {
+                  event.preventDefault();
+                  const className = this.getAttribute('data-category');
+                  const description = this.getAttribute('data-description');
+                  applyFix(this, className, description);
+              });
           });
+
+          function applyFix(linkElement, className, description) {
+              const url = '/sonar/issue/apply-fix/' + encodeURIComponent(className) + '/desc/' + encodeURIComponent(description);
+
+              // Modal elements
+              const modal = document.getElementById('progressModal');
+              const modalContent = document.getElementById('progressModalContent');
+              const progressBar = document.getElementById('progressBar');
+              const progressText = document.getElementById('progressText');
+
+              // Create close button
+              const closeButton = document.createElement('span');
+              closeButton.innerHTML = '&times;';
+              closeButton.style.cssText = 'position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; cursor: pointer;';
+              closeButton.onclick = () => {
+                modal.style.display = 'none';
+              };
+              modalContent.insertBefore(closeButton, modalContent.firstChild);
+
+              // Show modal and reset progress
+              modal.style.display = 'block';
+              progressBar.style.width = '0%';
+              progressText.textContent = 'Starting...\n';
+
+              let displayedEvents = new Set();
+
+              const updateProgressText = (events) => {
+                  events.forEach(event => {
+                      if (!displayedEvents.has(event)) {
+                          progressText.textContent += event + '\n';
+                          displayedEvents.add(event);
+                      }
+                  });
+              };
+
+              linkElement.textContent = 'Processing...';
+              linkElement.style.pointerEvents = 'none';
+
+              fetch(url, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+              })
+                  .then(response => {
+                      if (response.ok) return response.json();
+                      throw new Error('Error ' + response.status + ': ' + response.statusText);
+                  })
+                  .then(data => {
+                      if (!data.operationId) {
+                          throw new Error('operationId not found.');
+                      }
+                      const operationId = data.operationId;
+                      let progress = 0;
+                      const interval = setInterval(() => {
+                          fetch('/sonar/issue/fix-status/' + operationId)
+                              .then(response => {
+                                  if (response.ok) return response.json();
+                                  throw new Error('Error ' + response.status + ': ' + response.statusText);
+                              })
+                              .then(statusData => {
+                                  const events = statusData.step;
+                                  updateProgressText(events);
+                                  progress += 16;
+                                  progressBar.style.width = Math.min(progress, 100) + '%';
+                                  if (events.some(event => event.includes('Completed'))) {
+                                      clearInterval(interval);
+                                      linkElement.textContent = 'Fix Applied';
+                                      linkElement.style.color = 'green';
+                                  }
+                                  if (events.some(event => event.includes("Failed"))) {
+                                      clearInterval(interval);
+                                      updateProgressText(["There was an error applying the fix."]);
+                                      linkElement.textContent = 'Error Applying Fix';
+                                      linkElement.style.color = 'red';
+                                  }
+                              })
+                              .catch(error => {
+                                  console.error('Error:', error);
+                                  updateProgressText(['Error: ' + error.message]);
+                                  clearInterval(interval);
+                                  linkElement.textContent = 'Apply Fix';
+                                  linkElement.style.pointerEvents = 'auto';
+                              });
+                      }, 100); // Reduced interval to 100ms
+                  })
+                  .catch(error => {
+                      console.error('Error:', error);
+                      updateProgressText(['Error: ' + error.message]);
+                      linkElement.textContent = 'Apply Fix';
+                      linkElement.style.pointerEvents = 'auto';
+                  });
+          }
       }
-    }
   });
 </script>
 </body>

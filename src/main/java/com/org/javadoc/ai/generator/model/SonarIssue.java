@@ -12,4 +12,7 @@ public class SonarIssue {
     private String severity;
     private String description;
     private String category;
+    private String totalIssues;
+    private String totalEffort;
+
 }

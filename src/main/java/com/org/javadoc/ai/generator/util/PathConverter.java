@@ -2,6 +2,10 @@ package com.org.javadoc.ai.generator.util;
 
 public class PathConverter {
 
+    private PathConverter() {
+        // Private constructor to prevent instantiation of this utility class
+    }
+
     // Convert from dotted path to slashed path
     public static String toSlashedPath(String inputPath) {
         int lastDotIndex = inputPath.lastIndexOf('.');

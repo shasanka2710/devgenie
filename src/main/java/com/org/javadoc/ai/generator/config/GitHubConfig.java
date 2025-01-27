@@ -14,18 +14,27 @@ public class GitHubConfig {
 
     @Value("${github.token}")
     private String githubToken;
+
     @Value("${github.repo}")
-    private  String repository;
+    private String repository;
+
     @Value("${github.default.branch}")
-    private  String defaultBranch;
+    private String defaultBranch;
 
     @Bean
     public GitHub gitHub() {
         try {
             return GitHub.connectUsingOAuth(githubToken);
         } catch (Exception e) {
-            throw new RuntimeException("Error connecting to GitHub: " + e.getMessage());
+            // Create a dedicated exception class for GitHub connection errors.
+            throw new GitHubConnectionException("Error connecting to GitHub.", e);
         }
     }
+}
 
+// Dedicated exception class for GitHub connection errors.
+class GitHubConnectionException extends RuntimeException {
+    public GitHubConnectionException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
