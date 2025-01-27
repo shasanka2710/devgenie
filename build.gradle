@@ -41,6 +41,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	implementation 'org.springframework.ai:spring-ai-vertex-ai-gemini-spring-boot-starter:1.0.0-M4'
+	implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6:3.1.0.RELEASE'
 	//implementation 'org.springframework.ai:spring-ai-azure-openai-spring-boot-starter'
 	//implementation 'org.springframework.ai:spring-ai-ollama-spring-boot-starter'
 	//implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
@@ -52,6 +53,8 @@ dependencies {
 	implementation 'nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect:3.2.0'
 	// Apache HttpClient for additional HTTP operations (optional)
 	implementation 'org.apache.httpcomponents.client5:httpclient5:5.4'
+	implementation 'org.kohsuke:github-api:1.123'
+	//implementation 'dev.langchain4j:langchain4j:0.23.0' // Replace with the latest version
 
 	// Jackson for JSON parsing
 	implementation 'com.fasterxml.jackson.core:jackson-databind'

@@ -1,5 +1,6 @@
 package com.org.javadoc.ai.generator.parser;
 
+import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
@@ -21,11 +22,13 @@ import com.org.javadoc.ai.generator.config.AppConfig;
 import com.org.javadoc.ai.generator.model.ClassDetails;
 import com.org.javadoc.ai.generator.model.MethodDetails;
 import com.org.javadoc.ai.generator.model.PackageDetails;
+import com.org.javadoc.ai.generator.util.PathConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -641,5 +644,46 @@ public class JavaCodeParser {
             e.printStackTrace();
         }
         return classes;
+    }
+
+    public String identifyFixUsingLLModel(String className, String description) throws FileNotFoundException {
+        logger.info("Identifying fix using LL model for class: " + className);
+        CompilationUnit cu = getCompilationUnit(className);
+        Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
+        String classNameFromFile = typeDeclaration.get().getNameAsString();
+        String fixedCode = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.fixSonarIssue(classNameFromFile, typeDeclaration.get().getParentNode().get().toString(), description) : typeDeclaration.get().toString();
+        logger.info("Original code: " + typeDeclaration.get().getParentNode().get().toString());
+        logger.info("Fixed code: " + fixedCode);
+        return fixedCode;
+    }
+
+    public static CompilationUnit getCompilationUnit(String className) throws FileNotFoundException {
+        Path filePath = Paths.get(PathConverter.toSlashedPath(className));
+
+        File file = new File(String.valueOf(filePath));
+        if (!file.exists()) {
+            throw new FileNotFoundException("File not found: " + filePath);
+        }
+
+        CompilationUnit cu = StaticJavaParser.parse(file);
+        return cu;
+    }
+
+    /**
+     * Validates whether the given Java code is compilable.
+     *
+     * @param code The Java code as a string.
+     * @return True if the code is valid, otherwise false.
+     */
+    public boolean isValidJavaCode(String code) {
+        try {
+            // Attempt to parse the code
+            CompilationUnit compilationUnit = StaticJavaParser.parse(code);
+            return true; // Successfully parsed
+        } catch (ParseProblemException | IllegalArgumentException e) {
+            // Syntax or parsing issues
+            System.err.println("Code validation failed: " + e.getMessage());
+            return false;
+        }
     }
 }

@@ -7,9 +7,9 @@ import lombok.Setter;
 @Setter
 public class SonarIssue {
 
-    private String id;
+    private String key;
     private String type;
     private String severity;
-    private String message;
-    private String component;
+    private String description;
+    private String category;
 }

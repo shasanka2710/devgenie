@@ -20,6 +20,8 @@ jobs:
         with:
           java-version: 21
           distribution: 'zulu' # Alternative distribution options are available.
+      - name: Set LOG_PATH environment variable
+        run: echo "LOG_PATH=$GITHUB_WORKSPACE/logs/application.log" >> $GITHUB_ENV
 
       - name: Check SonarQube server connectivity
         run: curl -I ${{ secrets.SONAR_HOST_URL }}

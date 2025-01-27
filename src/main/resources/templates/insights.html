@@ -1,46 +1,231 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{base.html}">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.w3.org/1999/xhtml" layout:decorate="~{base.html}">
 <head>
-  <title>Insights & Metrics</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    /* General Styles */
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f8f9fa;
+      color: #333;
+    }
+    .section-header {
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #ddd;
+    }
+    .section-header h3 {
+      color: #333;
+    }
+    /* Search Bar */
+    .search-container {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+    }
+    #searchInput {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-right: 10px;
+      flex-grow: 1;
+    }
+    #searchButton {
+      padding: 8px 15px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    /* Table Styles */
+    .table-container {
+      overflow-x: auto;
+    }
+    .table {
+      width: 100%;
+      margin-bottom: 1rem;
+      color: #212529;
+      border-collapse: collapse;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      background-color: #fff;
+    }
+    .table thead th {
+      vertical-align: bottom;
+      border-bottom: 2px solid #dee2e6;
+      background-color: #e9ecef;
+      color: #495057;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .table td, .table th {
+      padding: 1rem;
+      vertical-align: top;
+      border-top: 1px solid #dee2e6;
+    }
+    .table-bordered {
+      border: 1px solid #dee2e6;
+    }
+    .table-bordered td, .table-bordered th {
+      border: 1px solid #dee2e6;
+    }
+    .table-striped tbody tr:nth-of-type(odd) {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+    .apply-fix {
+      transition: background-color 0.3s ease;
+    }
+    .apply-fix:hover {
+      background-color: #0069d9;
+    }
+    .form-select {
+      width: auto;
+      display: inline-block;
+    }
+    .mb-3 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .mb-3 {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .form-select {
+        width: 100%;
+      }
+    }
+    /* Loading Indicator */
+    .loading {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+    }
+  </style>
 </head>
 <body>
 <div layout:fragment="content">
-  <h1>Insights & Metrics</h1>
-  <table class="table table-bordered">
-    <thead>
-    <tr>
-      <th>Issue ID</th>
-      <th>Type</th>
-      <th>Severity</th>
-      <th>Description</th>
-      <th>Action</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr th:each="issue : ${issues}">
-      <td th:text="${issue.id}"></td>
-      <td th:text="${issue.type}"></td>
-      <td th:text="${issue.severity}"></td>
-      <td th:text="${issue.message}"></td>
-      <td>
-        <button class="btn btn-primary" th:onclick="'fixIssue(' + ${issue.id} + ')'">Fix It</button>
-      </td>
-    </tr>
-    </tbody>
-  </table>
+  <div class="section-header">
+    <h3>SonarQube Issue for your project</h3>
+  </div>
+
+  <!-- Prompt Bar -->
+  <div class="search-container">
+    <input type="text" id="searchInput" placeholder="Enter your prompt...">
+    <button id="searchButton">Submit</button>
+  </div>
+
+  <!-- Dropdown for filtering issues -->
+  <div class="mb-3">
+    <label for="issueTypeFilter" class="form-label">Filter by Issue Type:</label>
+    <select id="issueTypeFilter" class="form-select" onchange="filterIssues(this.value)">
+      <option th:each="type : ${issueTypes}"
+              th:value="${type}"
+              th:text="${type}"
+              th:selected="${selectedType == type}"></option>
+      <option th:if="${selectedType == null}" value="" selected>All</option>
+    </select>
+  </div>
+
+  <!-- Loading Indicator -->
+  <div class="loading" id="loadingIndicator">Loading...</div>
+
+  <!-- Insights Table -->
+  <div class="table-container">
+    <table class="table table-bordered table-striped" id="issuesTable">
+      <thead>
+      <tr>
+        <th>Issue Type</th>
+        <th>Category</th>
+        <th>Description</th>
+        <th>Severity</th>
+        <th>Actions</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr th:each="issue : ${issues}">
+        <td th:text="${issue.type}"></td>
+        <td th:text="${issue.category}"></td>
+        <td th:text="${issue.description}"></td>
+        <td th:text="${issue.severity}"></td>
+        <td>
+          <button class="btn btn-primary btn-sm apply-fix"
+                  th:data-category="${issue.category}"
+                  th:data-description="${issue.description}">Apply Fix</button>
+        </td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination Controls -->
+  <div id="paginationControls" class="d-flex justify-content-center mt-3">
+    <!-- Pagination buttons will be dynamically added here -->
+  </div>
 </div>
 <script>
-  function fixIssue(issueId) {
-      fetch(`/api/fix-issue/${issueId}`, { method: 'POST' })
-          .then(response => {
-              if (response.ok) {
-                  alert('Issue resolved successfully!');
-                  // Optional: Reload the page or update the row's status dynamically
-              } else {
-                  alert('Failed to resolve the issue.');
-              }
-          });
-  }
+  document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const searchButton = document.getElementById('searchButton');
+    const table = document.getElementById('issuesTable');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const paginationControls = document.getElementById('paginationControls');
+
+    function filterTable() {
+      const searchTerm = searchInput.value.toLowerCase();
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const cells = row.getElementsByTagName('td');
+        let found = false;
+        for (let j = 0; j < cells.length; j++) {
+          const cell = cells[j];
+          if (cell.textContent.toLowerCase().indexOf(searchTerm) > -1) {
+            found = true;
+            break;
+          }
+        }
+        row.style.display = found ? '' : 'none';
+      }
+    }
+
+    function showLoadingIndicator(show) {
+      loadingIndicator.style.display = show ? 'block' : 'none';
+    }
+
+    function paginateTable(page, rowsPerPage) {
+      const totalRows = rows.length;
+      const totalPages = Math.ceil(totalRows / rowsPerPage);
+      paginationControls.innerHTML = '';
+
+      for (let i = 0; i < totalRows; i++) {
+        rows[i].style.display = 'none';
+      }
+
+      const start = (page - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      for (let i = start; i < end && i < totalRows; i++) {
+        rows[i].style.display = '';
+      }
+
+      for (let i = 1; i <= totalPages; i++) {
+        const button = document.createElement('button');
+        button.textContent = i;
+        button.className = 'btn btn-secondary mx-1';
+        button.addEventListener('click', () => paginateTable(i, rowsPerPage));
+        paginationControls.appendChild(button);
+      }
+    }
+
+    searchButton.addEventListener('click', filterTable);
+    searchInput.addEventListener('input', filterTable);
+
+    // Initial pagination setup
+    paginateTable(1, 10);
+  });
 </script>
 </body>
 </html>
