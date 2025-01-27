@@ -26,7 +26,6 @@ public class IssueFixController {
     @GetMapping("/fix-status/{operationId}")
     public ResponseEntity<?> getFixStatus(@PathVariable String operationId) {
         String step = fixService.getStatus(operationId);
-        String githubUrl = fixService.getPullRequestUrl(operationId);
-        return ResponseEntity.ok(Map.of("step", step, "githubUrl", githubUrl));
+        return ResponseEntity.ok(Map.of("step", step));
     }
 }
