@@ -51,8 +51,7 @@ public class SonarService {
     }
 
     private List<SonarIssue> parseSonarIssues(String responseBody) throws IOException {
-        JsonNode rootNode = objectMapper.readTree(responseBody);
-        JsonNode issuesNode = rootNode.path("issues");
+        JsonNode issuesNode = objectMapper.readTree(responseBody).path("issues");
         List<SonarIssue> issues = new ArrayList<>();
         for (JsonNode issueNode : issuesNode) {
             SonarIssue issue = new SonarIssue();
@@ -71,7 +70,7 @@ public class SonarService {
     }
 
     public JsonNode getRootNode() throws IOException {
-        JsonNode rootNode = objectMapper.readTree(fetchIssuesFromSonar());
-        return rootNode;
+        // Returning the expression directly instead of assigning to a temporary variable
+        return objectMapper.readTree(fetchIssuesFromSonar());
     }
 }
