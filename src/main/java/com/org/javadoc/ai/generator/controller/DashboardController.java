@@ -21,16 +21,16 @@ public class DashboardController {
     }
 
     @GetMapping
-    public String getDashboard(Model model) {
+    public String getDashboard(Model model) throws IOException {
         // Fetch metrics (dummy values used here, replace with actual logic)
         // Replace with actual logic to count classes
         int totalClasses = 100;
         // Replace with actual logic to count methods
         int totalMethods = 500;
         // Replace with actual logic to fetch sonar issues
-        int totalSonarIssues = 50;
+        int totalSonarIssues = sonarService.getRootNode().get("total").asInt();
         // Replace with actual logic to fetch effort in minutes
-        int totalEffortMinutes = 1200;
+        int totalEffortMinutes = sonarService.getRootNode().get("effortTotal").asInt();
         double totalDollarValueSave = totalEffortMinutes * dollarValuePerMinute;
         model.addAttribute("totalClasses", totalClasses);
         model.addAttribute("totalMethods", totalMethods);
