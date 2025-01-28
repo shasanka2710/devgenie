@@ -1,7 +1,6 @@
 package com.org.javadoc.ai.generator.service;
 
 
-import com.org.javadoc.ai.generator.ai.client.AiClient;
 import com.org.javadoc.ai.generator.config.AppConfig;
 import com.org.javadoc.ai.generator.input.GitInputProcessor;
 import com.org.javadoc.ai.generator.input.LocalFileInputProcessor;
@@ -27,9 +26,6 @@ public class DocGeneratorService {
 
     @Autowired
     private JavaCodeParser javaCodeParser;
-
-    @Autowired(required = false)
-    private AiClient aiClient; // Optional
 
     @Autowired
     private LocalFileInputProcessor localFileInputProcessor;

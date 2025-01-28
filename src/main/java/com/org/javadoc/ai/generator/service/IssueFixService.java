@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -29,34 +30,42 @@ public class IssueFixService {
     GitHubUtility gitHubUtility;
 
     @Async
-    public CompletableFuture<String> startFix(String operationId, String className, String description) {
-        String pullRequest="";
+    public CompletableFuture<String> startFix(String operationId, List<Map<String, String>> classDescriptions) {
+        String pullRequest = "";
         operationProgress.put(operationId, new ArrayList<>(List.of("Analyzing the request...DONE!")));
 
         try {
-            // Check with LLM to identify the fix
-            operationProgress.get(operationId).add("Identifying the Fix with LLM model..!");
-            String fixedCode = identifyFix(className,description);
-            operationProgress.get(operationId).add("Identifying the Fix with LLM model...DONE!");
-            //Validate the fix by checking if the fixed code is a valid Java code.
-            operationProgress.get(operationId).add("Validating the Fix...!");
-            boolean isValidCode = javaCodeParser.isValidJavaCode(fixedCode);
-            operationProgress.get(operationId).add("Validating the Fix...DONE!");
-            if(!isValidCode) {
-                return CompletableFuture.completedFuture(operationId);
+            for (Map<String, String> classDescription : classDescriptions) {
+                String className = classDescription.get("className");
+                String description = classDescription.get("description");
+
+                // Check with LLM to identify the fix
+                operationProgress.get(operationId).add("Identifying the Fix with LLM model for ...");
+                String fixedCode = identifyFix(className, description);
+                operationProgress.get(operationId).add("Identifying the Fix with LLM model for ...DONE!");
+
+                // Validate the fix by checking if the fixed code is a valid Java code.
+                operationProgress.get(operationId).add("Validating the Fix for ...");
+                boolean isValidCode = javaCodeParser.isValidJavaCode(fixedCode);
+                operationProgress.get(operationId).add("Validating the Fix for ...DONE!");
+                if (!isValidCode) {
+                    continue;
+                }
+
+                // Apply the fix to the file
+                operationProgress.get(operationId).add("Applying the Fix for ...");
+                applyFix(className, fixedCode);
+                operationProgress.get(operationId).add("Applying the Fix for ...DONE!");
             }
-            // Apply the fix to the file
-            operationProgress.get(operationId).add("Applying the Fix...!");
-            applyFix(className, fixedCode);
-            operationProgress.get(operationId).add("Applying the Fix...DONE!");
-            //Get the name of the class
-            //String name = javaCodeParser.getCompilationUnit(className).getPrimaryTypeName().get().toString();
+
             // Create a pull request
-            pullRequest = gitHubUtility.createPullRequest(className, "Automated fixing issue: " + description);
+            pullRequest = gitHubUtility.createPullRequest(
+                    classDescriptions.stream().map(cd -> cd.get("className")).collect(Collectors.toList()),
+                    "Automated fixing issues"
+            );
             operationProgress.get(operationId).add("Creating a Pull Request...DONE!");
             operationProgress.get(operationId).add("Pull Request: " + pullRequest);
             operationProgress.get(operationId).add("Completed");
-
 
         } catch (Exception e) {
             operationProgress.get(operationId).add("Failed");

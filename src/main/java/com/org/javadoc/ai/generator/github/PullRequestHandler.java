@@ -27,18 +27,18 @@ public class PullRequestHandler {
     private static final long BASE_DELAY_MS = 1000; // Base delay in milliseconds
 
     /**
-     * Creates a pull request for the given class and description with retry logic.
+     * Creates a pull request for the given class names and description with retry logic.
      *
-     * @param className  Fully qualified class name.
+     * @param classNames  List of fully qualified class names.
      * @param description Description of the fix.
      * @throws IOException If an error occurs during GitHub operations after retries.
      */
-    public GHPullRequest createPullRequest(String className, String description) throws IOException {
+    public GHPullRequest createPullRequest(List<String> classNames, String description) throws IOException {
         GHRepository repo = github.getRepository(config.getRepository());
         String defaultBranch = config.getDefaultBranch();
 
-        // Generate dynamic branch name based on the class name and current timestamp
-        String branchName = generateDynamicBranchName(className);
+        // Generate dynamic branch name based on the current timestamp
+        String branchName = generateDynamicBranchName();
 
         // Create branch from the default branch with retry
         retryOperation(() -> {
@@ -47,7 +47,10 @@ public class PullRequestHandler {
         }, "Creating branch", MAX_RETRIES);
 
         // Get the list of files to be updated
-        List<String> filePaths = List.of(PathConverter.toSlashedPath(className)); // Can be extended for more files
+        List<String> filePaths = classNames.stream()
+                .map(PathConverter::toSlashedPath)
+                .toList();
+
         for (String filePath : filePaths) {
             // Update file with retry
             retryOperation(() -> {
@@ -68,13 +71,12 @@ public class PullRequestHandler {
     }
 
     /**
-     * Generates a dynamic branch name based on the class name and a timestamp.
+     * Generates a dynamic branch name based on a timestamp.
      *
-     * @param className The class name used for generating the branch name.
      * @return A unique branch name.
      */
-    private String generateDynamicBranchName(String className) {
-        return "fix-"+ UUID.randomUUID().toString().substring(0, 8); // Short UUID
+    private String generateDynamicBranchName() {
+        return "fix-" + UUID.randomUUID().toString().substring(0, 8); // Short UUID
     }
 
     /**

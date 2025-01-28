@@ -21,12 +21,11 @@ public class IssueFixController {
     @Autowired
     private IssueFixService fixService;
 
-    @PostMapping("/apply-fix/{className}/desc/{description}")
-    public ResponseEntity<?> startFix(@PathVariable String className, @PathVariable String description) {
+    @PostMapping("/apply-fix")
+    public ResponseEntity<?> startFix(@RequestBody List<Map<String, String>> classDescriptions) {
         try {
             String operationId = UUID.randomUUID().toString();
-            CompletableFuture<String> operationIdFuture = fixService.startFix(operationId,className, description);
-            //String operationId = operationIdFuture.get(); // This will block until the async operation is complete
+            CompletableFuture<String> operationIdFuture = fixService.startFix(operationId, classDescriptions);
             return ResponseEntity.ok(Map.of("success", true, "operationId", operationId));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "message", e.getMessage()));
@@ -35,7 +34,6 @@ public class IssueFixController {
 
     @GetMapping("/fix-status/{operationId}")
     public ResponseEntity<?> getFixStatus(@PathVariable String operationId) {
-        logger.info("Getting fix status for operationId: {}", operationId);
         List<String> step = fixService.getStatus(operationId);
         return ResponseEntity.ok(Map.of("step", step));
     }

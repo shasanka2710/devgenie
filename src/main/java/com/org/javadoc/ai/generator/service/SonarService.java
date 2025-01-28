@@ -3,13 +3,11 @@ package com.org.javadoc.ai.generator.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.org.javadoc.ai.generator.model.SonarIssue;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.support.BasicAuthenticationInterceptor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +17,7 @@ public class SonarService {
 
     @Autowired
     private RestTemplate restTemplate;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -47,15 +46,12 @@ public class SonarService {
     public String fetchIssuesFromSonar() {
         String url = String.format("%s?componentKeys=%s&severities=%s&ps=%d", sonarUrl, componentKeys, severities, pageSize);
         restTemplate.getInterceptors().add(new BasicAuthenticationInterceptor(sonarUsername, sonarPassword));
-
-        String response = restTemplate.getForObject(url, String.class);
-        return response;
+        // Immediately return the expression instead of assigning it to a temporary variable
+        return restTemplate.getForObject(url, String.class);
     }
 
     private List<SonarIssue> parseSonarIssues(String responseBody) throws IOException {
-        JsonNode rootNode = objectMapper.readTree(responseBody);
-        JsonNode issuesNode = rootNode.path("issues");
-
+        JsonNode issuesNode = objectMapper.readTree(responseBody).path("issues");
         List<SonarIssue> issues = new ArrayList<>();
         for (JsonNode issueNode : issuesNode) {
             SonarIssue issue = new SonarIssue();
@@ -71,5 +67,10 @@ public class SonarService {
 
     private String replaceText(String input) {
         return (input != null) ? (input.replaceFirst("^[^:]+:", "").replace("/", ".")) : input;
+    }
+
+    public JsonNode getRootNode() throws IOException {
+        // Returning the expression directly instead of assigning to a temporary variable
+        return objectMapper.readTree(fetchIssuesFromSonar());
     }
 }

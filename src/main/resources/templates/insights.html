@@ -155,6 +155,11 @@
     </select>
   </div>
 
+  <!-- Fix More Button -->
+  <div class="mb-3">
+    <button id="fixMoreButton" class="btn btn-warning" style="display: none;" onclick="applyFixMore()">Fix More</button>
+  </div>
+
   <!-- Loading Indicator -->
   <div class="loading" id="loadingIndicator">Loading...</div>
 
@@ -163,6 +168,7 @@
     <table class="table table-bordered table-striped" id="issuesTable">
       <thead>
       <tr>
+        <th>Select</th>
         <th>Issue Type</th>
         <th>Category</th>
         <th>Description</th>
@@ -172,6 +178,7 @@
       </thead>
       <tbody>
       <tr th:each="issue : ${issues}">
+        <td><input type="checkbox" class="issue-checkbox" th:data-category="${issue.category}" th:data-description="${issue.description}" onchange="toggleFixMoreButton()"></td>
         <td th:text="${issue.type}"></td>
         <td th:text="${issue.category}"></td>
         <td th:text="${issue.description}"></td>
@@ -184,7 +191,7 @@
         </td>
       </tr>
       <tr th:if="${#lists.isEmpty(issues)}">
-        <td colspan="5">
+        <td colspan="6">
           <div class="no-data">No data available</div>
         </td>
       </tr>
@@ -205,6 +212,8 @@
       const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
       const loadingIndicator = document.getElementById('loadingIndicator');
       const paginationControls = document.getElementById('paginationControls');
+      const fixMoreButton = document.getElementById('fixMoreButton');
+      const checkboxes = document.getElementsByClassName('issue-checkbox');
 
       function filterTable() {
           const searchTerm = searchInput.value.toLowerCase();
@@ -254,6 +263,39 @@
               button.addEventListener('click', () => paginateTable(i, rowsPerPage));
               paginationControls.appendChild(button);
           }
+      }
+
+      function toggleFixMoreButton() {
+          const selectedCheckboxes = Array.from(checkboxes).filter(checkbox => checkbox.checked);
+          fixMoreButton.style.display = selectedCheckboxes.length > 1 ? 'block' : 'none';
+      }
+
+      function applyFixMore() {
+          const selectedCheckboxes = Array.from(checkboxes).filter(checkbox => checkbox.checked);
+          const classDescriptions = selectedCheckboxes.map(checkbox => ({
+              className: checkbox.getAttribute('data-category'),
+              description: checkbox.getAttribute('data-description')
+          }));
+
+          fetch('/sonar/issue/apply-fix', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(classDescriptions)
+          })
+          .then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  alert('Fix applied successfully. Operation ID: ' + data.operationId);
+              } else {
+                  alert('Failed to apply fix: ' + data.message);
+              }
+          })
+          .catch(error => {
+              console.error('Error:', error);
+              alert('An error occurred while applying the fix.');
+          });
       }
 
       searchButton.addEventListener('click', filterTable);

@@ -17,21 +17,52 @@ public class SpringAiCommentGenerator {
     @Autowired
     private AiClient aiClient;
 
-    /**
-     * TODO: Add method description here.
-     */
     public String generateClassComment(String classBody, String className) {
         logger.info("Calling AI Client for class description");
-        String systemPrompt = "As an expert in Java, follow proper java document standards and summarize the purpose of the class and its key features.";
-        return aiClient.callApi(systemPrompt, className);
+        String systemPrompt = """
+            You are an intelligent Java documentation assistant. Your task is to generate precise and clean Javadoc-style comments for the provided Java class.
+            Instructions:
+            1. Class-Level Comments: Provide a concise overview of the class, describing its purpose, functionality, and key features. Avoid unnecessary verbosity or repetition.
+            2. Include Existing Code: Maintain the exact structure and syntax of the provided Java class, ensuring the code remains intact and error-free.
+            3. No Compilation Errors: Ensure the class, along with the generated comments, is syntactically correct and will not cause any compilation issues.
+            4. Documentation Style: Use proper Javadoc syntax for all comments. Avoid over-documentation—focus on clarity and precision.            
+            Output Format:
+            /**
+             * [Briefly describe the purpose of the class, its functionality, and key features.]
+             * [Mention any specific use cases or relevant details if applicable.]
+             */
+            public class [ClassName] {
+                // Preserve the original class structure and code here.
+            }
+            Note: Always prioritize clarity and maintain the existing code structure.
+            """;
+        return aiClient.callApi(systemPrompt, classBody);
     }
 
-    /**
-     * TODO: Add method description here.
-     */
     public String generateMethodComment(String code, String className) {
         logger.info("Calling AI Client for method description for class: {}", className);
-        String systemPrompt = "As an expert in Java, explain me the purpose of the below and its key features in bulleted points.";
+        String systemPrompt = """
+            You are an intelligent Java documentation assistant. Your task is to generate precise and clean Javadoc-style comments for the provided Java method.
+            Instructions:
+            1. Method-Level Comments: Provide a concise description of the method, explaining its purpose, functionality, and any important details.
+            2. Parameters: Document all parameters using @param, briefly explaining their purpose and significance.
+            3. Return Value: If the method has a return value, describe it using @return.
+            4. Exceptions: If the method throws exceptions, document them using @throws, explaining when they may occur.
+            5. Include Existing Code: Maintain the exact structure and syntax of the provided method, ensuring the code remains intact and error-free.
+            6. No Compilation Errors: Ensure the method, along with the generated comments, is syntactically correct and will not cause any compilation issues.
+            7. Documentation Style: Use proper Javadoc syntax for all comments. Avoid over-documentation—focus on clarity and precision.
+            Output Format:
+            /**
+             * [Describe the purpose of the method, its functionality, and key details.]
+             * 
+             * @param [parameterName] [Brief description of the parameter.]
+             * @return [Brief description of the return value, if applicable.]
+             * @throws [ExceptionName] [Brief description of the exception, if applicable.]
+             */
+            public [ReturnType] [MethodName](...) {
+                // Preserve the original method structure and code here.
+            }
+            """;
         return aiClient.callApi(systemPrompt, code);
     }
 
@@ -46,7 +77,7 @@ public class SpringAiCommentGenerator {
                 "4. **Output Requirements**:  %n" +
                 "    - Return only a **valid, compilable Java class**.  %n" +
                 "    - Ensure the output adheres to Java best practices and coding standards.  %n" +
-                "    - Do not include incomplete code, pseudo-code, or placeholder comments.  %n" +
+                "    - Do not include incomplete code, pseudo-code, placeholder comments, or any additional markers like backticks or fences.  %n" +
                 "5. **Commenting Guidelines**:  %n" +
                 "    - Include comments only where necessary to explain the changes you made.  %n" +
                 "    - Ensure comments are concise and do not break Java syntax or formatting.  %n" +

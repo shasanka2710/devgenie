@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.List;
+
 @Component
 public class GitHubUtility {
     private static final Logger logger = LoggerFactory.getLogger(GitHubUtility.class);
@@ -14,19 +16,19 @@ public class GitHubUtility {
     @Autowired
     private PullRequestHandler pullRequestHandler;
 
-    public String createPullRequest(String className, String description) throws IOException {
+    public String createPullRequest(List<String> classNames, String description) throws IOException {
         try {
-             GHPullRequest pullRequest = pullRequestHandler.createPullRequest(className, description);
-             if(pullRequest == null) {
-                 throw new IOException("Error creating pull request");
-             }
+            GHPullRequest pullRequest = pullRequestHandler.createPullRequest(classNames, description);
+            if (pullRequest == null) {
+                throw new IOException("Error creating pull request");
+            }
             logger.info("Pull Request Created:");
             logger.info("Title: " + pullRequest.getTitle());
             logger.info("Number: " + pullRequest.getNumber());
             logger.info("URL: " + pullRequest.getHtmlUrl());
             return pullRequest.getHtmlUrl().toString();
         } catch (IOException e) {
-            throw new IOException("Error creating pull request");
+            throw new IOException("Error creating pull request", e);
         }
     }
 }
