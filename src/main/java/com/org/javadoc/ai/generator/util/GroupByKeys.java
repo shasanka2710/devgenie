@@ -4,16 +4,22 @@ import java.util.*;
 
 public class GroupByKeys {
 
-    public static Map<String, List<String>> groupByKeys(List<Map<String, String>> classDescriptions) {
-        Map<String, List<String>> groupedMap = new HashMap<>();
+    /**
+     * Private constructor to prevent instantiation of the utility class.
+     */
+    private GroupByKeys() {
+        // Not called
+    }
 
+    public static Map<String, Set<String>> groupByKeys(List<Map<String, String>> classDescriptions) {
+        Map<String, Set<String>> groupedMap = new HashMap<>();
         for (Map<String, String> map : classDescriptions) {
-            for (Map.Entry<String, String> entry : map.entrySet()) {
-                groupedMap.computeIfAbsent(entry.getKey(), k -> new ArrayList<>()).add(entry.getValue());
+            String className = map.get("className");
+            String desc = map.get("description");
+            if (className != null && desc != null) {
+                groupedMap.computeIfAbsent(className, k -> new LinkedHashSet<>()).add(desc);
             }
         }
-
         return groupedMap;
     }
 }
-
