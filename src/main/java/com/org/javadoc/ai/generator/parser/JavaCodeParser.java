@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -54,11 +55,10 @@ public class JavaCodeParser {
         setSymbolSolver();
     }
 
-
     public void parseAndGenerateDocs(File javaFile) throws IOException {
         CompilationUnit cu = StaticJavaParser.parse(javaFile);
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
-        if (!typeDeclaration.isPresent()) {
+        if (typeDeclaration.isEmpty()) {
             logger.warn("No primary type found in file: " + javaFile.getName());
             return;
         }
@@ -98,7 +98,6 @@ public class JavaCodeParser {
         StaticJavaParser.getParserConfiguration().setSymbolResolver(symbolSolver);
     }
 
-
     private Javadoc createOrUpdateClassJavadoc(TypeDeclaration<?> typeDeclaration, String className) {
         Javadoc javadoc = typeDeclaration.getJavadoc().orElse(new Javadoc(new JavadocDescription()));
         // Update main description for the class
@@ -108,7 +107,6 @@ public class JavaCodeParser {
         }
         return javadoc;
     }
-
 
     private Javadoc createOrUpdateMethodDoc(MethodDeclaration method, String className) {
         Javadoc javadoc = method.getJavadoc().orElse(new Javadoc(new JavadocDescription()));
@@ -126,27 +124,26 @@ public class JavaCodeParser {
         return finalJavadoc;
     }
 
-
     private static void methodParameterAndReturnDocGen(MethodDeclaration method, Javadoc finalJavadoc, Javadoc javadoc) {
         method.getParameters().forEach(parameter -> {
             String paramName = parameter.getNameAsString();
-            Optional<JavadocBlockTag> existingTag = finalJavadoc.getBlockTags().stream().filter(tag -> tag.getType().equals(JavadocBlockTag.Type.PARAM) && tag.getName().equals(paramName)).findFirst();
-            if (!existingTag.isPresent()) {
+            Optional<JavadocBlockTag> existingTag = finalJavadoc.getBlockTags().stream().filter(tag -> tag.getType() == JavadocBlockTag.Type.PARAM && tag.getName().equals(paramName)).findFirst();
+            if (existingTag.isEmpty()) {
                 finalJavadoc.addBlockTag("param", paramName, "TODO: Add parameter description.");
             }
         });
         // Update or add return description
         if (!method.getType().isVoidType()) {
-            Optional<JavadocBlockTag> returnTag = javadoc.getBlockTags().stream().filter(tag -> tag.getType().equals(JavadocBlockTag.Type.RETURN)).findFirst();
-            if (!returnTag.isPresent()) {
+            Optional<JavadocBlockTag> returnTag = javadoc.getBlockTags().stream().filter(tag -> tag.getType() == JavadocBlockTag.Type.RETURN).findFirst();
+            if (returnTag.isEmpty()) {
                 javadoc.addBlockTag("return", "TODO: Add return value description.");
             }
         }
         // Update or add throws description
         method.getThrownExceptions().forEach(thrownException -> {
             String exceptionName = thrownException.asString();
-            Optional<JavadocBlockTag> throwsTag = finalJavadoc.getBlockTags().stream().filter(tag -> tag.getType().equals(JavadocBlockTag.Type.THROWS) && tag.getName().equals(exceptionName)).findFirst();
-            if (!throwsTag.isPresent()) {
+            Optional<JavadocBlockTag> throwsTag = finalJavadoc.getBlockTags().stream().filter(tag -> tag.getType() == JavadocBlockTag.Type.THROWS && tag.getName().equals(exceptionName)).findFirst();
+            if (throwsTag.isEmpty()) {
                 finalJavadoc.addBlockTag("throws", exceptionName, "TODO: Add exception description.");
             }
         });
@@ -163,7 +160,6 @@ public class JavaCodeParser {
         return complexity;
     }
 
-
     private void generateCallGraph(MethodDeclaration method, File javaFile) throws IOException {
         String methodName = method.getNameAsString();
         String relativePath = javaFile.getPath().replaceFirst("uploads", "call-graph");
@@ -175,7 +171,6 @@ public class JavaCodeParser {
         String callGraph = buildCallGraph(method, 0, appConfig.getCallGraphDepth());
         Files.write(callGraphFile, callGraph.getBytes());
     }
-
 
     private String buildCallGraph(MethodDeclaration method, int currentDepth, int maxDepth) {
         if (currentDepth > maxDepth) {
@@ -194,7 +189,6 @@ public class JavaCodeParser {
         return callGraph.toString();
     }
 
-
     public ClassDetails parseClassDetails(File javaFile) throws IOException {
         CompilationUnit cu = StaticJavaParser.parse(javaFile);
         TypeDeclaration<?> typeDeclaration = cu.getPrimaryType().orElseThrow(() -> new IllegalArgumentException("No primary type found"));
@@ -202,10 +196,9 @@ public class JavaCodeParser {
         String classDescription = "Description of " + className;
         List<String> fields = typeDeclaration.getFields().stream().map(FieldDeclaration::toString).collect(Collectors.toList());
         List<String> constructors = typeDeclaration.getConstructors().stream().map(ConstructorDeclaration::getNameAsString).collect(Collectors.toList());
-        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText()!=null) ? method.getJavadoc().get().toText().toString() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList());
+        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText().toString() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList());
         return new ClassDetails(className, classDescription, fields, constructors, methods);
     }
-
 
     public List<PackageDetails> parsePackages() {
         List<PackageDetails> packages = new ArrayList<>();
@@ -219,7 +212,6 @@ public class JavaCodeParser {
         }
         return packages;
     }
-
 
     public List<ClassDetails> parseClasses(String packageName) {
         List<ClassDetails> classes = new ArrayList<>();
@@ -248,28 +240,26 @@ public class JavaCodeParser {
         String fixedCode = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.fixSonarIssue(classNameFromFile, typeDeclaration.get().getParentNode().get().toString(), description) : typeDeclaration.get().toString();
         logger.info("Original code: " + typeDeclaration.get().getParentNode().get().toString());
         logger.info("Fixed code: " + fixedCode);
-        String sanitizedOutput = fixedCode.replaceAll("```[a-zA-Z]*", "").replaceAll("```", "");
+        String sanitizedOutput = fixedCode.replaceAll("[a-zA-Z]*", "").replaceAll("", "");
         return sanitizedOutput;
     }
 
     public static CompilationUnit getCompilationUnit(String className) throws FileNotFoundException {
         Path filePath = Paths.get(PathConverter.toSlashedPath(className));
-
         File file = new File(String.valueOf(filePath));
         if (!file.exists()) {
             throw new FileNotFoundException("File not found: " + filePath);
         }
-
         CompilationUnit cu = StaticJavaParser.parse(file);
         return cu;
     }
-
 
     public boolean isValidJavaCode(String code) {
         try {
             // Attempt to parse the code
             CompilationUnit compilationUnit = StaticJavaParser.parse(code);
-            return true; // Successfully parsed
+            // Successfully parsed
+            return true;
         } catch (ParseProblemException | IllegalArgumentException e) {
             // Syntax or parsing issues
             System.err.println("Code validation failed: " + e.getMessage());
