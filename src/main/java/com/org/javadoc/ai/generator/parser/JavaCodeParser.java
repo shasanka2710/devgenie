@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -57,26 +58,26 @@ public class JavaCodeParser {
     public void parseAndGenerateDocs(File javaFile) throws IOException {
         CompilationUnit cu = StaticJavaParser.parse(javaFile);
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
-        if (!typeDeclaration.isPresent()) {
-            logger.warn("No primary type found in file: {}", javaFile.getName());
+        if (typeDeclaration.isEmpty()) {
+            logger.warn("No primary type found in file: " + javaFile.getName());
             return;
         }
         String className = typeDeclaration.get().getNameAsString();
         //Class level Java documentation
-        Javadoc classJavadoc = createOrUpdateClassJavadoc(typeDeclaration.get(), className);
-        typeDeclaration.get().setJavadocComment(classJavadoc);
+        //  Javadoc classJavadoc = createOrUpdateClassJavadoc(typeDeclaration.get(), className);
+        // typeDeclaration.get().setJavadocComment(classJavadoc);
         //Method Iteration
         for (MethodDeclaration method : cu.findAll(MethodDeclaration.class)) {
             //Identifying cyclomatic complexity
-            int complexity = calculateCyclomaticComplexity(method);
+            /*int complexity = calculateCyclomaticComplexity(method);
             if (complexity > appConfig.getCyclomaticComplexityThreshold()) {
-                logger.warn("Method {} in class {} has cyclomatic complexity {}", method.getNameAsString(), className, complexity);
-            }
+                logger.warn("Method " + method.getNameAsString() + " in class " + className + " has cyclomatic complexity " + complexity);
+            }*/
             //method level java documentation
             Javadoc javadoc = createOrUpdateMethodDoc(method, className);
             method.setJavadocComment(javadoc);
             // Generate call graph
-            generateCallGraph(method, javaFile);
+            // generateCallGraph(method, javaFile);
         }
         // Save the modified CompilationUnit back to the file
         if (!appConfig.isDryRun()) {
@@ -101,7 +102,7 @@ public class JavaCodeParser {
         Javadoc javadoc = typeDeclaration.getJavadoc().orElse(new Javadoc(new JavadocDescription()));
         // Update main description for the class
         if (javadoc.getDescription().isEmpty()) {
-            String classDescription = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.generateClassComment(typeDeclaration.getParentNode().get().toString(), className) : "TODO: Add class description here.";
+            String classDescription = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.generateClassComment(typeDeclaration.toString(), className) : "TODO: Add class description here.";
             javadoc = new Javadoc(JavadocDescription.parseText(classDescription));
         }
         return javadoc;
@@ -126,23 +127,23 @@ public class JavaCodeParser {
     private static void methodParameterAndReturnDocGen(MethodDeclaration method, Javadoc finalJavadoc, Javadoc javadoc) {
         method.getParameters().forEach(parameter -> {
             String paramName = parameter.getNameAsString();
-            Optional<JavadocBlockTag> existingTag = finalJavadoc.getBlockTags().stream().filter(tag -> tag.getType().equals(JavadocBlockTag.Type.PARAM) && tag.getName().equals(paramName)).findFirst();
-            if (!existingTag.isPresent()) {
+            Optional<JavadocBlockTag> existingTag = finalJavadoc.getBlockTags().stream().filter(tag -> tag.getType() == JavadocBlockTag.Type.PARAM && tag.getName().equals(paramName)).findFirst();
+            if (existingTag.isEmpty()) {
                 finalJavadoc.addBlockTag("param", paramName, "TODO: Add parameter description.");
             }
         });
         // Update or add return description
         if (!method.getType().isVoidType()) {
-            Optional<JavadocBlockTag> returnTag = javadoc.getBlockTags().stream().filter(tag -> tag.getType().equals(JavadocBlockTag.Type.RETURN)).findFirst();
-            if (!returnTag.isPresent()) {
+            Optional<JavadocBlockTag> returnTag = javadoc.getBlockTags().stream().filter(tag -> tag.getType() == JavadocBlockTag.Type.RETURN).findFirst();
+            if (returnTag.isEmpty()) {
                 javadoc.addBlockTag("return", "TODO: Add return value description.");
             }
         }
         // Update or add throws description
         method.getThrownExceptions().forEach(thrownException -> {
             String exceptionName = thrownException.asString();
-            Optional<JavadocBlockTag> throwsTag = finalJavadoc.getBlockTags().stream().filter(tag -> tag.getType().equals(JavadocBlockTag.Type.THROWS) && tag.getName().equals(exceptionName)).findFirst();
-            if (!throwsTag.isPresent()) {
+            Optional<JavadocBlockTag> throwsTag = finalJavadoc.getBlockTags().stream().filter(tag -> tag.getType() == JavadocBlockTag.Type.THROWS && tag.getName().equals(exceptionName)).findFirst();
+            if (throwsTag.isEmpty()) {
                 finalJavadoc.addBlockTag("throws", exceptionName, "TODO: Add exception description.");
             }
         });
@@ -182,7 +183,7 @@ public class JavaCodeParser {
                 Optional<MethodDeclaration> calledMethod = call.resolve().toAst().filter(MethodDeclaration.class::isInstance).map(MethodDeclaration.class::cast);
                 calledMethod.ifPresent(m -> callGraph.append("  ".repeat(currentDepth + 1)).append(buildCallGraph(m, currentDepth + 1, maxDepth)));
             } catch (IllegalStateException e) {
-                logger.error("Symbol resolution not configured for method call: {}", call, e);
+                logger.error("Symbol resolution not configured for method call: " + call, e);
             }
         });
         return callGraph.toString();
@@ -232,14 +233,15 @@ public class JavaCodeParser {
     }
 
     public String identifyFixUsingLLModel(String className, String description) throws FileNotFoundException {
-        logger.info("Identifying fix using LL model for class: {}", className);
+        logger.info("Identifying fix using LL model for class: " + className);
         CompilationUnit cu = getCompilationUnit(className);
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
         String classNameFromFile = typeDeclaration.get().getNameAsString();
         String fixedCode = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.fixSonarIssue(classNameFromFile, typeDeclaration.get().getParentNode().get().toString(), description) : typeDeclaration.get().toString();
-        logger.info("Original code: {}", typeDeclaration.get().getParentNode().get().toString());
-        logger.info("Fixed code: {}", fixedCode);
-        return fixedCode;
+        logger.info("Original code: " + typeDeclaration.get().getParentNode().get().toString());
+        logger.info("Fixed code: " + fixedCode);
+        String sanitizedOutput = fixedCode.replaceAll("[a-zA-Z]*", "").replaceAll("", "");
+        return sanitizedOutput;
     }
 
     public static CompilationUnit getCompilationUnit(String className) throws FileNotFoundException {
