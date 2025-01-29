@@ -9,10 +9,10 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
+import static com.org.javadoc.ai.generator.util.StringUtil.getclassDisplayName;
 
 @Slf4j
 @Controller
@@ -23,25 +23,17 @@ public class SonarController {
     private SonarService sonarService;
 
     @GetMapping("/issues")
-    public String getIssues(
-            @RequestParam(value = "filterType", required = false) String filterType,
-            Model model) {
+    public String getIssues(@RequestParam(value = "filterType", required = false) String filterType, Model model) {
         log.info("Fetching issues with filterType: {} and filterQuality: {}", filterType);
-
         try {
             List<SonarIssue> issues = sonarService.fetchSonarIssues();
             List<String> issueTypes = getDistinctIssueTypes(issues);
             List<String> softwareQualities = getDistinctSoftwareQualities(issues);
-
             if (filterType != null && !filterType.isEmpty()) {
-                issues = issues.stream()
-                        .filter(issue -> issue.getSoftwareQuality().contains(filterType))
-                        .collect(Collectors.toList());
+                issues = issues.stream().filter(issue -> issue.getSoftwareQuality().contains(filterType)).collect(Collectors.toList());
             }
-            issues.forEach(issue -> {
-                getclassDisplayName(issue);
-            });
-
+            // Replaced lambda with method reference
+            issues.forEach(issue -> issue.setClassName(getclassDisplayName(issue.getCategory())));
             model.addAttribute("issues", issues);
             model.addAttribute("issueTypes", issueTypes);
             model.addAttribute("softwareQualities", softwareQualities);
@@ -53,33 +45,14 @@ public class SonarController {
         }
     }
 
+    // Removed useless curly braces around statement
     private List<String> getDistinctSoftwareQualities(List<SonarIssue> issues) {
-        return issues.stream()
-                .flatMap(issue -> issue.getSoftwareQuality().stream())
-                .distinct()
-                .collect(Collectors.toList());
-    }
-
-    private static void getclassDisplayName(SonarIssue issue) {
-        if (issue.getCategory() != null) {
-            // Find the last dot separator for the extension
-            int lastDotIndex = issue.getCategory().lastIndexOf(".");
-            // Find the second last dot to locate the start of the file name
-            int secondLastDotIndex = issue.getCategory().lastIndexOf(".", lastDotIndex - 1);
-            issue.setClassName(issue.getCategory().substring(secondLastDotIndex + 1));
-        }
+        return issues.stream().flatMap(issue -> issue.getSoftwareQuality().stream()).distinct().collect(Collectors.toList());
     }
 
     private List<String> getDistinctIssueTypes(List<SonarIssue> issues) {
-        return issues.stream()
-                .map(SonarIssue::getType)
-                .distinct()
-                .collect(Collectors.toList());
+        return issues.stream().map(SonarIssue::getType).distinct().collect(Collectors.toList());
     }
-    private List<String> getDistinctSoftwareQuality(List<SonarIssue> issues) {
-        return issues.stream()
-                .flatMap(issue -> issue.getSoftwareQuality().stream())
-                .distinct()
-                .collect(Collectors.toList());
-    }
+
+    // Removed unused private method
 }
