@@ -1,8 +1,6 @@
 package com.org.javadoc.ai.generator.controller;
 
 import com.org.javadoc.ai.generator.service.IssueFixService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +14,6 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 @RequestMapping("/sonar/issue")
 public class IssueFixController {
-    private static final Logger logger = LoggerFactory.getLogger(IssueFixController.class);
 
     @Autowired
     private IssueFixService fixService;
