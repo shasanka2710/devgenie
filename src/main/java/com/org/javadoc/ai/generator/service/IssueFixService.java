@@ -40,22 +40,22 @@ public class IssueFixService {
                 String description = classDescription.get("description");
 
                 // Check with LLM to identify the fix
-                operationProgress.get(operationId).add("Identifying the Fix with LLM model for ...");
+                operationProgress.get(operationId).add("Identifying the Fix with LLM model ...");
                 String fixedCode = identifyFix(className, description);
-                operationProgress.get(operationId).add("Identifying the Fix with LLM model for ...DONE!");
+                operationProgress.get(operationId).add("Identifying the Fix with LLM model ...DONE!");
 
                 // Validate the fix by checking if the fixed code is a valid Java code.
-                operationProgress.get(operationId).add("Validating the Fix for ...");
+                operationProgress.get(operationId).add("Validating the Fix ...");
                 boolean isValidCode = javaCodeParser.isValidJavaCode(fixedCode);
-                operationProgress.get(operationId).add("Validating the Fix for ...DONE!");
+                operationProgress.get(operationId).add("Validating the Fix ...DONE!");
                 if (!isValidCode) {
                     continue;
                 }
 
                 // Apply the fix to the file
-                operationProgress.get(operationId).add("Applying the Fix for ...");
+                operationProgress.get(operationId).add("Applying the Fix ...");
                 applyFix(className, fixedCode);
-                operationProgress.get(operationId).add("Applying the Fix for ...DONE!");
+                operationProgress.get(operationId).add("Applying the Fix ...DONE!");
             }
 
             // Create a pull request

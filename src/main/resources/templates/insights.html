@@ -287,14 +287,14 @@
           .then(response => response.json())
           .then(data => {
               if (data.success) {
-                  alert('Fix applied successfully. Operation ID: ' + data.operationId);
+
               } else {
-                  alert('Failed to apply fix: ' + data.message);
+
               }
           })
           .catch(error => {
               console.error('Error:', error);
-              alert('An error occurred while applying the fix.');
+
           });
       }
 

@@ -149,7 +149,7 @@
                               progressBar.style.width = Math.min(progress, 100) + '%';
                               if (events.some(event => event.includes('Completed'))) {
                                   clearInterval(interval);
-                                  alert('Fix applied successfully. Operation ID: ' + operationId);
+                                  updateProgressText(['Fix applied successfully!']);
                               }
                               if (events.some(event => event.includes("Failed"))) {
                                   clearInterval(interval);
