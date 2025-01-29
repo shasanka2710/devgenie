@@ -46,7 +46,7 @@ public class SonarService {
     public String fetchIssuesFromSonar() {
         String url = String.format("%s?componentKeys=%s&severities=%s&ps=%d", sonarUrl, componentKeys, severities, pageSize);
         restTemplate.getInterceptors().add(new BasicAuthenticationInterceptor(sonarUsername, sonarPassword));
-        // Immediately return the expression instead of assigning it to a temporary variable
+        // Returning the expression directly instead of assigning to a temporary variable
         return restTemplate.getForObject(url, String.class);
     }
 
