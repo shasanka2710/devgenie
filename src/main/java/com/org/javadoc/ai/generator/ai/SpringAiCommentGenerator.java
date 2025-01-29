@@ -6,6 +6,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 /**
  * TODO: Add class description here.
  */
@@ -66,39 +70,46 @@ public class SpringAiCommentGenerator {
         return aiClient.callApi(systemPrompt, code);
     }
 
-    public String fixSonarIssue(String className, String classBody, String description) {
-        logger.info("Calling AI Client for fixing sonar issue for class: {}", className);
+    public String fixSonarIssues(String className, String classBody, Set<String> descriptions) {
+        logger.info("Calling AI Client for fixing multiple SonarQube issues for class: {}", className);
+
+        // Joining multiple issue descriptions into a formatted bullet list
+        String formattedIssues = descriptions.stream()
+                .map(desc -> "- " + desc)
+                .collect(Collectors.joining("\n"));
+
         String systemPrompt = String.format(
-                "You are an expert Java developer and code quality analyzer. Your task is to analyze and fix the provided Java code based on the class name and issue description given by SonarQube. Follow these strict guidelines:%n" +
-                        "1. **Scope of Analysis**:%n" +
-                        "    - Focus exclusively on the class **%s**.%n" +
-                        "    - Do not assume or modify external classes, dependencies, or configurations unless explicitly provided.%n" +
-                        "2. **SonarQube Issue**:%n" +
-                        "    - The reported SonarQube issue is: **%s**.%n" +
-                        "    - Accurately identify and fix the issue within the provided code snippet.%n" +
-                        "3. **Code Review & Fixing Guidelines**:%n" +
-                        "    - Review the provided Java class thoroughly.%n" +
-                        "    - Apply best practices to resolve the issue effectively.%n" +
-                        "    - Ensure code correctness, maintainability, and adherence to Java standards.%n" +
-                        "4. **Output Requirements**:%n" +
-                        "    - Return **only a valid, compilable Java class**.%n" +
-                        "    - Ensure the output conforms to Java best practices and follows industry standards.%n" +
-                        "    - **Strictly avoid** including backticks, fences (```), pseudo-code, or incomplete code snippets.%n" +
-                        "5. **Commenting Guidelines**:%n" +
-                        "    - Add **concise and relevant comments** only where necessary to explain changes.%n" +
-                        "    - Avoid excessive commenting or redundant explanations.%n" +
-                        "6. **Error Handling & Insufficient Information**:%n" +
-                        "    - If the issue cannot be fully resolved due to missing context, return the original code unchanged.%n" +
-                        "    - Include explanatory comments within the code, highlighting why the issue could not be fixed and what additional details are required.%n" +
-                        "7. **Output Format**:%n" +
-                        "    - Provide **only** the corrected Java class with proper formatting.%n" +
-                        "    - **Do not include any additional text, instructions, or explanations outside the Java class definition.**%n" +
-                        "8. **Java Version Compatibility**:%n" +
-                        "    - Ensure the code is compatible with **Java 8 and above**, unless stated otherwise.%n" +
-                        "    - Avoid deprecated APIs unless explicitly necessary.%n" +
-                        "    - Follow modern Java practices while maintaining backward compatibility where required.%n",
-                className, description
+                "You are an expert Java developer and code quality analyzer. Your task is to analyze and fix the provided Java class **%s** based on the reported SonarQube issues. "
+                        + "All issue descriptions for this class are provided below. Ensure that all issues are **accurately identified and fixed** in a single pass.\n\n"
+                        + "**SonarQube Issues to Fix:**\n%s\n\n"
+                        + "### **Strict Guidelines:**\n"
+                        + "1. **Scope of Analysis:**\n"
+                        + "    - Focus exclusively on the class **%s**.\n"
+                        + "    - Do not assume or modify external classes, dependencies, or configurations unless explicitly provided.\n"
+                        + "2. **Issue Resolution Requirements:**\n"
+                        + "    - Carefully review and fix **each** issue listed above.\n"
+                        + "    - Apply best practices to resolve the issues effectively.\n"
+                        + "    - Ensure the fixes do not introduce new bugs or change the intended functionality.\n"
+                        + "3. **Code Quality & Compliance:**\n"
+                        + "    - Follow Java coding standards, maintainability, and readability best practices.\n"
+                        + "    - Ensure the final class is fully **compilable and functional**.\n"
+                        + "    - Avoid unnecessary code modifications beyond the reported issues.\n"
+                        + "4. **Commenting Guidelines:**\n"
+                        + "    - Add **very concise comments** only where necessary to explain changes.\n"
+                        + "    - Do not over-comment or include redundant explanations.\n"
+                        + "5. **Error Handling & Insufficient Information:**\n"
+                        + "    - If some issues cannot be fully resolved due to missing context, return the original code **with explanatory comments** highlighting what additional details are required.\n"
+                        + "6. **Output Format:**\n"
+                        + "    - Return **only the corrected Java class with proper formatting**.\n"
+                        + "    - **Do not include any additional text, explanations, or formatting outside the class definition.**\n"
+                        +"     - **Strictly avoid** including backticks, fences (`), pseudo-code, or incomplete code snippets.\n"
+                        + "7. **Java Version Compatibility:**\n"
+                        + "    - Ensure compatibility with **Java 8 and above**.\n"
+                        + "    - Avoid deprecated APIs unless explicitly necessary.\n"
+                        + "    - Follow modern Java practices while maintaining backward compatibility where required.\n",
+                className, formattedIssues, className
         );
+
         return aiClient.callApi(systemPrompt, classBody);
     }
 }

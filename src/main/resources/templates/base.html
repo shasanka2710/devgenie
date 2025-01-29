@@ -37,10 +37,11 @@
   console.log('Base script is loaded');
 
   // Dropdown filter logic for insights.html
-  function filterIssues(selectedType) {
-      const url = selectedType ? '/sonar/issues?filterType=' + encodeURIComponent(selectedType) : '/sonar/issues';
-      window.location.href = url; // Reload the page with the selected filter
-  }
+  // Dropdown filter logic for insights.html
+function filterIssues(selectedType) {
+    const url = selectedType ? '/sonar/issues?filterType=' + encodeURIComponent(selectedType) : '/sonar/issues';
+    window.location.href = url;
+}
 
   document.addEventListener('DOMContentLoaded', function () {
       // Get the current page name from the data-page attribute

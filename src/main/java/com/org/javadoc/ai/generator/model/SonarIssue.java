@@ -3,6 +3,8 @@ package com.org.javadoc.ai.generator.model;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 public class SonarIssue {
@@ -13,4 +15,5 @@ public class SonarIssue {
     private String description;
     private String category;
     private String className;
+    private List<String> softwareQuality;
 }

@@ -2,6 +2,7 @@ package com.org.javadoc.ai.generator.service;
 
 import com.org.javadoc.ai.generator.github.GitHubUtility;
 import com.org.javadoc.ai.generator.parser.JavaCodeParser;
+import com.org.javadoc.ai.generator.util.GroupByKeys;
 import com.org.javadoc.ai.generator.util.PathConverter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,9 +16,12 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+
+import static com.org.javadoc.ai.generator.util.GroupByKeys.groupByKeys;
 
 @Slf4j
 @Service
@@ -32,12 +36,13 @@ public class IssueFixService {
     @Async
     public CompletableFuture<String> startFix(String operationId, List<Map<String, String>> classDescriptions) {
         String pullRequest = "";
+        Map<String, Set<String>> sonarIssues = GroupByKeys.groupByKeys(classDescriptions);
         operationProgress.put(operationId, new ArrayList<>(List.of("Analyzing the request...DONE!")));
 
         try {
-            for (Map<String, String> classDescription : classDescriptions) {
-                String className = classDescription.get("className");
-                String description = classDescription.get("description");
+            for (Map.Entry<String, Set<String>> entry : sonarIssues.entrySet()) {
+                String className = entry.getKey();
+                Set<String> description = entry.getValue();
 
                 // Check with LLM to identify the fix
                 operationProgress.get(operationId).add("Identifying the Fix with LLM model ...");
@@ -75,7 +80,7 @@ public class IssueFixService {
         return CompletableFuture.completedFuture(operationId);
     }
 
-    private String identifyFix(String className, String description) throws FileNotFoundException {
+    private String identifyFix(String className, Set<String> description) throws FileNotFoundException {
         return javaCodeParser.identifyFixUsingLLModel(className, description);
     }
 

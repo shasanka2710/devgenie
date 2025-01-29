@@ -26,30 +26,25 @@ public class SonarController {
     public String getIssues(
             @RequestParam(value = "filterType", required = false) String filterType,
             Model model) {
-        log.info("Fetching issues with filterType: {}", filterType);
+        log.info("Fetching issues with filterType: {} and filterQuality: {}", filterType);
 
         try {
             List<SonarIssue> issues = sonarService.fetchSonarIssues();
             List<String> issueTypes = getDistinctIssueTypes(issues);
+            List<String> softwareQualities = getDistinctSoftwareQualities(issues);
 
             if (filterType != null && !filterType.isEmpty()) {
                 issues = issues.stream()
-                        .filter(issue -> filterType.equals(issue.getType()))
+                        .filter(issue -> issue.getSoftwareQuality().contains(filterType))
                         .collect(Collectors.toList());
             }
-
             issues.forEach(issue -> {
-                if (issue.getCategory() != null) {
-                    // Find the last dot separator for the extension
-                    int lastDotIndex = issue.getCategory().lastIndexOf(".");
-                    // Find the second last dot to locate the start of the file name
-                    int secondLastDotIndex = issue.getCategory().lastIndexOf(".", lastDotIndex - 1);
-                    issue.setClassName(issue.getCategory().substring(secondLastDotIndex + 1));
-                }
+                getclassDisplayName(issue);
             });
 
             model.addAttribute("issues", issues);
             model.addAttribute("issueTypes", issueTypes);
+            model.addAttribute("softwareQualities", softwareQualities);
             model.addAttribute("selectedType", filterType);
             return "insights";
         } catch (IOException e) {
@@ -58,9 +53,32 @@ public class SonarController {
         }
     }
 
+    private List<String> getDistinctSoftwareQualities(List<SonarIssue> issues) {
+        return issues.stream()
+                .flatMap(issue -> issue.getSoftwareQuality().stream())
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    private static void getclassDisplayName(SonarIssue issue) {
+        if (issue.getCategory() != null) {
+            // Find the last dot separator for the extension
+            int lastDotIndex = issue.getCategory().lastIndexOf(".");
+            // Find the second last dot to locate the start of the file name
+            int secondLastDotIndex = issue.getCategory().lastIndexOf(".", lastDotIndex - 1);
+            issue.setClassName(issue.getCategory().substring(secondLastDotIndex + 1));
+        }
+    }
+
     private List<String> getDistinctIssueTypes(List<SonarIssue> issues) {
         return issues.stream()
                 .map(SonarIssue::getType)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+    private List<String> getDistinctSoftwareQuality(List<SonarIssue> issues) {
+        return issues.stream()
+                .flatMap(issue -> issue.getSoftwareQuality().stream())
                 .distinct()
                 .collect(Collectors.toList());
     }

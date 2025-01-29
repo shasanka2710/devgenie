@@ -147,11 +147,11 @@
 
   <!-- Dropdown for filtering issues -->
   <div class="mb-3">
-    <label for="issueTypeFilter" class="form-label">Filter by Issue Type:</label>
-    <select id="issueTypeFilter" class="form-select" onchange="filterIssues(this.value)">
+    <label for="qualityFilter" class="form-label">By Quality Metric:</label>
+    <select id="qualityFilter" class="form-select" onchange="filterIssues(this.value)">
       <option value="">All</option>
-      <option th:each="type : ${issueTypes}" th:value="${type}" th:text="${type}"
-              th:selected="${selectedType == type}"></option>
+      <option th:each="quality : ${softwareQualities}" th:value="${quality}" th:text="${quality}"
+              th:selected="${selectedType == quality}"></option>
     </select>
   </div>
 
@@ -169,7 +169,7 @@
       <thead>
       <tr>
         <th>Select</th>
-        <th>Issue Type</th>
+        <th>Quality</th>
         <th>Class Name</th>
         <th>Description</th>
         <th>Severity</th>
@@ -179,7 +179,7 @@
       <tbody>
       <tr th:each="issue : ${issues}">
         <td><input type="checkbox" class="issue-checkbox" th:data-category="${issue.category}" th:data-description="${issue.description}" onchange="toggleFixMoreButton()"></td>
-        <td th:text="${issue.type}"></td>
+        <td th:text="${#strings.listJoin(issue.softwareQuality, ', ')}"></td>
         <td th:text="${issue.className}"></td>
         <td th:text="${issue.description}"></td>
         <td th:text="${issue.severity}"></td>

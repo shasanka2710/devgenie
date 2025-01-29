@@ -37,6 +37,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
@@ -232,12 +233,12 @@ public class JavaCodeParser {
         return classes;
     }
 
-    public String identifyFixUsingLLModel(String className, String description) throws FileNotFoundException {
+    public String identifyFixUsingLLModel(String className, Set<String> description) throws FileNotFoundException {
         logger.info("Identifying fix using LL model for class: " + className);
         CompilationUnit cu = getCompilationUnit(className);
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
         String classNameFromFile = typeDeclaration.get().getNameAsString();
-        String fixedCode = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.fixSonarIssue(classNameFromFile, typeDeclaration.get().getParentNode().get().toString(), description) : typeDeclaration.get().toString();
+        String fixedCode = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.fixSonarIssues(classNameFromFile, typeDeclaration.get().getParentNode().get().toString(), description) : typeDeclaration.get().toString();
         logger.info("Original code: " + typeDeclaration.get().getParentNode().get().toString());
         logger.info("Fixed code: " + fixedCode);
         return fixedCode;

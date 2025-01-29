@@ -60,6 +60,12 @@ public class SonarService {
             issue.setSeverity(issueNode.path("severity").asText());
             issue.setDescription(issueNode.path("message").asText());
             issue.setCategory(replaceText(issueNode.path("component").asText()));
+            // Extract softwareQualities from impacts array
+            List<String> softwareQualities = new ArrayList<>();
+            for (JsonNode impactNode : issueNode.path("impacts")) {
+                softwareQualities.add(impactNode.path("softwareQuality").asText());
+            }
+            issue.setSoftwareQuality(softwareQualities);
             issues.add(issue);
         }
         return issues;
