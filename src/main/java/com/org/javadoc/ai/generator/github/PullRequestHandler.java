@@ -7,7 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,9 +15,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-
 @Component
 public class PullRequestHandler {
+
     private static final Logger logger = LoggerFactory.getLogger(PullRequestHandler.class);
 
     @Autowired
@@ -27,8 +26,11 @@ public class PullRequestHandler {
     @Autowired
     private GitHub github;
 
-    private static final int MAX_RETRIES = 5; // Maximum retry attempts
-    private static final long BASE_DELAY_MS = 1000; // Base delay in milliseconds
+    // Maximum retry attempts
+    private static final int MAX_RETRIES = 5;
+
+    // Base delay in milliseconds
+    private static final long BASE_DELAY_MS = 1000;
 
     /**
      * Creates a pull request for the given class names and description with retry logic.
@@ -40,37 +42,28 @@ public class PullRequestHandler {
     public GHPullRequest createPullRequest(List<String> classNames, String description) throws IOException {
         GHRepository repo = github.getRepository(config.getRepository());
         String defaultBranch = config.getDefaultBranch();
-
         // Generate dynamic branch name based on the current timestamp
         String branchName = generateDynamicBranchName();
-
         // Create branch from the default branch with retry
         retryOperation(() -> {
             createBranchFromDefaultBranch(repo, branchName, defaultBranch);
-            return null;  // Return null as it's a void operation
+            // Return null as it's a void operation
+            return null;
         }, "Creating branch", MAX_RETRIES);
-
         // Get the list of files to be updated
-        List<String> filePaths = classNames.stream()
-                .map(PathConverter::toSlashedPath)
-                .toList();
-
+        List<String> filePaths = classNames.stream().map(PathConverter::toSlashedPath).toList();
         for (String filePath : filePaths) {
             // Update file with retry
             retryOperation(() -> {
                 updateFileInBranch(repo, branchName, filePath, description);
-                return null;  // Return null as it's a void operation
+                // Return null as it's a void operation
+                return null;
             }, "Updating file: " + filePath, MAX_RETRIES);
         }
-
         // Create a pull request with retry
         return retryOperation(() -> {
-            return repo.createPullRequest(
-                    "Apply fix: " + description,
-                    branchName,
-                    defaultBranch,
-                    "This PR applies the following fix:\n\n" + description
-            );
+            // Use String.format for better readability
+            return repo.createPullRequest(String.format("Apply fix: %s", description), branchName, defaultBranch, String.format("This PR applies the following fix:\n\n%s", description));
         }, "Creating pull request", MAX_RETRIES);
     }
 
@@ -80,7 +73,8 @@ public class PullRequestHandler {
      * @return A unique branch name.
      */
     private String generateDynamicBranchName() {
-        return "fix-" + UUID.randomUUID().toString().substring(0, 8); // Short UUID
+        // Short UUID
+        return "fix-" + UUID.randomUUID().toString().substring(0, 8);
     }
 
     /**
@@ -119,7 +113,8 @@ public class PullRequestHandler {
         int attempt = 0;
         while (attempt < maxRetries) {
             try {
-                return operation.execute();  // Call the lambda function here
+                // Call the lambda function here
+                return operation.execute();
             } catch (IOException e) {
                 attempt++;
                 logger.error("{} failed on attempt {}: {}", operationName, attempt, e.getMessage());
@@ -127,7 +122,8 @@ public class PullRequestHandler {
                     throw new IOException(operationName + " failed after " + attempt + " attempts.", e);
                 }
                 // Exponential backoff
-                long delay = BASE_DELAY_MS * (long) Math.pow(2, attempt); // Increase delay with each attempt
+                // Increase delay with each attempt
+                long delay = BASE_DELAY_MS * (long) Math.pow(2, attempt);
                 System.out.println(operationName + " failed. Retrying in " + delay + " ms...");
                 try {
                     TimeUnit.MILLISECONDS.sleep(delay);
@@ -152,31 +148,19 @@ public class PullRequestHandler {
     private void updateFileInBranch(GHRepository repo, String branchName, String filePath, String description) throws IOException {
         // Get the content of the file
         String fileContent = Files.readString(Paths.get(filePath));
-
         // Retrieve the current sha of the file (if it exists)
         GHContent existingFile = getFileFromRepo(repo, filePath);
         String sha = (existingFile != null) ? existingFile.getSha() : null;
-
         // Add or update the file in the branch
         if (sha != null) {
             // If the file exists, update it
             logger.info("File exists: " + filePath);
-            repo.createContent()
-                    .path(filePath)
-                    .content(fileContent)
-                    .message("Apply fix: " + description)
-                    .sha(sha) // Provide sha for existing file
-                    .branch(branchName)
-                    .commit();
+            repo.createContent().path(filePath).content(fileContent).message("Apply fix: " + description).sha(// Provide sha for existing file
+            sha).branch(branchName).commit();
         } else {
             // If the file doesn't exist, create it
             logger.info("File doesn't exist: " + filePath);
-            repo.createContent()
-                    .path(filePath)
-                    .content(fileContent)
-                    .message("Apply fix: " + description)
-                    .branch(branchName)
-                    .commit();
+            repo.createContent().path(filePath).content(fileContent).message("Apply fix: " + description).branch(branchName).commit();
         }
     }
 
@@ -204,6 +188,7 @@ public class PullRequestHandler {
      */
     @FunctionalInterface
     private interface RetryableOperation<T> {
+
         T execute() throws IOException;
     }
 }
