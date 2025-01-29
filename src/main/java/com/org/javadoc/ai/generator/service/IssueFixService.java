@@ -49,7 +49,9 @@ public class IssueFixService {
                 boolean isValidCode = javaCodeParser.isValidJavaCode(fixedCode);
                 operationProgress.get(operationId).add("Validating the Fix ...DONE!");
                 if (!isValidCode) {
-                    continue;
+                    operationProgress.get(operationId).add("Fix is not valid Java code.for"+ className+" Skipping the fix.");
+                    operationProgress.get(operationId).add("Failed");
+                    return CompletableFuture.completedFuture(operationId);
                 }
 
                 // Apply the fix to the file

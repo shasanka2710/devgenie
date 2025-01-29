@@ -38,6 +38,16 @@ public class SonarController {
                         .collect(Collectors.toList());
             }
 
+            issues.forEach(issue -> {
+                if (issue.getCategory() != null) {
+                    // Find the last dot separator for the extension
+                    int lastDotIndex = issue.getCategory().lastIndexOf(".");
+                    // Find the second last dot to locate the start of the file name
+                    int secondLastDotIndex = issue.getCategory().lastIndexOf(".", lastDotIndex - 1);
+                    issue.setClassName(issue.getCategory().substring(secondLastDotIndex + 1));
+                }
+            });
+
             model.addAttribute("issues", issues);
             model.addAttribute("issueTypes", issueTypes);
             model.addAttribute("selectedType", filterType);

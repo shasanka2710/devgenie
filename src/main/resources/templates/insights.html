@@ -170,7 +170,7 @@
       <tr>
         <th>Select</th>
         <th>Issue Type</th>
-        <th>Category</th>
+        <th>Class Name</th>
         <th>Description</th>
         <th>Severity</th>
         <th>Actions</th>
@@ -180,7 +180,7 @@
       <tr th:each="issue : ${issues}">
         <td><input type="checkbox" class="issue-checkbox" th:data-category="${issue.category}" th:data-description="${issue.description}" onchange="toggleFixMoreButton()"></td>
         <td th:text="${issue.type}"></td>
-        <td th:text="${issue.category}"></td>
+        <td th:text="${issue.className}"></td>
         <td th:text="${issue.description}"></td>
         <td th:text="${issue.severity}"></td>
         <td>
@@ -263,39 +263,6 @@
               button.addEventListener('click', () => paginateTable(i, rowsPerPage));
               paginationControls.appendChild(button);
           }
-      }
-
-      function toggleFixMoreButton() {
-          const selectedCheckboxes = Array.from(checkboxes).filter(checkbox => checkbox.checked);
-          fixMoreButton.style.display = selectedCheckboxes.length > 1 ? 'block' : 'none';
-      }
-
-      function applyFixMore() {
-          const selectedCheckboxes = Array.from(checkboxes).filter(checkbox => checkbox.checked);
-          const classDescriptions = selectedCheckboxes.map(checkbox => ({
-              className: checkbox.getAttribute('data-category'),
-              description: checkbox.getAttribute('data-description')
-          }));
-
-          fetch('/sonar/issue/apply-fix', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(classDescriptions)
-          })
-          .then(response => response.json())
-          .then(data => {
-              if (data.success) {
-
-              } else {
-
-              }
-          })
-          .catch(error => {
-              console.error('Error:', error);
-
-          });
       }
 
       searchButton.addEventListener('click', filterTable);

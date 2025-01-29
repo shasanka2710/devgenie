@@ -240,8 +240,7 @@ public class JavaCodeParser {
         String fixedCode = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.fixSonarIssue(classNameFromFile, typeDeclaration.get().getParentNode().get().toString(), description) : typeDeclaration.get().toString();
         logger.info("Original code: " + typeDeclaration.get().getParentNode().get().toString());
         logger.info("Fixed code: " + fixedCode);
-        String sanitizedOutput = fixedCode.replaceAll("[a-zA-Z]*", "").replaceAll("", "");
-        return sanitizedOutput;
+        return fixedCode;
     }
 
     public static CompilationUnit getCompilationUnit(String className) throws FileNotFoundException {
