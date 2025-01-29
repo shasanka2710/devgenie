@@ -262,7 +262,7 @@ public class JavaCodeParser {
             return true;
         } catch (ParseProblemException | IllegalArgumentException e) {
             // Syntax or parsing issues
-            System.err.println("Code validation failed: " + e.getMessage());
+            logger.error("Code validation failed: " + e.getMessage());
             return false;
         }
     }

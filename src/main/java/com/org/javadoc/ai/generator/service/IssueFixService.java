@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static com.org.javadoc.ai.generator.util.GroupByKeys.groupByKeys;
+import static com.org.javadoc.ai.generator.util.StringUtil.getclassDisplayName;
 
 @Slf4j
 @Service
@@ -37,7 +38,8 @@ public class IssueFixService {
     public CompletableFuture<String> startFix(String operationId, List<Map<String, String>> classDescriptions) {
         String pullRequest = "";
         Map<String, Set<String>> sonarIssues = GroupByKeys.groupByKeys(classDescriptions);
-        operationProgress.put(operationId, new ArrayList<>(List.of("Analyzing the request...DONE!")));
+        int count =0;
+        operationProgress.put(operationId, new ArrayList<>(List.of("Analyzing the request for "+sonarIssues.size() +" classes ...DONE!")));
 
         try {
             for (Map.Entry<String, Set<String>> entry : sonarIssues.entrySet()) {
@@ -45,32 +47,32 @@ public class IssueFixService {
                 Set<String> description = entry.getValue();
 
                 // Check with LLM to identify the fix
-                operationProgress.get(operationId).add("Identifying the Fix with LLM model ...");
+                operationProgress.get(operationId).add("Identifying the Fix with LLM model for "+sonarIssues.size() +" classes ...");
                 String fixedCode = identifyFix(className, description);
-                operationProgress.get(operationId).add("Identifying the Fix with LLM model ...DONE!");
+                operationProgress.get(operationId).add("Identifying the Fix with LLM model for "+getclassDisplayName(className)+" ...DONE!");
 
                 // Validate the fix by checking if the fixed code is a valid Java code.
-                operationProgress.get(operationId).add("Validating the Fix ...");
+                operationProgress.get(operationId).add("Validating the Fix for class ..."+getclassDisplayName(className));
                 boolean isValidCode = javaCodeParser.isValidJavaCode(fixedCode);
-                operationProgress.get(operationId).add("Validating the Fix ...DONE!");
-                if (!isValidCode) {
-                    operationProgress.get(operationId).add("Fix is not valid Java code.for"+ className+" Skipping the fix.");
-                    operationProgress.get(operationId).add("Failed");
-                    return CompletableFuture.completedFuture(operationId);
-                }
 
+                operationProgress.get(operationId).add("Validating the Fix for class "+getclassDisplayName(className)+"...DONE!");
+                if (!isValidCode) {
+                    operationProgress.get(operationId).add("Please check logs for "+getclassDisplayName(className)+", Skipping the fix.");
+                   continue;
+                }
                 // Apply the fix to the file
-                operationProgress.get(operationId).add("Applying the Fix ...");
+                operationProgress.get(operationId).add("Applying the Fix for class "+getclassDisplayName(className));
                 applyFix(className, fixedCode);
-                operationProgress.get(operationId).add("Applying the Fix ...DONE!");
-            }
+                operationProgress.get(operationId).add("Applying the Fix for class "+getclassDisplayName(className)+" ...DONE!");
+                count++;
+            }//end of for loop
 
             // Create a pull request
-            pullRequest = gitHubUtility.createPullRequest(
-                    classDescriptions.stream().map(cd -> cd.get("className")).collect(Collectors.toList()),
+            pullRequest = gitHubUtility.createPullRequest(sonarIssues.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toList()),
                     "Automated fixing issues"
             );
-            operationProgress.get(operationId).add("Creating a Pull Request...DONE!");
+            int skippedCount = sonarIssues.size()-count;
+            operationProgress.get(operationId).add("Creating a Pull Request for "+count+" files and "+skippedCount+" file(s) Skipped!");
             operationProgress.get(operationId).add("Pull Request: " + pullRequest);
             operationProgress.get(operationId).add("Completed");
 

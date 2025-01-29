@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/sonar/issue")
@@ -21,7 +20,7 @@ public class IssueFixController {
     public ResponseEntity<?> startFix(@RequestBody List<Map<String, String>> classDescriptions) {
         try {
             String operationId = UUID.randomUUID().toString();
-            CompletableFuture<String> operationIdFuture = fixService.startFix(operationId, classDescriptions);
+            fixService.startFix(operationId, classDescriptions);
             return ResponseEntity.ok(Map.of("success", true, "operationId", operationId));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("success", false, "message", e.getMessage()));
