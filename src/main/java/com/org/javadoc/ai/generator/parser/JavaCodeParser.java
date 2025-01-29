@@ -3,6 +3,7 @@ package com.org.javadoc.ai.generator.parser;
 import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
@@ -27,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -57,30 +59,30 @@ public class JavaCodeParser {
     public void parseAndGenerateDocs(File javaFile) throws IOException {
         CompilationUnit cu = StaticJavaParser.parse(javaFile);
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
-        if (!typeDeclaration.isPresent()) {
-            logger.warn("No primary type found in file: {}", javaFile.getName());
-            return;
-        }
-        String className = typeDeclaration.get().getNameAsString();
-        //Class level Java documentation
-        Javadoc classJavadoc = createOrUpdateClassJavadoc(typeDeclaration.get(), className);
-        typeDeclaration.get().setJavadocComment(classJavadoc);
-        //Method Iteration
-        for (MethodDeclaration method : cu.findAll(MethodDeclaration.class)) {
-            //Identifying cyclomatic complexity
-            int complexity = calculateCyclomaticComplexity(method);
-            if (complexity > appConfig.getCyclomaticComplexityThreshold()) {
-                logger.warn("Method {} in class {} has cyclomatic complexity {}", method.getNameAsString(), className, complexity);
+        if (typeDeclaration.isPresent()) {
+            String className = typeDeclaration.get().getNameAsString();
+            //Class level Java documentation
+            Javadoc classJavadoc = createOrUpdateClassJavadoc(typeDeclaration.get(), className);
+            typeDeclaration.get().setJavadocComment(classJavadoc);
+            //Method Iteration
+            for (MethodDeclaration method : cu.findAll(MethodDeclaration.class)) {
+                //Identifying cyclomatic complexity
+                int complexity = calculateCyclomaticComplexity(method);
+                if (complexity > appConfig.getCyclomaticComplexityThreshold()) {
+                    logger.warn("Method {} in class {} has cyclomatic complexity {}", method.getNameAsString(), className, complexity);
+                }
+                //method level java documentation
+                Javadoc javadoc = createOrUpdateMethodDoc(method, className);
+                method.setJavadocComment(javadoc);
+                // Generate call graph
+                generateCallGraph(method, javaFile);
             }
-            //method level java documentation
-            Javadoc javadoc = createOrUpdateMethodDoc(method, className);
-            method.setJavadocComment(javadoc);
-            // Generate call graph
-            generateCallGraph(method, javaFile);
-        }
-        // Save the modified CompilationUnit back to the file
-        if (!appConfig.isDryRun()) {
-            Files.write(javaFile.toPath(), cu.toString().getBytes());
+            // Save the modified CompilationUnit back to the file
+            if (!appConfig.isDryRun()) {
+                Files.write(javaFile.toPath(), cu.toString().getBytes());
+            }
+        } else {
+            logger.warn("No primary type found in file: {}", javaFile.getName());
         }
     }
 
@@ -101,7 +103,7 @@ public class JavaCodeParser {
         Javadoc javadoc = typeDeclaration.getJavadoc().orElse(new Javadoc(new JavadocDescription()));
         // Update main description for the class
         if (javadoc.getDescription().isEmpty()) {
-            String classDescription = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.generateClassComment(typeDeclaration.getParentNode().get().toString(), className) : "TODO: Add class description here.";
+            String classDescription = appConfig.isEnableAi() && aiCommentGenerator != null ? aiCommentGenerator.generateClassComment(typeDeclaration.getParentNode().get().toString(), className) : "TODO: Add class description here.";
             javadoc = new Javadoc(JavadocDescription.parseText(classDescription));
         }
         return javadoc;
@@ -112,7 +114,7 @@ public class JavaCodeParser {
         // Update main description
         if (javadoc.getDescription().isEmpty()) {
             String methodCode = method.toString();
-            String aiComment = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.generateMethodComment(methodCode, className) : "TODO: Add method description here.";
+            String aiComment = appConfig.isEnableAi() && aiCommentGenerator != null ? aiCommentGenerator.generateMethodComment(methodCode, className) : "TODO: Add method description here.";
             javadoc = new Javadoc(JavadocDescription.parseText(aiComment));
         }
         // Update or add parameter descriptions
@@ -127,14 +129,14 @@ public class JavaCodeParser {
         method.getParameters().forEach(parameter -> {
             String paramName = parameter.getNameAsString();
             Optional<JavadocBlockTag> existingTag = finalJavadoc.getBlockTags().stream().filter(tag -> tag.getType().equals(JavadocBlockTag.Type.PARAM) && tag.getName().equals(paramName)).findFirst();
-            if (!existingTag.isPresent()) {
+            if (existingTag.isEmpty()) {
                 finalJavadoc.addBlockTag("param", paramName, "TODO: Add parameter description.");
             }
         });
         // Update or add return description
         if (!method.getType().isVoidType()) {
             Optional<JavadocBlockTag> returnTag = javadoc.getBlockTags().stream().filter(tag -> tag.getType().equals(JavadocBlockTag.Type.RETURN)).findFirst();
-            if (!returnTag.isPresent()) {
+            if (returnTag.isEmpty()) {
                 javadoc.addBlockTag("return", "TODO: Add return value description.");
             }
         }
@@ -142,7 +144,7 @@ public class JavaCodeParser {
         method.getThrownExceptions().forEach(thrownException -> {
             String exceptionName = thrownException.asString();
             Optional<JavadocBlockTag> throwsTag = finalJavadoc.getBlockTags().stream().filter(tag -> tag.getType().equals(JavadocBlockTag.Type.THROWS) && tag.getName().equals(exceptionName)).findFirst();
-            if (!throwsTag.isPresent()) {
+            if (throwsTag.isEmpty()) {
                 finalJavadoc.addBlockTag("throws", exceptionName, "TODO: Add exception description.");
             }
         });
@@ -151,9 +153,12 @@ public class JavaCodeParser {
     private int calculateCyclomaticComplexity(MethodDeclaration method) {
         // Start with 1 for the method itself
         int complexity = 1;
-        for (Statement stmt : method.getBody().orElseThrow().getStatements()) {
-            if (stmt instanceof IfStmt || stmt instanceof ForStmt || stmt instanceof WhileStmt || stmt instanceof DoStmt || stmt instanceof SwitchStmt || stmt instanceof TryStmt) {
-                complexity++;
+        Optional<BlockStmt> body = method.getBody();
+        if (body.isPresent()) {
+            for (Statement stmt : body.get().getStatements()) {
+                if (stmt instanceof IfStmt || stmt instanceof ForStmt || stmt instanceof WhileStmt || stmt instanceof DoStmt || stmt instanceof SwitchStmt || stmt instanceof TryStmt) {
+                    complexity++;
+                }
             }
         }
         return complexity;
@@ -180,7 +185,9 @@ public class JavaCodeParser {
         method.findAll(MethodCallExpr.class).forEach(call -> {
             try {
                 Optional<MethodDeclaration> calledMethod = call.resolve().toAst().filter(MethodDeclaration.class::isInstance).map(MethodDeclaration.class::cast);
-                calledMethod.ifPresent(m -> callGraph.append("  ".repeat(currentDepth + 1)).append(buildCallGraph(m, currentDepth + 1, maxDepth)));
+                if (calledMethod.isPresent()) {
+                    callGraph.append("  ".repeat(currentDepth + 1)).append(buildCallGraph(calledMethod.get(), currentDepth + 1, maxDepth));
+                }
             } catch (IllegalStateException e) {
                 logger.error("Symbol resolution not configured for method call: {}", call, e);
             }
@@ -195,7 +202,7 @@ public class JavaCodeParser {
         String classDescription = "Description of " + className;
         List<String> fields = typeDeclaration.getFields().stream().map(FieldDeclaration::toString).collect(Collectors.toList());
         List<String> constructors = typeDeclaration.getConstructors().stream().map(ConstructorDeclaration::getNameAsString).collect(Collectors.toList());
-        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText().toString() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList());
+        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList());
         return new ClassDetails(className, classDescription, fields, constructors, methods);
     }
 
@@ -235,11 +242,14 @@ public class JavaCodeParser {
         logger.info("Identifying fix using LL model for class: {}", className);
         CompilationUnit cu = getCompilationUnit(className);
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
-        String classNameFromFile = typeDeclaration.get().getNameAsString();
-        String fixedCode = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.fixSonarIssue(classNameFromFile, typeDeclaration.get().getParentNode().get().toString(), description) : typeDeclaration.get().toString();
-        logger.info("Original code: {}", typeDeclaration.get().getParentNode().get().toString());
-        logger.info("Fixed code: {}", fixedCode);
-        return fixedCode;
+        // Assuming the issue is in the class's code itself
+        String originalCode = typeDeclaration.map(typeDeclaration1 -> typeDeclaration1.getParentNode().get().toString()).orElse(null);
+        String fixedCode = appConfig.isEnableAi() && aiCommentGenerator != null ? aiCommentGenerator.fixSonarIssue(className, originalCode, description) : originalCode;
+        logger.info("Original code: {}", originalCode);
+        logger.info("LLM Output code: {}", fixedCode);
+        String sanitizedOutput = fixedCode != null ? fixedCode.replaceAll("[a-zA-Z]*", "").replaceAll("", "") : null;
+        logger.info("Post Processing: {}", sanitizedOutput);
+        return sanitizedOutput;
     }
 
     public static CompilationUnit getCompilationUnit(String className) throws FileNotFoundException {
@@ -248,8 +258,7 @@ public class JavaCodeParser {
         if (!file.exists()) {
             throw new FileNotFoundException("File not found: " + filePath);
         }
-        CompilationUnit cu = StaticJavaParser.parse(file);
-        return cu;
+        return StaticJavaParser.parse(file);
     }
 
     public boolean isValidJavaCode(String code) {

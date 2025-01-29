@@ -3,6 +3,8 @@ package com.org.javadoc.ai.generator.github;
 import com.org.javadoc.ai.generator.config.GitHubConfig;
 import com.org.javadoc.ai.generator.util.PathConverter;
 import org.kohsuke.github.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -14,8 +16,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+
 @Component
 public class PullRequestHandler {
+    private static final Logger logger = LoggerFactory.getLogger(PullRequestHandler.class);
 
     @Autowired
     private GitHubConfig config;
@@ -118,6 +122,7 @@ public class PullRequestHandler {
                 return operation.execute();  // Call the lambda function here
             } catch (IOException e) {
                 attempt++;
+                logger.error("{} failed on attempt {}: {}", operationName, attempt, e.getMessage());
                 if (attempt >= maxRetries) {
                     throw new IOException(operationName + " failed after " + attempt + " attempts.", e);
                 }
@@ -155,6 +160,7 @@ public class PullRequestHandler {
         // Add or update the file in the branch
         if (sha != null) {
             // If the file exists, update it
+            logger.info("File exists: " + filePath);
             repo.createContent()
                     .path(filePath)
                     .content(fileContent)
@@ -164,6 +170,7 @@ public class PullRequestHandler {
                     .commit();
         } else {
             // If the file doesn't exist, create it
+            logger.info("File doesn't exist: " + filePath);
             repo.createContent()
                     .path(filePath)
                     .content(fileContent)
