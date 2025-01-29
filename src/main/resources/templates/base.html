@@ -174,6 +174,22 @@ function filterIssues(selectedType) {
                 const classDescriptions = [{ className, description }];
                 applyFixMore();
             }
+            function selectAllTop10(selectAllCheckbox) {
+              const displayedRows = Array.from(rows).filter(row => row.style.display !== 'none');
+              const top10Rows = displayedRows.slice(0, 10);
+              top10Rows.forEach(row => {
+                  const checkbox = row.querySelector('.issue-checkbox');
+                  if (checkbox) {
+                      checkbox.checked = selectAllCheckbox.checked;
+                  }
+              });
+              toggleFixMoreButton();
+            }//end of selectAllTop10
+
+            function toggleFixMoreButton() {
+                const selectedCheckboxes = Array.from(checkboxes).filter(checkbox => checkbox.checked);
+                fixMoreButton.style.display = selectedCheckboxes.length > 1 ? 'block' : 'none';
+            }//end of toggleFixMoreButton
 
           function showModalMessage(message) {
               const modal = document.getElementById('progressModal');

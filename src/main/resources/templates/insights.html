@@ -168,7 +168,7 @@
     <table class="table table-bordered table-striped" id="issuesTable">
       <thead>
       <tr>
-        <th>Select</th>
+        <th><input type="checkbox" id="selectAllCheckbox" onclick="selectAllTop10(this)"></th>
         <th>Quality</th>
         <th>Class Name</th>
         <th>Description</th>
@@ -214,6 +214,7 @@
       const paginationControls = document.getElementById('paginationControls');
       const fixMoreButton = document.getElementById('fixMoreButton');
       const checkboxes = document.getElementsByClassName('issue-checkbox');
+      const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 
       function filterTable() {
           const searchTerm = searchInput.value.toLowerCase();
