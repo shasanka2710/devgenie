@@ -1,10 +1,10 @@
 package com.org.javadoc.ai.generator.controller;
 
 import com.org.javadoc.ai.generator.service.IssueFixService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -13,8 +13,11 @@ import java.util.UUID;
 @RequestMapping("/sonar/issue")
 public class IssueFixController {
 
-    @Autowired
-    private IssueFixService fixService;
+    private final IssueFixService fixService;
+
+    public IssueFixController(IssueFixService fixService) {
+        this.fixService = fixService;
+    }
 
     @PostMapping("/apply-fix")
     public ResponseEntity<?> startFix(@RequestBody List<Map<String, String>> classDescriptions) {

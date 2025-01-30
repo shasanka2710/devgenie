@@ -30,7 +30,8 @@ public class SonarController {
             List<String> issueTypes = getDistinctIssueTypes(issues);
             List<String> softwareQualities = getDistinctSoftwareQualities(issues);
             if (filterType != null && !filterType.isEmpty()) {
-                issues = issues.stream().filter(issue -> issue.getSoftwareQuality().contains(filterType)).collect(Collectors.toList());
+                // Replaced 'Stream.collect(Collectors.toList())' with 'Stream.toList()'
+                issues = issues.stream().filter(issue -> issue.getSoftwareQuality().contains(filterType)).toList();
             }
             // Replaced lambda with method reference
             issues.forEach(issue -> issue.setClassName(getclassDisplayName(issue.getCategory())));
@@ -47,12 +48,12 @@ public class SonarController {
 
     // Removed useless curly braces around statement
     private List<String> getDistinctSoftwareQualities(List<SonarIssue> issues) {
-        return issues.stream().flatMap(issue -> issue.getSoftwareQuality().stream()).distinct().collect(Collectors.toList());
+        // Replaced 'Stream.collect(Collectors.toList())' with 'Stream.toList()'
+        return issues.stream().flatMap(issue -> issue.getSoftwareQuality().stream()).distinct().toList();
     }
 
     private List<String> getDistinctIssueTypes(List<SonarIssue> issues) {
-        return issues.stream().map(SonarIssue::getType).distinct().collect(Collectors.toList());
+        // Replaced 'Stream.collect(Collectors.toList())' with 'Stream.toList()'
+        return issues.stream().map(SonarIssue::getType).distinct().toList();
     }
-
-    // Removed unused private method
 }
