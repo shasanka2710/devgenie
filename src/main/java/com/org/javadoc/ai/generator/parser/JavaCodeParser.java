@@ -60,7 +60,7 @@ public class JavaCodeParser {
         CompilationUnit cu = StaticJavaParser.parse(javaFile);
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
         if (typeDeclaration.isEmpty()) {
-            logger.warn("No primary type found in file: " + javaFile.getName());
+            logger.warn("No primary type found in file: {}", javaFile.getName());
             return;
         }
         String className = typeDeclaration.get().getNameAsString();
@@ -72,7 +72,7 @@ public class JavaCodeParser {
             //Identifying cyclomatic complexity
             /*int complexity = calculateCyclomaticComplexity(method);
             if (complexity > appConfig.getCyclomaticComplexityThreshold()) {
-                logger.warn("Method " + method.getNameAsString() + " in class " + className + " has cyclomatic complexity " + complexity);
+                logger.warn("Method {} in class {} has cyclomatic complexity {}", method.getNameAsString(), className, complexity);
             }*/
             //method level java documentation
             Javadoc javadoc = createOrUpdateMethodDoc(method, className);
@@ -182,9 +182,9 @@ public class JavaCodeParser {
         method.findAll(MethodCallExpr.class).forEach(call -> {
             try {
                 Optional<MethodDeclaration> calledMethod = call.resolve().toAst().filter(MethodDeclaration.class::isInstance).map(MethodDeclaration.class::cast);
-                calledMethod.ifPresent(m -> callGraph.append("  ".repeat(currentDepth + 1)).append(buildCallGraph(m, currentDepth + 1, maxDepth)));
+                calledMethod.ifPresent(m -> callGraph.append("  ".repeat(Math.max(0, currentDepth + 1))).append(buildCallGraph(m, currentDepth + 1, maxDepth)));
             } catch (IllegalStateException e) {
-                logger.error("Symbol resolution not configured for method call: " + call, e);
+                logger.error("Symbol resolution not configured for method call: {}", call, e);
             }
         });
         return callGraph.toString();
@@ -234,13 +234,13 @@ public class JavaCodeParser {
     }
 
     public String identifyFixUsingLLModel(String className, Set<String> description) throws FileNotFoundException {
-        logger.info("Identifying fix using LL model for class: " + className);
+        logger.info("Identifying fix using LL model for class: {}", className);
         CompilationUnit cu = getCompilationUnit(className);
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
         String classNameFromFile = typeDeclaration.get().getNameAsString();
         String fixedCode = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.fixSonarIssues(classNameFromFile, typeDeclaration.get().getParentNode().get().toString(), description) : typeDeclaration.get().toString();
-        logger.info("Original code: " + typeDeclaration.get().getParentNode().get().toString());
-        logger.info("Fixed code: " + fixedCode);
+        logger.info("Original code: {}", typeDeclaration.get().getParentNode().get().toString());
+        logger.info("Fixed code: {}", fixedCode);
         return fixedCode;
     }
 
@@ -262,7 +262,7 @@ public class JavaCodeParser {
             return true;
         } catch (ParseProblemException | IllegalArgumentException e) {
             // Syntax or parsing issues
-            logger.error("Code validation failed: " + e.getMessage());
+            logger.error("Code validation failed: {}", e.getMessage());
             return false;
         }
     }
