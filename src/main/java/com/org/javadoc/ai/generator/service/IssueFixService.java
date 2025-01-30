@@ -5,7 +5,6 @@ import com.org.javadoc.ai.generator.parser.JavaCodeParser;
 import com.org.javadoc.ai.generator.util.PathConverter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,8 +15,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-
 import static com.org.javadoc.ai.generator.util.GroupByKeys.groupByKeys;
 import static com.org.javadoc.ai.generator.util.StringUtil.getclassDisplayName;
 
@@ -26,7 +23,9 @@ import static com.org.javadoc.ai.generator.util.StringUtil.getclassDisplayName;
 public class IssueFixService {
 
     private final Map<String, List<String>> operationProgress = new ConcurrentHashMap<>();
+
     private final JavaCodeParser javaCodeParser;
+
     private final GitHubUtility gitHubUtility;
 
     public IssueFixService(JavaCodeParser javaCodeParser, GitHubUtility gitHubUtility) {
@@ -63,7 +62,7 @@ public class IssueFixService {
             }
             //end of for loop
             // Create a pull request
-            pullRequest = gitHubUtility.createPullRequest(sonarIssues.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toList()), "Automated fixing issues");
+            pullRequest = gitHubUtility.createPullRequest(sonarIssues.entrySet().stream().map(Map.Entry::getKey).toList(), "Automated fixing issues"); // Fixed: Replaced Stream.collect(Collectors.toList()) with Stream.toList()
             int skippedCount = sonarIssues.size() - count;
             operationProgress.get(operationId).add("Creating a Pull Request for " + count + " files and " + skippedCount + " file(s) Skipped!");
             operationProgress.get(operationId).add("Pull Request: " + pullRequest);
