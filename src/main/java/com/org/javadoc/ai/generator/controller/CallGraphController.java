@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -43,8 +42,7 @@ public class CallGraphController {
             File javaFile = path.toFile();
             javaCodeParser.parseAndGenerateDocs(javaFile);
             // Read the generated call graph
-            // String callGraphPath = "call-graph/" + file.getOriginalFilename().replace(".java", ".txt");
-            String callGraphPath = "call-graph/" + "uploadFile.txt";
+            String callGraphPath = "call-graph/" + file.getOriginalFilename().replace(".java", ".txt");
             String callGraph = new String(Files.readAllBytes(Paths.get(callGraphPath)));
             model.addAttribute("callGraph", callGraph);
             model.addAttribute("message", "File uploaded successfully: " + file.getOriginalFilename());
