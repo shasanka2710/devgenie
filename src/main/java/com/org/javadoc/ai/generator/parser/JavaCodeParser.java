@@ -27,7 +27,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -39,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import static com.org.javadoc.ai.generator.util.StringUtil.cleanJavaCode;
 
 @Component
 public class JavaCodeParser {
@@ -197,7 +197,7 @@ public class JavaCodeParser {
         String classDescription = "Description of " + className;
         List<String> fields = typeDeclaration.getFields().stream().map(FieldDeclaration::toString).collect(Collectors.toList());
         List<String> constructors = typeDeclaration.getConstructors().stream().map(ConstructorDeclaration::getNameAsString).collect(Collectors.toList());
-        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText().toString() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList());
+        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList());
         return new ClassDetails(className, classDescription, fields, constructors, methods);
     }
 
@@ -239,9 +239,9 @@ public class JavaCodeParser {
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
         String classNameFromFile = typeDeclaration.get().getNameAsString();
         String fixedCode = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.fixSonarIssues(classNameFromFile, typeDeclaration.get().getParentNode().get().toString(), description) : typeDeclaration.get().toString();
-        logger.info("Original code: {}", typeDeclaration.get().getParentNode().get().toString());
+        logger.info("Original code: {}", typeDeclaration.get().getParentNode().get()); // Fixed: Removed unnecessary toString() call
         logger.info("Fixed code: {}", fixedCode);
-        return fixedCode;
+        return cleanJavaCode(fixedCode);
     }
 
     public static CompilationUnit getCompilationUnit(String className) throws FileNotFoundException {
