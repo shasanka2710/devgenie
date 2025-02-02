@@ -15,11 +15,11 @@ import java.util.List;
 public class DashboardService {
 
     private final PullRequestMetricsRepository pullRequestMetricsRepository;
+
     private final SonarService sonarService;
 
     @Autowired
-    public DashboardService(PullRequestMetricsRepository pullRequestMetricsRepository,
-                            SonarService sonarService) {
+    public DashboardService(PullRequestMetricsRepository pullRequestMetricsRepository, SonarService sonarService) {
         this.pullRequestMetricsRepository = pullRequestMetricsRepository;
         this.sonarService = sonarService;
     }
@@ -41,12 +41,10 @@ public class DashboardService {
      */
     public PullRequestModel getConsolidatedPullRequestMetrics() {
         List<PullRequestMetrics> allMetrics = pullRequestMetricsRepository.findAll();
-
         int totalPRs = allMetrics.size();
         int totalIssuesResolved = 0;
         String totalEngineeringTimeSaved = "0 minutes";
         String totalCostSavings = "$0";
-
         // Iterate through the list and consolidate data
         for (PullRequestMetrics metrics : allMetrics) {
             totalIssuesResolved += metrics.getIssuesResolved();
@@ -58,15 +56,9 @@ public class DashboardService {
         pullRequestModel.setIssuesResolved(totalIssuesResolved);
         pullRequestModel.setEngineeringTimeSaved(totalEngineeringTimeSaved);
         pullRequestModel.setCostSavings(totalCostSavings);
-
         // Format the consolidated data
-        String result = String.format(
-                "Total Pull Requests Created: %d\nTotal Issues Resolved: %d\nTotal Engineering Time Saved: %s\nTotal Cost Savings: %s",
-                totalPRs, totalIssuesResolved, totalEngineeringTimeSaved, totalCostSavings
-        );
-
+        String result = String.format("Total Pull Requests Created: %d%nTotal Issues Resolved: %d%nTotal Engineering Time Saved: %s%nTotal Cost Savings: %s", totalPRs, totalIssuesResolved, totalEngineeringTimeSaved, totalCostSavings); // Updated \n to %n
         log.info("Consolidated Metrics: " + result);
-
         return pullRequestModel;
     }
 
@@ -75,7 +67,6 @@ public class DashboardService {
         // Example of extracting minutes from "30 minutes" format
         int totalMinutes = extractTimeInMinutes(totalTime);
         int newMinutes = extractTimeInMinutes(newTime);
-
         int updatedMinutes = totalMinutes + newMinutes;
         return updatedMinutes + " minutes";
     }
@@ -95,7 +86,6 @@ public class DashboardService {
         // Example of extracting dollars from "$10" format
         int totalAmount = extractCost(totalCost);
         int newAmount = extractCost(newCost);
-
         int updatedAmount = totalAmount + newAmount;
         return "$" + updatedAmount;
     }
