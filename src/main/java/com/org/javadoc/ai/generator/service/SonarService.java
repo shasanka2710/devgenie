@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Projections;
 import com.org.javadoc.ai.generator.model.SonarIssue;
 import com.org.javadoc.ai.generator.model.SonarMetricsModel;
 import org.bson.Document;
@@ -18,7 +19,9 @@ import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class SonarService {
@@ -139,9 +142,30 @@ public class SonarService {
     private void saveIssuesToMongo(String responseBody) {
         try {
             MongoCollection<Document> collection = mongoTemplate.getCollection("sonarissues");
-            List<Document> documents = new ArrayList<>();
-            objectMapper.readTree(responseBody).path("issues").forEach(issueNode -> documents.add(Document.parse(issueNode.toString())));
-            collection.insertMany(documents);
+            List<Document> newDocuments = new ArrayList<>();
+            Set<String> existingIssueKeys = new HashSet<>();
+
+            // Step 1: Fetch existing issue keys from MongoDB
+            collection.find()
+                    .projection(Projections.include("key")) // Fetch only the 'key' field
+                    .forEach(document -> existingIssueKeys.add(document.getString("key")));
+
+            // Step 2: Parse response and filter out duplicates
+            objectMapper.readTree(responseBody).path("issues").forEach(issueNode -> {
+                String issueKey = issueNode.path("key").asText(); // Assuming 'key' is the unique identifier for an issue
+                if (!existingIssueKeys.contains(issueKey)) {
+                    newDocuments.add(Document.parse(issueNode.toString()));
+                    existingIssueKeys.add(issueKey); // Add to local set to avoid duplicates in this batch
+                }
+            });
+
+            // Step 3: Insert only new issues
+            if (!newDocuments.isEmpty()) {
+                collection.insertMany(newDocuments);
+                logger.info("Inserted {} new issues into MongoDB.", newDocuments.size());
+            } else {
+                logger.info("No new issues to insert.");
+            }
         } catch (Exception e) {
             logger.error("Handling and suppressing the exception", e);
         }

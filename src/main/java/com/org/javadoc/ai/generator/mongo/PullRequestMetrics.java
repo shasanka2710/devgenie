@@ -11,6 +11,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class PullRequestMetrics {
     @Id
     private String id;
+    private String issueKey;
     private String gitRepoName;
     private String pullRequestUrl;
     private int prCreatedCount;
