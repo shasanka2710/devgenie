@@ -88,90 +88,111 @@ function filterIssues(selectedType) {
           fixMoreButton.addEventListener('click', applyFixMore);
 
           function applyFixMore() {
-              const selectedCheckboxes = Array.from(checkboxes).filter(checkbox => checkbox.checked);
+              const selectedCheckboxes = Array.from(document.querySelectorAll('.issue-checkbox')).filter(checkbox => checkbox.checked);
 
-             const classDescriptions = selectedCheckboxes.map(checkbox => ({
-             key: checkbox.getAttribute('data-key'),
-             className: checkbox.getAttribute('data-category'),
-             description: checkbox.getAttribute('data-description')
-            }));
+              if (selectedCheckboxes.length === 0) {
+                  alert('No issues selected for fixing.');
+                  return;
+              }
 
-              // Modal elements
+              const classDescriptions = selectedCheckboxes.map(checkbox => ({
+                  key: checkbox.getAttribute('data-key'),
+                  className: checkbox.getAttribute('data-category'),
+                  description: checkbox.getAttribute('data-description')
+              }));
+
+              // Get modal elements
               const modal = document.getElementById('progressModal');
-              const modalContent = document.getElementById('progressModalContent');
               const progressBar = document.getElementById('progressBar');
               const progressText = document.getElementById('progressText');
 
-              // Create close button
-              const closeButton = document.createElement('span');
-              closeButton.innerHTML = '&times;';
-              closeButton.style.cssText = 'position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; cursor: pointer;';
-              closeButton.onclick = () => {
-                modal.style.display = 'none';
-              };
-              modalContent.insertBefore(closeButton, modalContent.firstChild);
-
-              // Show modal and reset progress
-              modal.style.display = 'block';
+              // Reset Modal
               progressBar.style.width = '0%';
-              progressText.textContent = 'Request getting Processed...\n';
+              progressText.innerHTML = '<p>🔄 Initializing fix...</p>';
 
-              let displayedEvents = new Set();
+              // Ensure Close Button Exists
+              let closeButton = document.getElementById('modalCloseButton');
+              if (!closeButton) {
+                  closeButton = document.createElement('span');
+                  closeButton.innerHTML = '&times;';
+                  closeButton.id = 'modalCloseButton';
+                  closeButton.style.cssText = 'position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; cursor: pointer;';
+                  closeButton.onclick = () => modal.style.display = 'none';
+                  modal.insertBefore(closeButton, modal.firstChild);
+              }
 
-              const updateProgressText = (events) => {
-                  events.forEach(event => {
-                      if (!displayedEvents.has(event)) {
-                          progressText.textContent += event + '\n';
-                          displayedEvents.add(event);
-                      }
-                  });
-              };
+              // Show modal before sending request
+              modal.style.display = 'block';
 
+              // **Step 1: Send Fix Request**
               fetch('/sonar/issue/apply-fix', {
                   method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json'
-                  },
+                  headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(classDescriptions)
               })
               .then(response => response.json())
               .then(data => {
                   if (!data.operationId) {
-                      throw new Error('operationId not found.');
+                      throw new Error('Operation ID missing in response.');
                   }
-                  const operationId = data.operationId;
-                  let progress = 0;
-                  const interval = setInterval(() => {
-                      fetch('/sonar/issue/fix-status/' + operationId)
-                          .then(response => {
-                              if (response.ok) return response.json();
-                              throw new Error('Error ' + response.status + ': ' + response.statusText);
-                          })
-                          .then(statusData => {
-                              const events = statusData.step;
-                              updateProgressText(events);
-                              progress += 16;
-                              progressBar.style.width = Math.min(progress, 100) + '%';
-                              if (events.some(event => event.includes('Completed'))) {
-                                  clearInterval(interval);
-                                  updateProgressText(['Fix applied successfully!']);
-                              }
-                              if (events.some(event => event.includes("Failed"))) {
-                                  clearInterval(interval);
-                                  updateProgressText(["There was an error applying the fix."]);
-                              }
-                          })
-                          .catch(error => {
-                              console.error('Error:', error);
-                              updateProgressText(['Error: ' + error.message]);
-                              clearInterval(interval);
-                          });
-                  }, 250); // Reduced interval to 250ms
+
+                  // **Start polling once operationId is received**
+                  trackFixProgress(data.operationId, progressBar, progressText);
               })
               .catch(error => {
                   console.error('Error:', error);
-                  updateProgressText(['Error: ' + error.message]);
+                  progressText.innerHTML += `<p style="color: red;">❌ Error: ${error.message}</p>`;
               });
+          }//end of applyFixMore
+          // **Step 2: Poll for Progress Updates**
+          function trackFixProgress(operationId, progressBar, progressText) {
+              let displayedEvents = new Set(); // Track displayed messages
+              let progress = 0; // Track progress
+
+              const interval = setInterval(() => {
+                  fetch(`/sonar/issue/fix-status/${operationId}`)
+                      .then(response => response.json())
+                      .then(data => {
+                          if (!data.step || data.step.length === 0) return;
+
+                      // Dynamically add new messages
+                      data.step.forEach(event => {
+                          if (!displayedEvents.has(event)) {
+                              let newMessage = document.createElement('p');
+
+                              // Check if the event contains HTML (like a hyperlink)
+                              if (event.includes('<a href=')) {
+                                  newMessage.innerHTML = `${event}`; // Render as HTML
+                              } else {
+                                  newMessage.textContent = `${event}`; // Render as plain text
+                              }
+                              progressText.appendChild(newMessage); // Append new message
+                              displayedEvents.add(event);
+                          }
+                      });
+
+                          // Update progress bar dynamically
+                          progress += 15;
+                          progressBar.style.width = Math.min(progress, 100) + '%';
+
+                          // Stop polling if process is completed or failed
+                          if (data.step.some(event => event.includes('Completed'))) {
+                              clearInterval(interval);
+                              progressText.innerHTML += '<p style="color: green;">✅ Fix applied successfully!</p>';
+                              progressBar.style.width = '100%';
+                          }
+                          if (data.step.some(event => event.includes('Failed'))) {
+                              clearInterval(interval);
+                              progressText.innerHTML += '<p style="color: red;">❌ Fix failed.</p>';
+                              progressBar.style.width = '100%';
+                          }
+                      })
+                      .catch(error => {
+                          console.error('Error fetching status:', error);
+                          progressText.innerHTML += `<p style="color: orange;">⚠ Error checking progress.</p>`;
+                          clearInterval(interval);
+                      });
+              }, 750);
           }
 
             function applyFix(button, key, className, description) {

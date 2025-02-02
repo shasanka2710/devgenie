@@ -178,6 +178,11 @@
 </head>
 <body>
 <div layout:fragment="content">
+  <!-- Prompt Bar -->
+  <div class="search-container">
+    <input type="text" id="searchInput" placeholder="Enter your prompt...">
+    <button id="searchButton">Submit</button>
+  </div>
   <!-- Dropdown for filtering issues -->
   <div class="mb-3">
     <label for="qualityFilter" class="form-label">By Quality Metric:</label>
@@ -230,16 +235,6 @@
     </table>
   </div>
 </div>
-
-<!-- Modal -->
-<div id="progressModal" class="modal">
-  <div class="modal-content">
-    <span class="close" onclick="closeModal()">&times;</span>
-    <div id="progressBar" style="width: 0%; height: 30px; background-color: #4CAF50; text-align: center; line-height: 30px; color: white;"></div>
-    <div id="progressText" style="margin-top: 20px; white-space: pre-line;">Request sent to application...</div>
-  </div>
-</div>
-
 <script>
   document.addEventListener('DOMContentLoaded', function () {
       const searchInput = document.getElementById('searchInput');
