@@ -1,17 +1,23 @@
 package com.org.javadoc.ai.generator.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mongodb.client.MongoCollection;
 import com.org.javadoc.ai.generator.model.SonarIssue;
 import com.org.javadoc.ai.generator.model.SonarMetricsModel;
+import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.http.*;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 @Service
@@ -27,6 +33,7 @@ public class SonarService {
     private final int pageSize;
     private final String sonarUsername;
     private final String sonarPassword;
+    private final MongoTemplate mongoTemplate;
     @Value("${developer.dollarValuePerMinute}") double dollarValuePerMinute;
 
     public SonarService(RestTemplate restTemplate, ObjectMapper objectMapper,
@@ -35,7 +42,8 @@ public class SonarService {
                        @Value("${sonar.severities}") String severities,
                        @Value("${sonar.pageSize}") int pageSize,
                        @Value("${sonar.username}") String sonarUsername,
-                       @Value("${sonar.password}") String sonarPassword) {
+                       @Value("${sonar.password}") String sonarPassword,
+                        MongoTemplate mongoTemplate) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.sonarUrl = sonarUrl;
@@ -44,6 +52,7 @@ public class SonarService {
         this.pageSize = pageSize;
         this.sonarUsername = sonarUsername;
         this.sonarPassword = sonarPassword;
+        this.mongoTemplate = mongoTemplate;
     }
 
     public List<SonarIssue> fetchSonarIssues() throws IOException {
@@ -61,6 +70,8 @@ public class SonarService {
             HttpEntity<String> entity = new HttpEntity<>(headers);
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
             if (response.getStatusCode().is2xxSuccessful()) {
+                logger.info("Fetched issues from Sonar successfully. Response: {}", response.getBody());
+                saveIssuesToMongo(response.getBody());
                 return response.getBody();
             } else {
                 logger.error("Failed to fetch issues from Sonar. Status: {}", response.getStatusCode());
@@ -113,5 +124,19 @@ public class SonarService {
     public JsonNode getRootNode() throws IOException {
         // Returning the expression directly instead of assigning to a temporary variable
         return objectMapper.readTree(fetchIssuesFromSonar());
+    }
+    @Async
+    public void saveIssuesToMongo(String responseBody){
+        try {
+        MongoCollection<Document> collection = mongoTemplate.getCollection("sonarissues");
+        List<Document> documents = new ArrayList<>();
+
+            objectMapper.readTree(responseBody).path("issues").forEach(issueNode ->
+                documents.add(Document.parse(issueNode.toString()))
+            );
+            collection.insertMany(documents);
+        } catch (Exception e) {
+            logger.error("Handling and suppressing the exception", e);
+        }
     }
 }

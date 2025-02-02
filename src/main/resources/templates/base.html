@@ -67,7 +67,8 @@ function filterIssues(selectedType) {
                   event.preventDefault();
                   const className = this.getAttribute('data-category');
                   const description = this.getAttribute('data-description');
-                  applyFix(this, className, description);
+                  const key = this.getAttribute('data-key');
+                  applyFix(this, className, description, key);
               });
           });
 
@@ -88,10 +89,12 @@ function filterIssues(selectedType) {
 
           function applyFixMore() {
               const selectedCheckboxes = Array.from(checkboxes).filter(checkbox => checkbox.checked);
-              const classDescriptions = selectedCheckboxes.map(checkbox => ({
-                  className: checkbox.getAttribute('data-category'),
-                  description: checkbox.getAttribute('data-description')
-              }));
+
+             const classDescriptions = selectedCheckboxes.map(checkbox => ({
+             key: checkbox.getAttribute('data-key'),
+             className: checkbox.getAttribute('data-category'),
+             description: checkbox.getAttribute('data-description')
+            }));
 
               // Modal elements
               const modal = document.getElementById('progressModal');
@@ -171,8 +174,8 @@ function filterIssues(selectedType) {
               });
           }
 
-            function applyFix(button, className, description) {
-                const classDescriptions = [{ className, description }];
+            function applyFix(button, key, className, description) {
+                const classDescriptions = [{ key, className, description }];
                 applyFixMore();
             }
             function selectAllTop10(selectAllCheckbox) {

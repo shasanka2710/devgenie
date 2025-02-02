@@ -179,14 +179,14 @@
 <body>
 <div layout:fragment="content">
   <div class="section-header">
-    <h3 class="section-title">Sonar Issues for Your Project</h3>
+    <h2 class="section-title">Sonar Tech debt</h2>
   </div>
 
   <!-- Prompt Bar -->
-  <div class="search-container">
+ <!-- <div class="search-container">
     <input type="text" id="searchInput" placeholder="Enter your prompt...">
     <button id="searchButton">Submit</button>
-  </div>
+  </div>-->
 
   <!-- Dropdown for filtering issues -->
   <div class="mb-3">
@@ -203,11 +203,8 @@
     <button id="fixMoreButton" style="display: none;" onclick="applyFixMore()">Fix More</button>
   </div>
 
-  <!-- Loading Indicator -->
-  <div class="loading" id="loadingIndicator">Loading...</div>
-
   <!-- Insights Table -->
-  <div class="table-container">
+  <div >
     <table class="table table-striped" id="issuesTable">
       <thead>
       <tr>
@@ -221,13 +218,14 @@
       </thead>
       <tbody>
       <tr th:each="issue : ${issues}">
-        <td><input type="checkbox" class="issue-checkbox" th:data-category="${issue.category}" th:data-description="${issue.description}" onchange="toggleFixMoreButton()"></td>
+        <td><input type="checkbox" class="issue-checkbox" th:data-key="${issue.key}" th:data-category="${issue.category}" th:data-description="${issue.description}" onchange="toggleFixMoreButton()"></td>
         <td th:text="${#strings.listJoin(issue.softwareQuality, ', ')}"></td>
         <td th:text="${issue.className}"></td>
         <td th:text="${issue.description}"></td>
         <td th:text="${issue.severity}"></td>
         <td>
           <button class="apply-fix"
+                  th:data-key="${issue.key}"
                   th:data-category="${issue.category}"
                   th:data-description="${issue.description}">Apply Fix
           </button>
@@ -240,11 +238,6 @@
       </tr>
       </tbody>
     </table>
-  </div>
-
-  <!-- Pagination Controls -->
-  <div id="paginationControls" class="d-flex justify-content-center mt-3">
-    <!-- Pagination buttons will be dynamically added here -->
   </div>
 </div>
 

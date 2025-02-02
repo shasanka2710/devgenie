@@ -1,5 +1,7 @@
 package com.org.javadoc.ai.generator.util;
 
+import com.org.javadoc.ai.generator.model.ClassDescription;
+
 import java.util.*;
 
 public class GroupByKeys {
@@ -11,15 +13,11 @@ public class GroupByKeys {
         // Not called
     }
 
-    public static Map<String, Set<String>> groupByKeys(List<Map<String, String>> classDescriptions) {
-        Map<String, Set<String>> groupedMap = new HashMap<>();
-        for (Map<String, String> map : classDescriptions) {
-            String className = map.get("className");
-            String desc = map.get("description");
-            if (className != null && desc != null) {
-                groupedMap.computeIfAbsent(className, k -> new LinkedHashSet<>()).add(desc);
-            }
+    public static Map<String, Set<String>> groupByKeys(List<ClassDescription> classDescriptions) {
+        Map<String, Set<String>> resultMap = new HashMap<>();
+        for (ClassDescription cd : classDescriptions) {
+            resultMap.computeIfAbsent(cd.getClassName(), k -> new HashSet<>()).add(cd.getDescription());
         }
-        return groupedMap;
+        return resultMap;
     }
 }

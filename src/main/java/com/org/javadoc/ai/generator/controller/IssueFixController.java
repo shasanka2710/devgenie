@@ -1,5 +1,6 @@
 package com.org.javadoc.ai.generator.controller;
 
+import com.org.javadoc.ai.generator.model.ClassDescription;
 import com.org.javadoc.ai.generator.service.IssueFixService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +24,7 @@ public class IssueFixController {
     }
 
     @PostMapping("/apply-fix")
-    public ResponseEntity<?> startFix(@RequestBody List<Map<String, String>> classDescriptions) {
+    public ResponseEntity<?> startFix(@RequestBody List<ClassDescription> classDescriptions) {
         try {
             String operationId = UUID.randomUUID().toString();
             fixService.startFix(operationId, classDescriptions);

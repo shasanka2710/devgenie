@@ -1,5 +1,6 @@
 package com.org.javadoc.ai.generator.service;
 
+import com.org.javadoc.ai.generator.model.ClassDescription;
 import com.org.javadoc.ai.generator.mongo.PullRequestMetrics;
 import com.org.javadoc.ai.generator.mongo.PullRequestMetricsRepository;
 import com.org.javadoc.ai.generator.github.GitHubUtility;
@@ -34,7 +35,7 @@ public class IssueFixService {
         this.gitHubUtility = gitHubUtility;
     }
 
-    public CompletableFuture<String> startFix(String operationId, List<Map<String, String>> classDescriptions) {
+    public CompletableFuture<String> startFix(String operationId, List<ClassDescription> classDescriptions) {
         String pullRequest = "";
         Map<String, Set<String>> sonarIssues = groupByKeys(classDescriptions);
         int count = 0;
