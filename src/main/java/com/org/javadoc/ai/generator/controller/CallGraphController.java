@@ -35,17 +35,23 @@ public class CallGraphController {
         }
         try {
             // Save the file locally
-            Path path = Paths.get("uploads/" + file.getOriginalFilename());
+            String fileName = file.getOriginalFilename();
+            // Handle potential null from getOriginalFilename
+            if (fileName == null || fileName.isEmpty()) { 
+                model.addAttribute("message", "File name is missing or invalid.");
+                return "index";
+            }
+            Path path = Paths.get("uploads/" + fileName);
             Files.createDirectories(path.getParent());
             Files.write(path, file.getBytes());
             // Generate call graph
             File javaFile = path.toFile();
             javaCodeParser.parseAndGenerateDocs(javaFile);
             // Read the generated call graph
-            String callGraphPath = "call-graph/" + file.getOriginalFilename().replace(".java", ".txt");
+            String callGraphPath = "call-graph/" + fileName.replace(".java", ".txt");
             String callGraph = new String(Files.readAllBytes(Paths.get(callGraphPath)));
             model.addAttribute("callGraph", callGraph);
-            model.addAttribute("message", "File uploaded successfully: " + file.getOriginalFilename());
+            model.addAttribute("message", "File uploaded successfully: " + fileName);
         } catch (IOException e) {
             model.addAttribute("message", "Failed to upload file: " + e.getMessage());
         }
