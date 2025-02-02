@@ -75,7 +75,8 @@ public class JavaCodeParser {
                 logger.warn("Method {} in class {} has cyclomatic complexity {}", method.getNameAsString(), className, complexity);
             }*/
             //method level java documentation
-            Javadoc javadoc = createOrUpdateMethodDoc(method, className);
+            // Fixed: Conditionally invoke aiCommentGenerator
+            Javadoc javadoc = appConfig.isEnableAi() && aiCommentGenerator != null ? createOrUpdateMethodDoc(method, className) : createOrUpdateMethodDoc(method);
             method.setJavadocComment(javadoc);
             // Generate call graph
             // generateCallGraph(method, javaFile);
@@ -103,8 +104,19 @@ public class JavaCodeParser {
         Javadoc javadoc = typeDeclaration.getJavadoc().orElse(new Javadoc(new JavadocDescription()));
         // Update main description for the class
         if (javadoc.getDescription().isEmpty()) {
+            // Fixed: Conditionally invoke aiCommentGenerator
             String classDescription = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.generateClassComment(typeDeclaration.toString(), className) : "TODO: Add class description here.";
             javadoc = new Javadoc(JavadocDescription.parseText(classDescription));
+        }
+        return javadoc;
+    }
+
+    // Fixed: Method overloading to handle cases where AI comment generation is disabled
+    private Javadoc createOrUpdateMethodDoc(MethodDeclaration method) {
+        Javadoc javadoc = method.getJavadoc().orElse(new Javadoc(new JavadocDescription()));
+        // Update main description
+        if (javadoc.getDescription().isEmpty()) {
+            javadoc = new Javadoc(JavadocDescription.parseText("TODO: Add method description here."));
         }
         return javadoc;
     }
@@ -114,14 +126,12 @@ public class JavaCodeParser {
         // Update main description
         if (javadoc.getDescription().isEmpty()) {
             String methodCode = method.toString();
-            String aiComment = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.generateMethodComment(methodCode, className) : "TODO: Add method description here.";
+            String aiComment = aiCommentGenerator.generateMethodComment(methodCode, className);
             javadoc = new Javadoc(JavadocDescription.parseText(aiComment));
         }
         // Update or add parameter descriptions
         Javadoc finalJavadoc = javadoc;
-        if (appConfig.isEnableAi() && aiCommentGenerator != null) {
-            methodParameterAndReturnDocGen(method, finalJavadoc, javadoc);
-        }
+        methodParameterAndReturnDocGen(method, finalJavadoc, javadoc);
         return finalJavadoc;
     }
 
@@ -237,9 +247,9 @@ public class JavaCodeParser {
         logger.info("Identifying fix using LL model for class: {}", className);
         CompilationUnit cu = getCompilationUnit(className);
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
-        String classNameFromFile = typeDeclaration.get().getNameAsString();
-        String fixedCode = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.fixSonarIssues(classNameFromFile, typeDeclaration.get().getParentNode().get().toString(), description) : typeDeclaration.get().toString();
-        logger.info("Original code: {}", typeDeclaration.get().getParentNode().get()); // Fixed: Removed unnecessary toString() call
+        // Fixed: Conditionally invoke aiCommentGenerator
+        String fixedCode = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.fixSonarIssues(className, typeDeclaration.get().getParentNode().get().toString(), description) : typeDeclaration.get().toString();
+        logger.info("Original code: {}", typeDeclaration.get().getParentNode().get());
         logger.info("Fixed code: {}", fixedCode);
         return cleanJavaCode(fixedCode);
     }
