@@ -207,7 +207,8 @@ public class JavaCodeParser {
         String classDescription = "Description of " + className;
         List<String> fields = typeDeclaration.getFields().stream().map(FieldDeclaration::toString).collect(Collectors.toList());
         List<String> constructors = typeDeclaration.getConstructors().stream().map(ConstructorDeclaration::getNameAsString).collect(Collectors.toList());
-        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList());
+        // Fixed: Using Stream.toList() for better performance
+        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).toList();
         return new ClassDetails(className, classDescription, fields, constructors, methods);
     }
 
