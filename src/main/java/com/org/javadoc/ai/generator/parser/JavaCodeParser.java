@@ -70,10 +70,6 @@ public class JavaCodeParser {
         //Method Iteration
         for (MethodDeclaration method : cu.findAll(MethodDeclaration.class)) {
             //Identifying cyclomatic complexity
-            /*int complexity = calculateCyclomaticComplexity(method);
-            if (complexity > appConfig.getCyclomaticComplexityThreshold()) {
-                logger.warn("Method {} in class {} has cyclomatic complexity {}", method.getNameAsString(), className, complexity);
-            }*/
             //method level java documentation
             // Fixed: Conditionally invoke aiCommentGenerator
             Javadoc javadoc = appConfig.isEnableAi() && aiCommentGenerator != null ? createOrUpdateMethodDoc(method, className) : createOrUpdateMethodDoc(method);
@@ -160,16 +156,7 @@ public class JavaCodeParser {
         });
     }
 
-    private int calculateCyclomaticComplexity(MethodDeclaration method) {
-        // Start with 1 for the method itself
-        int complexity = 1;
-        for (Statement stmt : method.getBody().orElseThrow().getStatements()) {
-            if (stmt instanceof IfStmt || stmt instanceof ForStmt || stmt instanceof WhileStmt || stmt instanceof DoStmt || stmt instanceof SwitchStmt || stmt instanceof TryStmt) {
-                complexity++;
-            }
-        }
-        return complexity;
-    }
+   // Removed unused method: calculateCyclomaticComplexity
 
     private void generateCallGraph(MethodDeclaration method, File javaFile) throws IOException {
         String methodName = method.getNameAsString();
@@ -207,7 +194,8 @@ public class JavaCodeParser {
         String classDescription = "Description of " + className;
         List<String> fields = typeDeclaration.getFields().stream().map(FieldDeclaration::toString).collect(Collectors.toList());
         List<String> constructors = typeDeclaration.getConstructors().stream().map(ConstructorDeclaration::getNameAsString).collect(Collectors.toList());
-        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList());
+        // Fixed: Using Stream.toList() for better performance
+        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).toList();
         return new ClassDetails(className, classDescription, fields, constructors, methods);
     }
 
