@@ -3,6 +3,7 @@ package com.org.javadoc.ai.generator.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.org.javadoc.ai.generator.model.SonarIssue;
+import com.org.javadoc.ai.generator.model.SonarMetricsModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +27,7 @@ public class SonarService {
     private final int pageSize;
     private final String sonarUsername;
     private final String sonarPassword;
+    @Value("${developer.dollarValuePerMinute}") double dollarValuePerMinute;
 
     public SonarService(RestTemplate restTemplate, ObjectMapper objectMapper,
                        @Value("${sonar.url}") String sonarUrl,
@@ -96,6 +98,18 @@ public class SonarService {
         return (input != null) ? (input.replaceFirst("^[^:]+:", "").replace("/", ".")) : input;
     }
 
+    public SonarMetricsModel getSonarMetrics(){
+        SonarMetricsModel sonarMetricsModel = new SonarMetricsModel();
+        try {
+            JsonNode rootNode = getRootNode();
+            sonarMetricsModel.setTotalIssuesCount(rootNode.get("total").asInt());
+            sonarMetricsModel.setTechDebtTime(rootNode.get("effortTotal").asText());
+            sonarMetricsModel.setDollarImpact(rootNode.get("effortTotal").asInt() * dollarValuePerMinute);
+        } catch (IOException e) {
+            logger.error("Error fetching Sonar metrics: ", e);
+        }
+        return sonarMetricsModel;
+    }
     public JsonNode getRootNode() throws IOException {
         // Returning the expression directly instead of assigning to a temporary variable
         return objectMapper.readTree(fetchIssuesFromSonar());

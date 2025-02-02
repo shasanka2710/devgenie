@@ -6,19 +6,21 @@
   <style>
     /* General Styles */
     body {
-        font-family: 'Arial', sans-serif;
-        background-color: #f8f9fa;
-        color: #333;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f5f6fa;
+        color: #2c3e50;
     }
 
     .section-header {
         margin-bottom: 20px;
         padding-bottom: 10px;
-        border-bottom: 2px solid #ddd;
+        border-bottom: 2px solid #3498db;
     }
 
     .section-header h3 {
-        color: #333;
+        color: #2c3e50;
+        font-size: 24px;
+        font-weight: 600;
     }
 
     /* Search Bar */
@@ -26,117 +28,158 @@
         margin-bottom: 20px;
         display: flex;
         align-items: center;
+        gap: 10px;
     }
 
     #searchInput {
-        padding: 8px;
+        padding: 10px;
         border: 1px solid #ccc;
-        border-radius: 4px;
-        margin-right: 10px;
+        border-radius: 5px;
         flex-grow: 1;
+        font-size: 14px;
     }
 
     #searchButton {
-        padding: 8px 15px;
-        background-color: #007bff;
+        padding: 10px 20px;
+        background-color: #3498db;
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 5px;
         cursor: pointer;
+        font-size: 14px;
+    }
+
+    #searchButton:hover {
+        background-color: #2980b9;
     }
 
     /* Table Styles */
     .table-container {
         overflow-x: auto;
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.1);
     }
 
     .table {
         width: 100%;
         margin-bottom: 1rem;
-        color: #212529;
+        color: #2c3e50;
         border-collapse: collapse;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        background-color: #fff;
     }
 
     .table thead th {
         vertical-align: bottom;
-        border-bottom: 2px solid #dee2e6;
-        background-color: #e9ecef;
-        color: #495057;
-        position: sticky;
-        top: 0;
-        z-index: 1;
+        border-bottom: 2px solid #3498db;
+        background-color: #f8f9fa;
+        color: #2c3e50;
+        padding: 12px;
+        font-weight: 600;
     }
 
     .table td, .table th {
-        padding: 1rem;
+        padding: 12px;
         vertical-align: top;
         border-top: 1px solid #dee2e6;
     }
 
-    .table-bordered {
-        border: 1px solid #dee2e6;
-    }
-
-    .table-bordered td, .table-bordered th {
-        border: 1px solid #dee2e6;
-    }
-
     .table-striped tbody tr:nth-of-type(odd) {
-        background-color: rgba(0, 0, 0, 0.05);
+        background-color: #f8f9fa;
     }
 
     .apply-fix {
-        transition: background-color 0.3s ease;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 14px;
     }
 
     .apply-fix:hover {
-        background-color: #0069d9;
+        background-color: #2980b9;
     }
 
     .form-select {
-        width: auto;
-        display: inline-block;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 14px;
     }
 
     .mb-3 {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        margin-bottom: 20px;
     }
 
-    /* Responsive Design */
-    @media (max-width: 768px) {
-        .mb-3 {
-            flex-direction: column;
-            align-items: flex-start;
-        }
+    /* Fix More Button */
+    #fixMoreButton {
+        background-color: #ffc107;
+        color: #2c3e50;
+        border: none;
+        border-radius: 5px;
+        padding: 10px 20px;
+        cursor: pointer;
+        font-size: 14px;
+    }
 
-        .form-select {
-            width: 100%;
-        }
+    #fixMoreButton:hover {
+        background-color: #e0a800;
     }
 
     /* Loading Indicator */
     .loading {
-        display: none;
         text-align: center;
         margin-top: 20px;
+        color: #7f8c8d;
+        display: none; /* Hidden by default */
     }
 
     .no-data {
         text-align: center;
         padding: 20px;
         font-style: italic;
-        color: #666;
+        color: #7f8c8d;
+    }
+
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.4);
+    }
+
+    .modal-content {
+        background-color: #fff;
+        margin: 15% auto;
+        padding: 20px;
+        border-radius: 10px;
+        width: 50%;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .close {
+        float: right;
+        font-size: 24px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .close:hover {
+        color: #e74c3c;
     }
   </style>
 </head>
 <body>
 <div layout:fragment="content">
   <div class="section-header">
-    <h3>Sonar Issue for your project</h3>
+    <h3 class="section-title">Sonar Issues for Your Project</h3>
   </div>
 
   <!-- Prompt Bar -->
@@ -157,7 +200,7 @@
 
   <!-- Fix More Button -->
   <div class="mb-3">
-    <button id="fixMoreButton" class="btn btn-warning" style="display: none;" onclick="applyFixMore()">Fix More</button>
+    <button id="fixMoreButton" style="display: none;" onclick="applyFixMore()">Fix More</button>
   </div>
 
   <!-- Loading Indicator -->
@@ -165,7 +208,7 @@
 
   <!-- Insights Table -->
   <div class="table-container">
-    <table class="table table-bordered table-striped" id="issuesTable">
+    <table class="table table-striped" id="issuesTable">
       <thead>
       <tr>
         <th><input type="checkbox" id="selectAllCheckbox" onclick="selectAllTop10(this)"></th>
@@ -184,7 +227,7 @@
         <td th:text="${issue.description}"></td>
         <td th:text="${issue.severity}"></td>
         <td>
-          <button class="btn btn-primary btn-sm apply-fix"
+          <button class="apply-fix"
                   th:data-category="${issue.category}"
                   th:data-description="${issue.description}">Apply Fix
           </button>
@@ -204,6 +247,16 @@
     <!-- Pagination buttons will be dynamically added here -->
   </div>
 </div>
+
+<!-- Modal -->
+<div id="progressModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <div id="progressBar" style="width: 0%; height: 30px; background-color: #4CAF50; text-align: center; line-height: 30px; color: white;"></div>
+    <div id="progressText" style="margin-top: 20px; white-space: pre-line;">Request sent to application...</div>
+  </div>
+</div>
+
 <script>
   document.addEventListener('DOMContentLoaded', function () {
       const searchInput = document.getElementById('searchInput');
@@ -215,6 +268,9 @@
       const fixMoreButton = document.getElementById('fixMoreButton');
       const checkboxes = document.getElementsByClassName('issue-checkbox');
       const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+
+      // Hide loading indicator by default
+      loadingIndicator.style.display = 'none';
 
       function filterTable() {
           const searchTerm = searchInput.value.toLowerCase();
@@ -272,6 +328,11 @@
       // Initial pagination setup
       paginateTable(1, 10);
   });
+
+  function closeModal() {
+      const modal = document.getElementById('progressModal');
+      modal.style.display = 'none';
+  }
 </script>
 </body>
 </html>

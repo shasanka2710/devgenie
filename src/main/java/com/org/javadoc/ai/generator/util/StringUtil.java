@@ -16,4 +16,21 @@ public class StringUtil {
         }
         return fullPackageName;
     }
+    public static String cleanJavaCode(String code) {
+        if (code == null || code.isBlank()) {
+            return code; // Return as is for empty or null input
+        }
+        code = code.trim(); // Remove any leading or trailing whitespace
+        // Remove leading ```java (case insensitive)
+        if (code.toLowerCase().startsWith("```java")) {
+            code = code.substring(7).trim(); // Remove "```java" (7 characters)
+        } else if (code.toLowerCase().startsWith("```")) {
+            code = code.substring(3).trim(); // Remove "```" if no "java" present
+        }
+        // Remove trailing ```
+        if (code.endsWith("```")) {
+            code = code.substring(0, code.length() - 3).trim(); // Remove last "```" (3 characters)
+        }
+        return code;
+    }
 }

@@ -1,101 +1,82 @@
 <!DOCTYPE html>
-<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{base.html}">
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:th="http://www.thymeleaf.org"
+      layout:decorate="~{base.html}">
 <head>
-  <title>Project Dashboard</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <style>
-    body {
-      background-color: #f8f9fa;
-      font-family: 'Arial', sans-serif;
-    }
-    h1, h2 {
-      text-align: center;
-      margin-top: 20px;
-      color: #343a40;
-    }
-    p {
-      text-align: center;
-      color: #6c757d;
-      font-size: 1.1rem;
-    }
-    .card {
-      margin-bottom: 20px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      transition: transform 0.2s, box-shadow 0.2s;
-      border: none;
-      border-radius: 10px;
-    }
-    .card:hover {
-      transform: scale(1.05);
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-    }
-    .card-title {
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: #007bff;
-    }
-    .card-text {
-      font-size: 1.25rem;
-      color: #343a40;
-    }
-    hr {
-      border-top: 2px solid #007bff;
-      width: 50%;
-      margin: 20px auto;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engineering Metrics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body data-page="dashboard">
+<body>
 <div layout:fragment="content">
-  <h1>Project Dashboard</h1>
-  <p>Key metrics and insights for the project:</p>
-  <h2>Repository Metrics</h2>
-  <div class="row justify-content-center">
-    <div class="col-md-5">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Total Number of Classes</h5>
-          <p class="card-text" th:text="${totalClasses}">0</p>
-        </div>
-      </div>
+    <h2 class="section-title">Engineering Metrics Dashboard</h2>
+
+    <!-- Debug Statements -->
+    <div th:if="${dashboardMetrics == null}">
+        <p style="color: red;">dashboardMetrics is null!</p>
     </div>
-    <div class="col-md-5">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Total Number of Methods</h5>
-          <p class="card-text" th:text="${totalMethods}">0</p>
-        </div>
-      </div>
+    <div th:if="${dashboardMetrics.sonarMetrics == null}">
+        <p style="color: red;">sonarMetrics is null!</p>
     </div>
-  </div>
-  <hr/>
-  <h2>Financial Impact</h2>
-  <div class="row justify-content-center mt-4">
-    <div class="col-md-3">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Total Sonar Issues</h5>
-          <p class="card-text" th:text="${totalSonarIssues}">0</p>
-        </div>
-      </div>
+    <div th:if="${dashboardMetrics.pullRequestMetrics == null}">
+        <p style="color: red;">pullRequestMetrics is null!</p>
     </div>
-    <div class="col-md-3">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Total Effort (Minutes)</h5>
-          <p class="card-text" th:text="${totalEffortMinutes}">0</p>
+
+    <div class="dashboard-container">
+        <!-- SonarQube Metrics Section -->
+        <div class="metric-section">
+            <h2 class="section-title">SonarQube Metrics</h2>
+
+            <div class="metric-card">
+                <div class="metric-value" th:text="${dashboardMetrics.sonarMetrics.totalIssuesCount}">1,452</div>
+                <div class="metric-label">Total Issues Count</div>
+            </div>
+
+            <div class="metric-card highlight-card">
+                <div class="metric-value time-saved" th:text="${dashboardMetrics.sonarMetrics.techDebtTime}">650h</div>
+                <div class="metric-label">Technical Debt Time</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-value currency" th:text="${dashboardMetrics.sonarMetrics.dollarImpact}">$184k</div>
+                <div class="metric-label">Estimated Dollar Impact</div>
+            </div>
         </div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Total Dollar Value Saved</h5>
-          <p class="card-text" th:text="${totalDollarValueSave}">0</p>
+
+        <!-- Automatic Bug Fix Metrics Section -->
+        <div class="metric-section">
+            <h2 class="section-title">Automatic Bug Fix Metrics</h2>
+
+            <div class="metric-card">
+                <div class="metric-value" th:text="${dashboardMetrics.pullRequestMetrics.prCreatedCount}">78</div>
+                <div class="metric-label">PRs Created</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-value" th:text="${dashboardMetrics.pullRequestMetrics.issuesResolved}">142</div>
+                <div class="metric-label">Issues Resolved</div>
+            </div>
+
+            <div class="metric-card highlight-card">
+                <div class="metric-value time-saved" th:text="${dashboardMetrics.pullRequestMetrics.engineeringTimeSaved}">320h</div>
+                <div class="metric-label">Engineering Time Saved</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-value currency" th:text="${dashboardMetrics.pullRequestMetrics.costSavings}">$64k</div>
+                <div class="metric-label">Cost Savings</div>
+            </div>
         </div>
-      </div>
+
+        <!-- Time Savings Visualization -->
+        <div class="metric-section">
+            <h2 class="section-title">Time Savings Breakdown</h2>
+            <div class="chart-container">
+                <canvas id="timeChart"></canvas>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 </body>
 </html>

@@ -1,6 +1,8 @@
 package com.org.javadoc.ai.generator.controller;
 
 import com.org.javadoc.ai.generator.service.IssueFixService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +16,7 @@ import java.util.UUID;
 public class IssueFixController {
 
     private final IssueFixService fixService;
+    private final static Logger logger = LoggerFactory.getLogger(IssueFixController.class);
 
     public IssueFixController(IssueFixService fixService) {
         this.fixService = fixService;
@@ -32,6 +35,7 @@ public class IssueFixController {
 
     @GetMapping("/fix-status/{operationId}")
     public ResponseEntity<?> getFixStatus(@PathVariable String operationId) {
+        logger.info("Operation progress status check ...{}", operationId);
         List<String> step = fixService.getStatus(operationId);
         return ResponseEntity.ok(Map.of("step", step));
     }
