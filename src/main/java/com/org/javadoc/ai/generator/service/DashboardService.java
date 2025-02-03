@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
-
 import static com.org.javadoc.ai.generator.util.ConverterUtil.convertToHours;
 
 @Slf4j
@@ -56,8 +55,8 @@ public class DashboardService {
         PullRequestModel pullRequestModel = new PullRequestModel();
         pullRequestModel.setPrCreatedCount(totalPRs);
         pullRequestModel.setIssuesResolved(totalIssuesResolved);
-        pullRequestModel.setEngineeringTimeSaved(convertToHours(totalEngineeringTimeSaved)+" hours");
-        pullRequestModel.setCostSavings("$"+totalCostSavings);
+        pullRequestModel.setEngineeringTimeSaved(convertToHours(totalEngineeringTimeSaved) + " hours");
+        pullRequestModel.setCostSavings("$" + totalCostSavings);
         // Format the consolidated data
         String result = String.format("Total Pull Requests Created: %d%nTotal Issues Resolved: %d%nTotal Engineering Time Saved: %s%nTotal Cost Savings: %s", totalPRs, totalIssuesResolved, totalEngineeringTimeSaved, totalCostSavings);
         log.info("Consolidated Metrics: " + result);
@@ -67,32 +66,10 @@ public class DashboardService {
     // Helper method to add engineering time saved
     private int addTime(int totalTime, int newTime) {
         return totalTime + newTime;
-
-    }
-
-    // Helper method to extract time in minutes from string
-    private int extractTimeInMinutes(String timeString) {
-        try {
-            String[] parts = timeString.split(" ");
-            return Integer.parseInt(parts[0]);
-        } catch (Exception e) {
-            return 0;
-        }
     }
 
     // Helper method to add cost savings
     private double addCost(double totalCost, double newCost) {
         return totalCost + newCost;
-
-    }
-
-    // Helper method to extract cost from string
-    private int extractCost(String costString) {
-        try {
-            String amount = costString.replace("$", "").trim();
-            return Integer.parseInt(amount);
-        } catch (Exception e) {
-            return 0;
-        }
     }
 }
