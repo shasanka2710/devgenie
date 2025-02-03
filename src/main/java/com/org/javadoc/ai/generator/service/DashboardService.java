@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
+import static com.org.javadoc.ai.generator.util.ConverterUtil.convertToHours;
+
 @Slf4j
 @Service
 public class DashboardService {
@@ -43,8 +45,8 @@ public class DashboardService {
         List<PullRequestMetrics> allMetrics = pullRequestMetricsRepository.findAll();
         int totalPRs = allMetrics.size();
         int totalIssuesResolved = 0;
-        String totalEngineeringTimeSaved = "0 minutes";
-        String totalCostSavings = "$0";
+        int totalEngineeringTimeSaved = 0;
+        double totalCostSavings = 0.0;
         // Iterate through the list and consolidate data
         for (PullRequestMetrics metrics : allMetrics) {
             totalIssuesResolved += metrics.getIssuesResolved();
@@ -54,8 +56,8 @@ public class DashboardService {
         PullRequestModel pullRequestModel = new PullRequestModel();
         pullRequestModel.setPrCreatedCount(totalPRs);
         pullRequestModel.setIssuesResolved(totalIssuesResolved);
-        pullRequestModel.setEngineeringTimeSaved(totalEngineeringTimeSaved);
-        pullRequestModel.setCostSavings(totalCostSavings);
+        pullRequestModel.setEngineeringTimeSaved(convertToHours(totalEngineeringTimeSaved)+" hours");
+        pullRequestModel.setCostSavings("$"+totalCostSavings);
         // Format the consolidated data
         String result = String.format("Total Pull Requests Created: %d%nTotal Issues Resolved: %d%nTotal Engineering Time Saved: %s%nTotal Cost Savings: %s", totalPRs, totalIssuesResolved, totalEngineeringTimeSaved, totalCostSavings);
         log.info("Consolidated Metrics: " + result);
@@ -63,12 +65,9 @@ public class DashboardService {
     }
 
     // Helper method to add engineering time saved
-    private String addTime(String totalTime, String newTime) {
-        // Example of extracting minutes from "30 minutes" format
-        int totalMinutes = extractTimeInMinutes(totalTime);
-        int newMinutes = extractTimeInMinutes(newTime);
-        int updatedMinutes = totalMinutes + newMinutes;
-        return updatedMinutes + " minutes";
+    private int addTime(int totalTime, int newTime) {
+        return totalTime + newTime;
+
     }
 
     // Helper method to extract time in minutes from string
@@ -82,12 +81,9 @@ public class DashboardService {
     }
 
     // Helper method to add cost savings
-    private String addCost(String totalCost, String newCost) {
-        // Example of extracting dollars from "$10" format
-        int totalAmount = extractCost(totalCost);
-        int newAmount = extractCost(newCost);
-        int updatedAmount = totalAmount + newAmount;
-        return "$" + updatedAmount;
+    private double addCost(double totalCost, double newCost) {
+        return totalCost + newCost;
+
     }
 
     // Helper method to extract cost from string

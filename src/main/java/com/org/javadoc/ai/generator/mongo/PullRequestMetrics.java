@@ -5,7 +5,9 @@ import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Document(collection = "pull_request_metrics")
+import java.time.LocalDateTime;
+
+@Document(collection = "pullrequest_metrics")
 @Getter
 @Setter
 public class PullRequestMetrics {
@@ -16,6 +18,7 @@ public class PullRequestMetrics {
     private String pullRequestUrl;
     private int prCreatedCount;
     private int issuesResolved;
-    private String engineeringTimeSaved;
-    private String costSavings;
+    private int engineeringTimeSaved;
+    private double costSavings;
+    private LocalDateTime createdDateTime;
 }

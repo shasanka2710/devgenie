@@ -23,6 +23,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.org.javadoc.ai.generator.util.ConverterUtil.convertToHours;
+import static com.org.javadoc.ai.generator.util.ConverterUtil.roundToTwoDecimalPlaces;
+
 @Service
 public class SonarService {
 
@@ -77,8 +80,7 @@ public class SonarService {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
             if (response.getStatusCode().is2xxSuccessful()) {
                 logger.info("Fetched issues from Sonar successfully.");
-                // Async call via injected dependency
-                saveIssuesToMongoAsync(response.getBody());
+                saveIssuesToMongo(response.getBody());
                 return response.getBody();
             } else {
                 logger.error("Failed to fetch issues from Sonar. Status: {}", response.getStatusCode());
@@ -121,8 +123,8 @@ public class SonarService {
         try {
             JsonNode rootNode = getRootNode();
             sonarMetricsModel.setTotalIssuesCount(rootNode.get("total").asInt());
-            sonarMetricsModel.setTechDebtTime(rootNode.get("effortTotal").asText());
-            sonarMetricsModel.setDollarImpact(rootNode.get("effortTotal").asInt() * dollarValuePerMinute);
+            sonarMetricsModel.setTechDebtTime(convertToHours(rootNode.get("effortTotal").asText())+" hours");
+            sonarMetricsModel.setDollarImpact("$ "+roundToTwoDecimalPlaces(rootNode.get("effortTotal").asInt() * dollarValuePerMinute));
         } catch (IOException e) {
             logger.error("Error fetching Sonar metrics: ", e);
         }
@@ -134,14 +136,10 @@ public class SonarService {
         return objectMapper.readTree(fetchIssuesFromSonar());
     }
 
-    @Async
-    public void saveIssuesToMongoAsync(String responseBody) {
-        saveIssuesToMongo(responseBody);
-    }
-
     private void saveIssuesToMongo(String responseBody) {
         try {
             MongoCollection<Document> collection = mongoTemplate.getCollection("sonarissues");
+
             List<Document> newDocuments = new ArrayList<>();
             Set<String> existingIssueKeys = new HashSet<>();
 

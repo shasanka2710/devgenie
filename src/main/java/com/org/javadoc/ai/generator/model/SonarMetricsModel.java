@@ -8,5 +8,5 @@ import lombok.Setter;
 public class SonarMetricsModel {
     private int totalIssuesCount;
     private String techDebtTime;
-    private double dollarImpact;
+    private String dollarImpact;
 }

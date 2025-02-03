@@ -1,5 +1,7 @@
 package com.org.javadoc.ai.generator.service;
 
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
 import com.org.javadoc.ai.generator.github.GitHubUtility;
 import com.org.javadoc.ai.generator.model.ClassDescription;
 import com.org.javadoc.ai.generator.mongo.PullRequestMetrics;
@@ -7,6 +9,7 @@ import com.org.javadoc.ai.generator.mongo.PullRequestMetricsRepository;
 import com.org.javadoc.ai.generator.parser.JavaCodeParser;
 import com.org.javadoc.ai.generator.util.PathConverter;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.conversions.Bson;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.bson.Document;
@@ -16,6 +19,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,7 +60,7 @@ public class IssueFixService {
             for (Map.Entry<String, Set<String>> entry : sonarIssues.entrySet()) {
                 String className = entry.getKey();
                 Set<String> description = entry.getValue();
-                operationProgress.get(operationId).add("⚙\uFE0F Identifying the Fix with LLM model for " + sonarIssues.size() + " classes ...");
+                operationProgress.get(operationId).add("⚙\uFE0F Identifying the Fix with LLM model for " + sonarIssues.size() + " class(es)!");
                 String fixedCode = identifyFix(className, description);
                 operationProgress.get(operationId).add("✅ Identifying the Fix with LLM model for " + getclassDisplayName(className) + " ...DONE!");
                 boolean isValidCode = javaCodeParser.isValidJavaCode(fixedCode);
@@ -99,26 +103,25 @@ public class IssueFixService {
     private void calculateAndSavePullRequestMetrics(int resolvedIssues, List<ClassDescription> classDescriptions) {
         int prCreatedCount = 1;
         int issuesResolved = resolvedIssues;
-        String engineeringTimeSaved = "Approx. " + (resolvedIssues * 30) + " minutes";
-        String costSavings = "$" + (resolvedIssues * 10);
+        MongoCollection<Document> collection = mongoTemplate.getCollection("sonarissues");
 
         // Iterate over the classDescriptions to fetch the issue key for each class
         for (ClassDescription classDescription : classDescriptions) {
-            String issueKey = classDescription.getKey();  // Get the issue key from ClassDescription
-
-            // Query the SonarIssues collection based on the issue key
-            // Assume that you have a SonarIssuesRepository to fetch the issue details by key
-            Document sonarIssue = mongoTemplate.getCollection("SonarIssues").find(eq("key", issueKey)).first();
-
-            if (!sonarIssue.isEmpty()) {
+            String issueKey = classDescription.getKey();
+            // Get the issue key from ClassDescription
+            Bson filter = eq("key", issueKey);
+            MongoCursor<Document> cursor = collection.find(filter).iterator();
+            if (cursor.hasNext()) {
+                Document sonarIssue = cursor.next();
                 // Save Pull Request metrics with data retrieved from SonarIssues
                 PullRequestMetrics metrics = new PullRequestMetrics();
                 metrics.setGitRepoName(sonarIssue.get("project").toString());
 
                 metrics.setPrCreatedCount(prCreatedCount);
                 metrics.setIssuesResolved(issuesResolved);
-                metrics.setEngineeringTimeSaved(sonarIssue.get("effort").toString());
+                metrics.setEngineeringTimeSaved(extractMinutes(sonarIssue.get("effort").toString()));
                 metrics.setCostSavings(extractAndMultiplyEffort(sonarIssue.get("effort").toString()));
+                metrics.setCreatedDateTime(new Date().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime());
                 // Save the metrics in the repository
                 pullRequestMetricsRepository.save(metrics);
                 log.info("Pull Request Metrics saved for issue: " + issueKey);
@@ -126,17 +129,17 @@ public class IssueFixService {
         }
     }
 
-    public String extractAndMultiplyEffort(String effort) {
+    public int extractMinutes(String effort) {
         // Extract the number from the string (assuming the format is always a number followed by "min")
         String numberString = effort.replaceAll("[^0-9]", "");  // Removes any non-numeric characters
-
         // Convert the number to an integer
-        int number = Integer.parseInt(numberString);
+        return Integer.parseInt(numberString);
+    }
 
+    public double extractAndMultiplyEffort(String effort) {
+        // Extract the number from the string (assuming the format is always a number followed by "min")
         // Multiply by dollarValuePerMinute to get the cost savings
-        double result = number * dollarValuePerMinute;
-
         // Return the result as a string prefixed with '$'
-        return "$" + result;
+        return extractMinutes(effort) * dollarValuePerMinute;
     }
 }

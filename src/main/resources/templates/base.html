@@ -176,7 +176,7 @@ function filterIssues(selectedType) {
                           progressBar.style.width = Math.min(progress, 100) + '%';
 
                           // Stop polling if process is completed or failed
-                          if (data.step.some(event => event.includes('Completed'))) {
+                          if (data.step.some(event => event.includes('✅ Completed'))) {
                               clearInterval(interval);
                               progressText.innerHTML += '<p style="color: green;">✅ Fix applied successfully!</p>';
                               progressBar.style.width = '100%';
@@ -192,7 +192,7 @@ function filterIssues(selectedType) {
                           progressText.innerHTML += `<p style="color: orange;">⚠ Error checking progress.</p>`;
                           clearInterval(interval);
                       });
-              }, 750);
+              }, 1000);
           }
 
             function applyFix(button, key, className, description) {

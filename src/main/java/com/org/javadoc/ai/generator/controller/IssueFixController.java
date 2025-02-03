@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,7 +16,7 @@ import java.util.UUID;
 @RequestMapping("/sonar/issue")
 public class IssueFixController {
 
-    private static final Logger logger = LoggerFactory.getLogger(IssueFixController.class); // Reordered modifier
+    private static final Logger logger = LoggerFactory.getLogger(IssueFixController.class);
 
     private final IssueFixService fixService;
 
