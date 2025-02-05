@@ -1,11 +1,11 @@
 package com.org.javadoc.ai.generator.controller;
 
+import com.org.javadoc.ai.generator.exception.DocGenerationException;
 import com.org.javadoc.ai.generator.service.DocGeneratorService;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.io.IOException;
 
 @RestController
@@ -13,7 +13,7 @@ public class AiJavaDocGenerationController {
 
     private final DocGeneratorService docGeneratorService;
 
-    public AiJavaDocGenerationController(DocGeneratorService docGeneratorService) { // Constructor injection
+    public AiJavaDocGenerationController(DocGeneratorService docGeneratorService) {
         this.docGeneratorService = docGeneratorService;
     }
 
@@ -22,10 +22,8 @@ public class AiJavaDocGenerationController {
         try {
             docGeneratorService.generateDocs(inputType, source, configFilePath, gitBranch);
             return "Documentation generated successfully at: " + source;
-        } catch (IOException e) {
-            return "Error generating documentation: " + e.getMessage();
-        } catch (GitAPIException e) {
-            throw new RuntimeException(e);
-        }
+        } catch (IOException | GitAPIException e) {
+            throw new DocGenerationException("Error generating documentation: " + e.getMessage(), e);
+        } 
     }
 }
