@@ -8,11 +8,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
-
 import static com.org.javadoc.ai.generator.util.StringUtil.getclassDisplayName;
 
 @Slf4j
@@ -34,7 +31,8 @@ public class SonarController {
             List<String> issueTypes = getDistinctIssueTypes(issues);
             List<String> softwareQualities = getDistinctSoftwareQualities(issues);
             if (filterType != null && !filterType.isEmpty()) {
-                issues = issues.stream().filter(issue -> issue.getSoftwareQuality().contains(filterType)).collect(Collectors.toList());
+                // Use Stream.toList() for better performance and conciseness
+                issues = issues.stream().filter(issue -> issue.getSoftwareQuality().contains(filterType)).toList();
             }
             issues.forEach(issue -> issue.setClassName(getclassDisplayName(issue.getCategory())));
             model.addAttribute("issues", issues);
@@ -49,10 +47,12 @@ public class SonarController {
     }
 
     private List<String> getDistinctSoftwareQualities(List<SonarIssue> issues) {
-        return issues.stream().flatMap(issue -> issue.getSoftwareQuality().stream()).distinct().collect(Collectors.toList());
+        // Use Stream.toList() for better performance and conciseness
+        return issues.stream().flatMap(issue -> issue.getSoftwareQuality().stream()).distinct().toList();
     }
 
     private List<String> getDistinctIssueTypes(List<SonarIssue> issues) {
-        return issues.stream().map(SonarIssue::getType).distinct().collect(Collectors.toList());
+        // Use Stream.toList() for better performance and conciseness
+        return issues.stream().map(SonarIssue::getType).distinct().toList();
     }
 }
