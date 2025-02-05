@@ -64,14 +64,10 @@ public class JavaCodeParser {
             return;
         }
         String className = typeDeclaration.get().getNameAsString();
-        //Class level Java documentation
-        //  Javadoc classJavadoc = createOrUpdateClassJavadoc(typeDeclaration.get(), className);
-        // typeDeclaration.get().setJavadocComment(classJavadoc);
         //Method Iteration
         for (MethodDeclaration method : cu.findAll(MethodDeclaration.class)) {
             //Identifying cyclomatic complexity
             //method level java documentation
-            // Fixed: Conditionally invoke aiCommentGenerator
             Javadoc javadoc = appConfig.isEnableAi() && aiCommentGenerator != null ? createOrUpdateMethodDoc(method, className) : createOrUpdateMethodDoc(method);
             method.setJavadocComment(javadoc);
             // Generate call graph
@@ -100,14 +96,12 @@ public class JavaCodeParser {
         Javadoc javadoc = typeDeclaration.getJavadoc().orElse(new Javadoc(new JavadocDescription()));
         // Update main description for the class
         if (javadoc.getDescription().isEmpty()) {
-            // Fixed: Conditionally invoke aiCommentGenerator
             String classDescription = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.generateClassComment(typeDeclaration.toString(), className) : "TODO: Add class description here.";
             javadoc = new Javadoc(JavadocDescription.parseText(classDescription));
         }
         return javadoc;
     }
 
-    // Fixed: Method overloading to handle cases where AI comment generation is disabled
     private Javadoc createOrUpdateMethodDoc(MethodDeclaration method) {
         Javadoc javadoc = method.getJavadoc().orElse(new Javadoc(new JavadocDescription()));
         // Update main description
@@ -156,8 +150,6 @@ public class JavaCodeParser {
         });
     }
 
-   // Removed unused method: calculateCyclomaticComplexity
-
     private void generateCallGraph(MethodDeclaration method, File javaFile) throws IOException {
         String methodName = method.getNameAsString();
         String relativePath = javaFile.getPath().replaceFirst("uploads", "call-graph");
@@ -194,8 +186,7 @@ public class JavaCodeParser {
         String classDescription = "Description of " + className;
         List<String> fields = typeDeclaration.getFields().stream().map(FieldDeclaration::toString).collect(Collectors.toList());
         List<String> constructors = typeDeclaration.getConstructors().stream().map(ConstructorDeclaration::getNameAsString).collect(Collectors.toList());
-        // Fixed: Using Stream.toList() for better performance
-        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).toList();
+        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList());
         return new ClassDetails(className, classDescription, fields, constructors, methods);
     }
 
