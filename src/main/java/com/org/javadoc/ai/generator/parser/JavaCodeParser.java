@@ -64,9 +64,7 @@ public class JavaCodeParser {
             return;
         }
         String className = typeDeclaration.get().getNameAsString();
-        //Class level Java documentation
-        //  Javadoc classJavadoc = createOrUpdateClassJavadoc(typeDeclaration.get(), className);
-        // typeDeclaration.get().setJavadocComment(classJavadoc);
+        // Removed: Block of commented-out lines
         //Method Iteration
         for (MethodDeclaration method : cu.findAll(MethodDeclaration.class)) {
             //Identifying cyclomatic complexity
@@ -156,8 +154,7 @@ public class JavaCodeParser {
         });
     }
 
-   // Removed unused method: calculateCyclomaticComplexity
-
+    // Removed unused method: calculateCyclomaticComplexity
     private void generateCallGraph(MethodDeclaration method, File javaFile) throws IOException {
         String methodName = method.getNameAsString();
         String relativePath = javaFile.getPath().replaceFirst("uploads", "call-graph");
