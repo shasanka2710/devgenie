@@ -3,15 +3,16 @@ package com.org.javadoc.ai.generator.controller;
 import com.org.javadoc.ai.generator.model.SonarIssue;
 import com.org.javadoc.ai.generator.service.SonarService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import static com.org.javadoc.ai.generator.util.StringUtil.getclassDisplayName;
 
 @Slf4j
@@ -19,8 +20,11 @@ import static com.org.javadoc.ai.generator.util.StringUtil.getclassDisplayName;
 @RequestMapping("/sonar")
 public class SonarController {
 
-    @Autowired
-    private SonarService sonarService;
+    private final SonarService sonarService;
+
+    public SonarController(SonarService sonarService) {
+        this.sonarService = sonarService;
+    }
 
     @GetMapping("/issues")
     public String getIssues(@RequestParam(value = "filterType", required = false) String filterType, Model model) {
@@ -30,10 +34,8 @@ public class SonarController {
             List<String> issueTypes = getDistinctIssueTypes(issues);
             List<String> softwareQualities = getDistinctSoftwareQualities(issues);
             if (filterType != null && !filterType.isEmpty()) {
-                // Replaced 'Stream.collect(Collectors.toList())' with 'Stream.toList()'
-                issues = issues.stream().filter(issue -> issue.getSoftwareQuality().contains(filterType)).toList();
+                issues = issues.stream().filter(issue -> issue.getSoftwareQuality().contains(filterType)).collect(Collectors.toList());
             }
-            // Replaced lambda with method reference
             issues.forEach(issue -> issue.setClassName(getclassDisplayName(issue.getCategory())));
             model.addAttribute("issues", issues);
             model.addAttribute("issueTypes", issueTypes);
@@ -46,14 +48,11 @@ public class SonarController {
         }
     }
 
-    // Removed useless curly braces around statement
     private List<String> getDistinctSoftwareQualities(List<SonarIssue> issues) {
-        // Replaced 'Stream.collect(Collectors.toList())' with 'Stream.toList()'
-        return issues.stream().flatMap(issue -> issue.getSoftwareQuality().stream()).distinct().toList();
+        return issues.stream().flatMap(issue -> issue.getSoftwareQuality().stream()).distinct().collect(Collectors.toList());
     }
 
     private List<String> getDistinctIssueTypes(List<SonarIssue> issues) {
-        // Replaced 'Stream.collect(Collectors.toList())' with 'Stream.toList()'
-        return issues.stream().map(SonarIssue::getType).distinct().toList();
+        return issues.stream().map(SonarIssue::getType).distinct().collect(Collectors.toList());
     }
 }
