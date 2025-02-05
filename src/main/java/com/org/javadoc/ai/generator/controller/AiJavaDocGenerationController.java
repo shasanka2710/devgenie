@@ -18,7 +18,7 @@ public class AiJavaDocGenerationController {
     }
 
     @PostMapping("/generate")
-    public String generateDocs(@RequestParam String inputType, @RequestParam String source, @RequestParam(required = false) String configFilePath, @RequestParam(required = false) String gitBranch) {
+    public String generateDocs(@RequestParam String inputType, @RequestParam String source, @RequestParam(required = false) String configFilePath, @RequestParam(required = false) String gitBranch) throws DocGenerationException {
         try {
             docGeneratorService.generateDocs(inputType, source, configFilePath, gitBranch);
             return "Documentation generated successfully at: " + source;

@@ -5,7 +5,6 @@ import com.org.javadoc.ai.generator.model.PackageDetails;
 import com.org.javadoc.ai.generator.parser.JavaCodeParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,8 +20,12 @@ import java.util.List;
 public class DocumentationController {
 
     private static final Logger logger = LoggerFactory.getLogger(DocumentationController.class);
-    @Autowired
-    private JavaCodeParser javaCodeParser;
+
+    private final JavaCodeParser javaCodeParser;
+
+    public DocumentationController(JavaCodeParser javaCodeParser) { // Constructor injection
+        this.javaCodeParser = javaCodeParser;
+    }
 
     @GetMapping
     public String getPackages(Model model) {
@@ -44,20 +47,16 @@ public class DocumentationController {
     @GetMapping("/package/{packagePath}/class/{className}")
     public String getClassDetails(@PathVariable String packagePath, @PathVariable String className, Model model) {
         try {
-            File javaFile = new File("src/main/java/" + packagePath.replace(".","/") + "/" + className + ".java");
+            File javaFile = new File("src/main/java/" + packagePath.replace(".", "/") + "/" + className + ".java");
             ClassDetails classDetails = javaCodeParser.parseClassDetails(javaFile);
-
             model.addAttribute("fields", classDetails.getFields());
             model.addAttribute("constructors", classDetails.getConstructors());
             model.addAttribute("methods", classDetails.getMethods());
             model.addAttribute("title", "Details for " + className);
             model.addAttribute("description", "Here are the details for " + className);
-
         } catch (IOException e) {
             model.addAttribute("message", "Failed to parse class details: " + e.getMessage());
         }
-
         return "class-details";
     }
 }
-
