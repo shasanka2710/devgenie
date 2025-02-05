@@ -14,7 +14,7 @@ import java.util.Map;
 public class SearchController {
 
     @PostMapping("/semantic-search")
-    public ResponseEntity<?> performSemanticSearch(@RequestBody Map<String, String> request) {
+    public ResponseEntity<Map<String, String>> performSemanticSearch(@RequestBody Map<String, String> request) {
         String prompt = request.get("prompt");
         // Call your LLM service with the prompt and get the response
         String llmResponse = callLLMService(prompt);
