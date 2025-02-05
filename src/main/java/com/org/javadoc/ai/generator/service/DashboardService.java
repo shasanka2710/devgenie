@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import static com.org.javadoc.ai.generator.util.ConverterUtil.convertToHours;
+import static com.org.javadoc.ai.generator.util.ConverterUtil.roundToTwoDecimalPlaces;
 
 @Slf4j
 @Service
@@ -56,7 +57,7 @@ public class DashboardService {
         pullRequestModel.setPrCreatedCount(totalPRs);
         pullRequestModel.setIssuesResolved(totalIssuesResolved);
         pullRequestModel.setEngineeringTimeSaved(convertToHours(totalEngineeringTimeSaved) + " hours");
-        pullRequestModel.setCostSavings("$" + totalCostSavings);
+        pullRequestModel.setCostSavings("$" + roundToTwoDecimalPlaces(totalCostSavings));
         // Format the consolidated data
         String result = String.format("Total Pull Requests Created: %d%nTotal Issues Resolved: %d%nTotal Engineering Time Saved: %s%nTotal Cost Savings: %s", totalPRs, totalIssuesResolved, totalEngineeringTimeSaved, totalCostSavings);
         log.info("Consolidated Metrics: " + result);

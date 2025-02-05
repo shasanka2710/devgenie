@@ -23,7 +23,6 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-
 import static com.mongodb.client.model.Filters.eq;
 import static com.org.javadoc.ai.generator.util.GroupByKeys.groupByKeys;
 import static com.org.javadoc.ai.generator.util.StringUtil.getclassDisplayName;
@@ -39,11 +38,12 @@ public class IssueFixService {
     private final GitHubUtility gitHubUtility;
 
     private final PullRequestMetricsRepository pullRequestMetricsRepository;
+
     private final MongoTemplate mongoTemplate;
+
     private final double dollarValuePerMinute;
 
-    public IssueFixService(JavaCodeParser javaCodeParser, GitHubUtility gitHubUtility, PullRequestMetricsRepository pullRequestMetricsRepository, MongoTemplate mongoTemplate,
-                           @Value("${developer.dollarValuePerMinute}") double dollarValuePerMinute) {
+    public IssueFixService(JavaCodeParser javaCodeParser, GitHubUtility gitHubUtility, PullRequestMetricsRepository pullRequestMetricsRepository, MongoTemplate mongoTemplate, @Value("${developer.dollarValuePerMinute}") double dollarValuePerMinute) {
         this.javaCodeParser = javaCodeParser;
         this.gitHubUtility = gitHubUtility;
         this.pullRequestMetricsRepository = pullRequestMetricsRepository;
@@ -104,7 +104,6 @@ public class IssueFixService {
         int prCreatedCount = 1;
         int issuesResolved = resolvedIssues;
         MongoCollection<Document> collection = mongoTemplate.getCollection("sonarissues");
-
         // Iterate over the classDescriptions to fetch the issue key for each class
         for (ClassDescription classDescription : classDescriptions) {
             String issueKey = classDescription.getKey();
@@ -116,7 +115,6 @@ public class IssueFixService {
                 // Save Pull Request metrics with data retrieved from SonarIssues
                 PullRequestMetrics metrics = new PullRequestMetrics();
                 metrics.setGitRepoName(sonarIssue.get("project").toString());
-
                 metrics.setPrCreatedCount(prCreatedCount);
                 metrics.setIssuesResolved(issuesResolved);
                 metrics.setEngineeringTimeSaved(extractMinutes(sonarIssue.get("effort").toString()));
@@ -131,7 +129,8 @@ public class IssueFixService {
 
     public int extractMinutes(String effort) {
         // Extract the number from the string (assuming the format is always a number followed by "min")
-        String numberString = effort.replaceAll("[^0-9]", "");  // Removes any non-numeric characters
+        // Removes any non-numeric characters using concise character class syntax.
+        String numberString = effort.replaceAll("\\D", "");
         // Convert the number to an integer
         return Integer.parseInt(numberString);
     }
