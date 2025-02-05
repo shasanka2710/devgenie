@@ -25,7 +25,7 @@ public class IssueFixController {
     }
 
     @PostMapping("/apply-fix")
-    public ResponseEntity<?> startFix(@RequestBody List<ClassDescription> classDescriptions) {
+    public ResponseEntity<Map<String, Object>> startFix(@RequestBody List<ClassDescription> classDescriptions) {
         try {
             String operationId = UUID.randomUUID().toString();
             fixService.startFix(operationId, classDescriptions);
@@ -36,7 +36,7 @@ public class IssueFixController {
     }
 
     @GetMapping("/fix-status/{operationId}")
-    public ResponseEntity<?> getFixStatus(@PathVariable String operationId) {
+    public ResponseEntity<Map<String, Object>> getFixStatus(@PathVariable String operationId) {
         logger.info("Operation progress status check ...{}", operationId);
         List<String> step = fixService.getStatus(operationId);
         return ResponseEntity.ok(Map.of("step", step));
