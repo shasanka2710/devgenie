@@ -19,6 +19,7 @@
 - **AI Model:** Google Gemini Vertex 1.5 Pro via Spring AI
 - **Version Control:** GitHub (Automated PRs)
 - **Code Analysis:** SonarQube
+- **Build Tool:** Gradle
 
 ---
 
@@ -53,10 +54,9 @@
 ## 🧩 Installation
 ### **Prerequisites:**
 - Java 17+
-- Maven
+- Gradle
 - Docker (for SonarQube)
-- Google Cloud Project (for Gemini Vertex AI)
-- GitHub API Token
+- **Access Tokens:** SonarQube, GitHub, and Google Gemini API
 
 ### **Clone the Repository:**
 ```bash
@@ -75,8 +75,8 @@ GOOGLE_API_KEY=your_google_api_key
 
 ### **Run the Application:**
 ```bash
-mvn clean install  
-mvn spring-boot:run  
+gradle clean build  
+gradle bootRun  
 ```
 
 ---
