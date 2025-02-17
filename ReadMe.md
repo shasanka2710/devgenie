@@ -1,4 +1,4 @@
-# DevGenie 🪄 – AI-Powered SonarQube Issue Resolver
+# DevGenie 🪄 – AI-Powered Coding Companion
 
 **DevGenie** is an AI-powered utility designed to automate the resolution of SonarQube issues and streamline the software development lifecycle. With its intuitive web interface and automated workflow, DevGenie empowers developers to address code issues efficiently, reducing technical debt and accelerating delivery.
 
@@ -82,7 +82,7 @@ gradle bootRun
 ---
 
 ## 🧪 Usage
-1. **Access the UI:** Open your browser and visit `http://localhost:8080`
+1. **Access the UI:** Open your browser and visit `http://localhost:8080/`
 2. **View Dashboard:** Explore the resolved issues and PR reports.
 3. **Resolve Issues:** Go to the *Insights* screen and click **Fix It** to resolve issues via AI.
 4. **Review PRs:** Navigate to your GitHub repository to review and merge the auto-created pull requests.

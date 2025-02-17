@@ -6,8 +6,8 @@ plugins {
 }
 sonar {
 	properties {
-		property "sonar.projectKey", "javadoc-generator-ai"
-		property "sonar.projectName", "javadoc-generator-ai"
+		property "sonar.projectKey", "devgenie"
+		property "sonar.projectName", "devgenie"
 	}
 }
 
