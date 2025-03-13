@@ -8,7 +8,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 public class LocalFileInputProcessor {
@@ -21,7 +20,7 @@ public class LocalFileInputProcessor {
         if (file.isDirectory()) {
             // Use try-with-resources to ensure the stream is closed.
             try (var filesStream = Files.walk(Paths.get(source))) {
-                return filesStream.filter(Files::isRegularFile).filter(path -> path.toString().endsWith(".java")).map(Path::toFile).collect(Collectors.toList());
+                return filesStream.filter(Files::isRegularFile).filter(path -> path.toString().endsWith(".java")).map(Path::toFile).toList();
             }
         } else if (file.isFile() && source.endsWith(".java")) {
             List<File> files = new ArrayList<>();
