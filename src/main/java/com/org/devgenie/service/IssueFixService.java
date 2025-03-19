@@ -43,6 +43,9 @@ public class IssueFixService {
 
     private final double dollarValuePerMinute;
 
+    @Value("${github.cloned.repo.path}")
+    private String clonedRepoPath;
+
     public IssueFixService(JavaCodeParser javaCodeParser, GitHubUtility gitHubUtility, PullRequestMetricsRepository pullRequestMetricsRepository, MongoTemplate mongoTemplate, @Value("${developer.dollarValuePerMinute}") double dollarValuePerMinute) {
         this.javaCodeParser = javaCodeParser;
         this.gitHubUtility = gitHubUtility;
@@ -53,6 +56,7 @@ public class IssueFixService {
 
     @Async
     public CompletableFuture<String> startFix(String operationId, List<ClassDescription> classDescriptions) {
+        //PathConverter.setClonedRepoPath(clonedRepoPath);
         Map<String, Set<String>> sonarIssues = groupByKeys(classDescriptions);
         int count = 0;
         operationProgress.put(operationId, new ArrayList<>(List.of("\uD83D\uDD04 Analyzing the request for " + sonarIssues.size() + " classes!")));
@@ -93,7 +97,7 @@ public class IssueFixService {
 
     private void applyFix(String className, String fixedCode) throws IOException {
         String filePath = PathConverter.toSlashedPath(className);
-        Files.write(Paths.get(filePath), fixedCode.getBytes());
+        Files.write(Paths.get(clonedRepoPath,filePath), fixedCode.getBytes());
     }
 
     public List<String> getStatus(String operationId) {

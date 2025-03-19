@@ -21,6 +21,10 @@ public class GitHubConfig {
     @Value("${github.default.branch}")
     private String defaultBranch;
 
+    @Value("${github.cloned.repo.path}")
+    private String clonedRepoPath;
+
+
     @Bean
     public GitHub gitHub() {
         try {

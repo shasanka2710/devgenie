@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.org.devgenie.github.GitHubUtility.getRelativePath;
+
 @Component
 public class PullRequestHandler {
 
@@ -53,7 +55,9 @@ public class PullRequestHandler {
             return null; // Void operation
         }, "Creating branch", MAX_RETRIES);
         // Get the list of files to be updated
-        List<String> filePaths = classNames.stream().map(PathConverter::toSlashedPath).toList();
+        List<String> filePaths = classNames.stream()
+                .map(className -> Paths.get(config.getClonedRepoPath(), PathConverter.toSlashedPath(className)).toString())
+                .toList();
         for (String filePath : filePaths) {
             // Update file with retry
             retryOperation(() -> {
@@ -144,18 +148,19 @@ public class PullRequestHandler {
         // Get the content of the file
         String fileContent = Files.readString(Paths.get(filePath));
         // Retrieve the current sha of the file (if it exists)
-        GHContent existingFile = getFileFromRepo(repo, filePath, branchName);
+        String shaFilePath = getRelativePath(filePath,config.getClonedRepoPath());
+        GHContent existingFile = getFileFromRepo(repo, shaFilePath, branchName);
         String sha = (existingFile != null) ? existingFile.getSha() : null;
         // Add or update the file in the branch
         if (sha != null) {
             // If the file exists, update it
-            logger.info("File exists: {}", filePath);
+            logger.info("File exists: {}", shaFilePath);
             // Provide sha for existing file
-            repo.createContent().path(filePath).content(fileContent).message("Apply fix: " + description).sha(sha).branch(branchName).commit();
+            repo.createContent().path(shaFilePath).content(fileContent).message("Apply fix: " + description).sha(sha).branch(branchName).commit();
         } else {
             // If the file doesn't exist, create it
-            logger.info("File doesn't exist: {}", filePath);
-            repo.createContent().path(filePath).content(fileContent).message("Apply fix: " + description).branch(branchName).commit();
+            logger.info("File doesn't exist: {}", shaFilePath);
+            repo.createContent().path(shaFilePath).content(fileContent).message("Apply fix: " + description).branch(branchName).commit();
         }
     }
 

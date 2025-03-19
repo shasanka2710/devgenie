@@ -2,6 +2,13 @@ package com.org.devgenie.util;
 
 public class PathConverter {
 
+    private static String clonedRepoPath = "/tmp/devgenie/repos/";
+
+    // Dynamically update repo path after cloning
+    public static void setClonedRepoPath(String path) {
+        clonedRepoPath = path;
+    }
+
     private PathConverter() {
         // Private constructor to prevent instantiation of this utility class
     }
