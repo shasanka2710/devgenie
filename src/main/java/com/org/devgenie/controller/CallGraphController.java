@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,6 +16,7 @@ import java.nio.file.Paths;
 @Controller
 public class CallGraphController {
 
+    private static final String MESSAGE_ATTRIBUTE = "message"; // Define a constant for "message"
     private final JavaCodeParser javaCodeParser;
 
     public CallGraphController(JavaCodeParser javaCodeParser) {
@@ -31,7 +31,7 @@ public class CallGraphController {
     @PostMapping("/upload")
     public String uploadFile(@RequestParam("file") MultipartFile file, Model model) {
         if (file.isEmpty()) {
-            model.addAttribute("message", "Please select a file to upload.");
+            model.addAttribute(MESSAGE_ATTRIBUTE, "Please select a file to upload.");
             return "index";
         }
         try {
@@ -39,7 +39,7 @@ public class CallGraphController {
             String fileName = file.getOriginalFilename();
             // Handle potential null from getOriginalFilename
             if (fileName == null || fileName.isEmpty()) {
-                model.addAttribute("message", "File name is missing or invalid.");
+                model.addAttribute(MESSAGE_ATTRIBUTE, "File name is missing or invalid.");
                 return "index";
             }
             Path path = Paths.get("uploads/" + fileName);
@@ -52,9 +52,9 @@ public class CallGraphController {
             String callGraphPath = "call-graph/" + fileName.replace(".java", ".txt");
             String callGraph = new String(Files.readAllBytes(Paths.get(callGraphPath)));
             model.addAttribute("callGraph", callGraph);
-            model.addAttribute("message", "File uploaded successfully: " + fileName);
+            model.addAttribute(MESSAGE_ATTRIBUTE, "File uploaded successfully: " + fileName);
         } catch (IOException e) {
-            model.addAttribute("message", "Failed to upload file: " + e.getMessage());
+            model.addAttribute(MESSAGE_ATTRIBUTE, "Failed to upload file: " + e.getMessage());
         }
         return "index";
     }
