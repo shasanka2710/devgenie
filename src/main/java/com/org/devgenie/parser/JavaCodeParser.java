@@ -43,6 +43,7 @@ import static com.org.devgenie.util.StringUtil.cleanJavaCode;
 public class JavaCodeParser {
 
     private static final Logger logger = LoggerFactory.getLogger(JavaCodeParser.class);
+    private static final String DEFAULT_DESCRIPTION_PREFIX = "Description of "; // Fix: Defined a constant for the repeated literal
 
     @Autowired
     private SpringAiCommentGenerator aiCommentGenerator;
@@ -182,10 +183,10 @@ public class JavaCodeParser {
         CompilationUnit cu = StaticJavaParser.parse(javaFile);
         TypeDeclaration<?> typeDeclaration = cu.getPrimaryType().orElseThrow(() -> new IllegalArgumentException("No primary type found"));
         String className = typeDeclaration.getNameAsString();
-        String classDescription = "Description of " + className;
+        String classDescription = DEFAULT_DESCRIPTION_PREFIX + className; // Fix: Using the defined constant
         List<String> fields = typeDeclaration.getFields().stream().map(FieldDeclaration::toString).collect(Collectors.toList());
         List<String> constructors = typeDeclaration.getConstructors().stream().map(ConstructorDeclaration::getNameAsString).collect(Collectors.toList());
-        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList());
+        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText() : DEFAULT_DESCRIPTION_PREFIX + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList()); // Fix: Using the defined constant
         return new ClassDetails(className, classDescription, fields, constructors, methods);
     }
 
@@ -194,7 +195,7 @@ public class JavaCodeParser {
         try {
             Files.walk(Paths.get("src/main/java/com/org/javadoc/ai/generator")).filter(Files::isDirectory).forEach(path -> {
                 String packageName = path.toString().replace("src/main/java/", "").replace("/", ".");
-                packages.add(new PackageDetails(packageName, "Description of " + packageName));
+                packages.add(new PackageDetails(packageName, DEFAULT_DESCRIPTION_PREFIX + packageName)); // Fix: Using the defined constant
             });
         } catch (IOException e) {
             e.printStackTrace();
@@ -210,7 +211,7 @@ public class JavaCodeParser {
                 try {
                     CompilationUnit cu = StaticJavaParser.parse(file);
                     TypeDeclaration<?> typeDeclaration = cu.getPrimaryType().orElseThrow(() -> new IllegalArgumentException("No primary type found"));
-                    classes.add(new ClassDetails(typeDeclaration.getNameAsString(), (typeDeclaration.getJavadocComment() != null) ? typeDeclaration.getJavadocComment().toString() : "TODO: Description of " + typeDeclaration.getNameAsString(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()));
+                    classes.add(new ClassDetails(typeDeclaration.getNameAsString(), (typeDeclaration.getJavadocComment() != null) ? typeDeclaration.getJavadocComment().toString() : "TODO: " + DEFAULT_DESCRIPTION_PREFIX + typeDeclaration.getNameAsString(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>())); // Fix: Using the defined constant
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
