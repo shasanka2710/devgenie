@@ -44,6 +44,8 @@ public class JavaCodeParser {
 
     private static final Logger logger = LoggerFactory.getLogger(JavaCodeParser.class);
 
+    private static final String DESCRIPTION_PREFIX = "Description of ";
+
     @Autowired
     private SpringAiCommentGenerator aiCommentGenerator;
 
@@ -182,10 +184,10 @@ public class JavaCodeParser {
         CompilationUnit cu = StaticJavaParser.parse(javaFile);
         TypeDeclaration<?> typeDeclaration = cu.getPrimaryType().orElseThrow(() -> new IllegalArgumentException("No primary type found"));
         String className = typeDeclaration.getNameAsString();
-        String classDescription = "Description of " + className;
+        String classDescription = DESCRIPTION_PREFIX + className;
         List<String> fields = typeDeclaration.getFields().stream().map(FieldDeclaration::toString).collect(Collectors.toList());
         List<String> constructors = typeDeclaration.getConstructors().stream().map(ConstructorDeclaration::getNameAsString).collect(Collectors.toList());
-        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText() : "Description of " + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList());
+        List<MethodDetails> methods = typeDeclaration.getMethods().stream().map(method -> new MethodDetails(method.getDeclarationAsString(), (method.getJavadoc().isPresent() && method.getJavadoc().get().toText() != null) ? method.getJavadoc().get().toText() : DESCRIPTION_PREFIX + method.getNameAsString(), method.getType().asString(), method.getThrownExceptions().toString())).collect(Collectors.toList());
         return new ClassDetails(className, classDescription, fields, constructors, methods);
     }
 
@@ -194,7 +196,7 @@ public class JavaCodeParser {
         try {
             Files.walk(Paths.get("src/main/java/com/org/javadoc/ai/generator")).filter(Files::isDirectory).forEach(path -> {
                 String packageName = path.toString().replace("src/main/java/", "").replace("/", ".");
-                packages.add(new PackageDetails(packageName, "Description of " + packageName));
+                packages.add(new PackageDetails(packageName, DESCRIPTION_PREFIX + packageName));
             });
         } catch (IOException e) {
             e.printStackTrace();
@@ -210,7 +212,7 @@ public class JavaCodeParser {
                 try {
                     CompilationUnit cu = StaticJavaParser.parse(file);
                     TypeDeclaration<?> typeDeclaration = cu.getPrimaryType().orElseThrow(() -> new IllegalArgumentException("No primary type found"));
-                    classes.add(new ClassDetails(typeDeclaration.getNameAsString(), (typeDeclaration.getJavadocComment() != null) ? typeDeclaration.getJavadocComment().toString() : "TODO: Description of " + typeDeclaration.getNameAsString(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()));
+                    classes.add(new ClassDetails(typeDeclaration.getNameAsString(), (typeDeclaration.getJavadocComment() != null) ? typeDeclaration.getJavadocComment().toString() : "TODO: " + DESCRIPTION_PREFIX + typeDeclaration.getNameAsString(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -225,7 +227,6 @@ public class JavaCodeParser {
         logger.info("Identifying fix using LL model for class: {}", className);
         CompilationUnit cu = getCompilationUnit(className);
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
-        // Fixed: Conditionally invoke aiCommentGenerator
         String fixedCode = (appConfig.isEnableAi() && aiCommentGenerator != null) ? aiCommentGenerator.fixSonarIssues(className, typeDeclaration.get().getParentNode().get().toString(), description) : typeDeclaration.get().toString();
         logger.info("Original code: {}", typeDeclaration.get().getParentNode().get());
         logger.info("Fixed code: {}", fixedCode);
