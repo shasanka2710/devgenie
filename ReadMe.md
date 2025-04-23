@@ -33,7 +33,7 @@
 ---
 
 ## 📊 System Interaction Diagram
-[Placeholder: Insert your system architecture diagram here]
+![SystemDiagram](https://github.com/user-attachments/assets/e2fdaa86-528f-4129-8254-03420bcd753f)
 
 ---
 
