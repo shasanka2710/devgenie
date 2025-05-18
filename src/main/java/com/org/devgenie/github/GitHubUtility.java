@@ -52,31 +52,6 @@ public class GitHubUtility {
         }
     }
 
-    /**
-     * Clone the GitHub repository to /tmp and return the cloned repo path
-     * @param repoUrl GitHub repository URL
-     * @param branchName Target branch name
-     * @return Path of the cloned repository
-     */
-    public String cloneRepositoryToTemp(String repoUrl, String branchName) throws GitAPIException, IOException {
-        return gitCloneUtil.cloneRepository(repoUrl, branchName);
-    }
-
-    /**
-     * Get full file path from SonarQube issue and clone repo for file traversal
-     * @param repoUrl GitHub repository URL
-     * @param branchName Branch name to clone
-     * @param sonarFilePath Relative file path reported by SonarQube
-     * @return Full path to source file
-     */
-    public File getFileForSonarIssue(String repoUrl, String branchName, String sonarFilePath) throws GitAPIException, IOException {
-        // Step 1: Clone the repository
-        String repoPath = cloneRepositoryToTemp(repoUrl, branchName);
-
-        // Step 2: Get full path to the file based on sonar file path
-        return filePathUtil.getSourceFile(repoPath, sonarFilePath);
-    }
-
     public static String getRelativePath(String filePath, String clonedPath) {
         // Normalize paths to avoid platform inconsistencies
         Path fullPath = Paths.get(filePath).normalize();
