@@ -1,5 +1,3 @@
-# 📦 VS Code Plugin for Auto-Fixing SonarLint Issues using Copilot
-
 ## 🧩 Logical Grouping of Requirements
 
 ---

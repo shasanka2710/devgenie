@@ -3,10 +3,10 @@
 ## 1. ✅ Current System (POC) Overview
 
 ### Technology Stack:
-- **Backend**: Spring Boot, JavaParser
+- **Backend**: Spring Boot
 - **Frontend**: Thymeleaf
 - **Database**: MongoDB
-- **Integrations**: GitHub API, SonarQube REST API, LLM (e.g., OpenAI), Docker
+- **Integrations**: GitHub API, SonarQube REST API, LLM (e.g., Gemini Vertex AI)
 
 ### Flow:
 1. GitHub repository URL, SonarQube component key, and access tokens are configured in `application.properties`.
@@ -14,28 +14,36 @@
     - The GitHub repository is cloned.
     - On restart, it fetches the latest changes.
 3. When the user navigates to the *Insights* page:
-    - A REST API call is made to SonarQube using configured token.
+    - A REST API call is made to SonarQube using the configured token.
     - Issues are fetched and stored in MongoDB.
     - Issues are displayed in the UI via a tabular web view.
 4. When the user clicks **Apply Fix**:
-    - UI sends file path and issue description to backend.
+    - UI sends file path and issue description to the backend.
     - Application reads the file from the cloned repo and constructs a prompt for the LLM using the issue + file context.
     - LLM returns fixed code which is applied to the file.
     - Git integration creates a feature branch and opens a Pull Request automatically.
+
+### ✅ Benefits of Current System
+
+| Area                  | Benefit                                                                 |
+|-----------------------|-------------------------------------------------------------------------|
+| **End-to-End Flow**    | Complete pipeline from issue detection to PR creation is implemented.   |
+| **LLM Integration**    | Prompt construction and fix application is functional.                  |
+| **GitHub Automation**  | Automatically creates PRs with AI-generated code fixes.                 |
+| **UI Insights**        | Clean tabular display of SonarQube issues integrated with MongoDB.      |
+| **Modular Backend**    | Separate components for Git, Sonar, and LLM allow easier future scaling.|
 
 ---
 
 ## 2. ⚠️ Limitations of Current System
 
-| Area                 | Limitation                                                   |
-|----------------------|--------------------------------------------------------------|
-| **Scalability**       | One repository per instance; cannot scale to 100K+ repos     |
-| **Security**          | Secrets stored in `application.properties`                  |
-| **Onboarding**        | Manual configuration for every repository                   |
-| **Extensibility**     | Hardcoded logic; difficult to plug in new workflows         |
-| **Governance**        | No audit trail, access control, or usage reporting          |
-| **Developer UX**      | Not embedded within developer IDE workflows                 |
-| **LLM Cost Control**  | No rate limiting or usage quotas                            |
+| Area                 | Limitation                                               |
+|----------------------|----------------------------------------------------------|
+| **Scalability**       | One repository per instance; cannot scale to 100K+ repos |
+| **Security**          | Secrets stored in `application.properties`               |
+| **Onboarding**        | Manual configuration for every repository                |
+| **Extensibility**     | Configuration hardcoded;
+| **Developer UX**      | Not embedded within developer IDE workflows              |
 
 ---
 
@@ -71,7 +79,7 @@
     - GitHub integration (org/repo/token)
     - SonarQube integration (project key/token)
 - Scheduled background job scans Sonar issues for onboarded repos.
-- Metadata and issues stored in MongoDB or SQL.
+- Metadata and issues stored in MongoDB.
 - Admin dashboard shows issues, usage, progress.
 - Button click or auto-triggered fix via LLM.
 - PR generated with optional approval workflow.

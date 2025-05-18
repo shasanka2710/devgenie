@@ -14,7 +14,7 @@ Build a **VS Code Plugin** that:
 
 ### 🔹 1. Plugin UI: Sidebar View
 
-- **Sidebar Title**: `SONARQUBE`
+- **Sidebar Title**: `DevGenie`
 - **Grouped by Severity**:
     - `Blocker`, `Critical`, `Major`, `Minor`, `Info`
     - Each severity group is collapsible
@@ -26,8 +26,7 @@ Build a **VS Code Plugin** that:
 - **Bulk Fix**:
     - Apply Fix button at the bottom of each group
     - Fixes all selected issues in that group
-  
-![img_1.png](img_1.png)
+
 ---
 
 ### 🔹 2. SonarLint Integration
@@ -44,9 +43,12 @@ Build a **VS Code Plugin** that:
 ---
 
 ### 🔹 3. Copilot (LLM) Integration
-
-- **System Prompt Example**:
-- - **Fix Workflow**:
+- **Prompt Construction**:
+    - System prompt includes:
+        - Issue description
+        - File path
+        - Raw source code (up to 200 lines)
+- **Fix Workflow**:
 1. Collect file content and issue description
 2. Send structured prompt to Copilot model
 3. Receive modified code
@@ -106,29 +108,19 @@ Build a **VS Code Plugin** that:
 
 ## 🧰 Dependencies
 
-| Component     | Purpose              |
-|---------------|----------------------|
-| SonarLint     | Issue Detection       |
-| Copilot API   | Code Fix Suggestions  |
-| VS Code API   | UI, commands, file ops|
-| File System   | Source code updates   |
-| Node.js       | Plugin backend runtime|
+| Component          | Purpose                                                                                                                                                                              |
+|--------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| SonarLint          | Issue Detection                                                                                                                                                                      |
+| Language model API | Used for programs to interact with an LLM (Large Language Model) over the internet, allowing them to send text prompts and receive intelligent, human-like responses. |
+| Copilot API        | Code Fix Suggestions                                                                                                                                                                 |
+| VS Code API        | UI, commands, file ops                                                                                                                                                               |
+| File System        | Source code updates                                                                                                                                                                  |
+| Node.js            | Plugin backend runtime                                                                                                                                                               |
 
 ---
 
 ## 📁 Proposed Folder Structure
-.vscode-sonarqube-plugin/
-├── src/
-│   ├── extension.ts         # Main plugin entry
-│   ├── sidebarProvider.ts   # Handles UI
-│   ├── sonarScanner.ts      # Runs SonarLint
-│   ├── llmFixer.ts          # Calls Copilot API
-│   ├── fixApplier.ts        # Applies fix to file
-├── assets/
-│   ├── icons/               # Icons for the plugin
-│   └── style.css            # Styles for the plugin
-├── package.json             # Plugin manifest
-├── README.md                # Documentation
+![img_3.png](img_3.png)
 ---
 
 ## ✅ Summary
@@ -150,3 +142,101 @@ Build a **VS Code Plugin** that:
 - This plugin replicates all current system features, now inside VS Code.
 - No external infrastructure required.
 - Developer productivity is enhanced with real-time, contextual fixes.
+
+---
+## 🧩 Feature Breakdown & Logical Grouping of Requirements
+
+---
+
+### 1. 🔧 Plugin Initialization & Configuration
+
+| Feature | Description |
+|--------|-------------|
+| **Activation Events** | Plugin activates on VS Code start or command. |
+| **Configuration Settings** | - Set Copilot/LLM Token<br>- Customize system prompt<br>- Enable/disable auto-fix<br>- Supported languages configuration |
+| **Sidebar Registration** | Registers the SonarQube sidebar panel upon activation. |
+
+---
+
+### 2. 🔍 Issue Detection & Retrieval
+
+| Feature | Description |
+|--------|-------------|
+| **SonarLint Integration** | Leverage SonarLint extension API or run CLI to scan the open workspace. |
+| **Issue Metadata Parsing** | Extract severity, file name, line number, and issue description. |
+| **Local Caching (Optional)** | Cache issue data locally to reduce reprocessing time. |
+
+---
+
+### 3. 📊 UI Display & Interaction
+
+| Feature | Description |
+|--------|-------------|
+| **Sidebar UI with Severity Groups** | Group issues under collapsible panels: Blocker, Critical, Major, Minor, Info. |
+| **Tabular Display** | Each severity group shows:<br>✔️ Checkbox<br>📄 Issue Description<br>📁 File Name<br>🛠 Apply Fix button |
+| **Bulk Selection and Fixing** | Multi-select checkboxes + a group-level “Apply Fix” button for bulk LLM execution. |
+| **Refresh Button** | Triggers re-scan of current workspace. |
+
+---
+
+### 4. 🤖 LLM (Copilot) Integration
+
+| Feature | Description |
+|--------|-------------|
+| **Prompt Construction** | System prompt that includes issue description, file path, and raw source code. |
+| **Copilot API Request** | Send prompt and receive a fixed version of the code. |
+| **Timeouts & Retries** | Set limits on LLM wait times, retry upon transient failure. |
+| **Streaming Response Support (Optional)** | For long outputs, stream partial content as it's generated. |
+
+---
+
+### 5. 📝 Code Application Engine
+
+| Feature | Description |
+|--------|-------------|
+| **Code Replace Logic** | Overwrites selected portion or entire file with the updated code. |
+| **Cursor & Scroll Preservation** | Retain editor position after applying fix. |
+| **Optional Diff Preview** | Show a visual diff before confirming overwrite. |
+| **Undo Support** | Allow user to revert the last applied fix using VS Code undo stack. |
+
+---
+
+### 6. ✅ Bulk Fix Handling
+
+| Feature | Description |
+|--------|-------------|
+| **Batch Fix Trigger** | Collect multiple selected issues and apply fixes sequentially. |
+| **Progress Bar or Spinner** | UI element to show ongoing batch fix operation. |
+| **Per-Issue Result Feedback** | Success/failure alert for each individual issue in the batch. |
+
+---
+
+### 7. 📡 Feedback & Notifications
+
+| Feature | Description |
+|--------|-------------|
+| **Toast/Alerts** | Display success or error messages after applying fixes. |
+| **Status Bar Integration** | Show background operation status or ongoing task summary. |
+| **Logs for Debugging** | Provide logs in the developer console for failed LLM calls or application issues. |
+
+---
+
+### 8. 🧪 Testing & Reliability Features
+
+| Feature | Description |
+|--------|-------------|
+| **Dry Run Mode** | Preview changes without applying them. |
+| **Validation Before Apply** | Check Copilot output for malformed or empty responses. |
+| **Telemetry (Optional)** | Collect anonymized usage metrics to understand adoption. |
+
+---
+
+### 9. 🔒 Security & Permissions
+
+| Feature | Description |
+|--------|-------------|
+| **Token Security** | Store Copilot/LLM tokens securely via VS Code secrets API. |
+| **Permission Prompts** | Ask before modifying files. |
+| **Scope Restriction** | Only process files within workspace root folder. |
+
+---
