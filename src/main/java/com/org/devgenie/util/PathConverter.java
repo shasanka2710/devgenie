@@ -2,7 +2,7 @@ package com.org.devgenie.util;
 
 public class PathConverter {
 
-    private static String clonedRepoPath = "/tmp/devgenie/repos/";
+    private static String clonedRepoPath = "/tmp/devgenie/repos/"; // SonarQube issue: Refactor your code to get this URI from a customizable parameter.
 
     // Dynamically update repo path after cloning
     public static void setClonedRepoPath(String path) {
