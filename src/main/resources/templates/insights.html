@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!--suppress ALL -->
 <html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.w3.org/1999/xhtml"
       layout:decorate="~{base.html}">
 <head>
@@ -185,10 +186,10 @@
   </div>
   <!-- Dropdown for filtering issues -->
   <div class="mb-3">
-    <label for="qualityFilter" class="form-label">By Quality Metric:</label>
+    <label for="qualityFilter" class="form-label">By Severity:</label>
     <select id="qualityFilter" class="form-select" onchange="filterIssues(this.value)">
       <option value="">All</option>
-      <option th:each="quality : ${softwareQualities}" th:value="${quality}" th:text="${quality}"
+      <option th:each="quality : ${severities}" th:value="${quality}" th:text="${quality}"
               th:selected="${selectedType == quality}"></option>
     </select>
   </div>
@@ -204,7 +205,6 @@
       <thead>
       <tr>
         <th><input type="checkbox" id="selectAllCheckbox" onclick="selectAllTop10(this)"></th>
-        <th>Quality</th>
         <th>Class Name</th>
         <th>Description</th>
         <th>Severity</th>
@@ -214,7 +214,6 @@
       <tbody>
       <tr th:each="issue : ${issues}">
         <td><input type="checkbox" class="issue-checkbox" th:data-key="${issue.key}" th:data-category="${issue.category}" th:data-description="${issue.description}" onchange="toggleFixMoreButton()"></td>
-        <td th:text="${#strings.listJoin(issue.softwareQuality, ', ')}"></td>
         <td th:text="${issue.className}"></td>
         <td th:text="${issue.description}"></td>
         <td th:text="${issue.severity}"></td>
