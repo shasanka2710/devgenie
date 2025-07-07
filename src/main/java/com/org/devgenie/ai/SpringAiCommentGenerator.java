@@ -1,6 +1,7 @@
 package com.org.devgenie.ai;
 
 import com.org.devgenie.ai.client.AiClient;
+import com.org.devgenie.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,16 +11,30 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * TODO: Add class description here.
+ * The type Spring ai comment generator.
  */
 @Component
 public class SpringAiCommentGenerator {
 
     private static final Logger logger = LoggerFactory.getLogger(SpringAiCommentGenerator.class);
+    private final AiClient aiClient;
 
-    @Autowired
-    private AiClient aiClient;
+    /**
+     * Instantiates a new Spring ai comment generator.
+     *
+     * @param aiClient the ai client
+     */
+    public SpringAiCommentGenerator(AiClient aiClient) {
+        this.aiClient = aiClient;
+    }
 
+    /**
+     * Generates a Javadoc comment for a Java class.
+     *
+     * @param classBody the body of the class
+     * @param className the name of the class
+     * @return the generated Javadoc comment
+     */
     public String generateClassComment(String classBody, String className) {
         logger.info("Calling AI Client for class description");
         String systemPrompt = String.format(
@@ -42,8 +57,15 @@ public class SpringAiCommentGenerator {
         return aiClient.callApi(systemPrompt, classBody);
     }
 
+    /**
+     * Generates a Javadoc comment for a Java method.
+     *
+     * @param code      the method code
+     * @param className the class name
+     * @return the generated Javadoc comment
+     */
     public String generateMethodComment(String code, String className) {
-        logger.info("Calling AI Client for method description for class: {}", className);
+        logger.info("Calling AI Client for method description for class: {}", LoggerUtil.maskSensitive(className));
         String systemPrompt = String.format(
                 "You are an intelligent Java documentation assistant. Your task is to generate precise and clean Javadoc-style comments for the provided Java method.\n"
                         + "Instructions:\n"
@@ -69,8 +91,16 @@ public class SpringAiCommentGenerator {
         return aiClient.callApi(systemPrompt, code);
     }
 
+    /**
+     * Fixes multiple SonarQube issues for a class.
+     *
+     * @param className   the class name
+     * @param classBody   the class body
+     * @param descriptions the set of issue descriptions
+     * @return the fixed class code
+     */
     public String fixSonarIssues(String className, String classBody, Set<String> descriptions) {
-        logger.info("Calling AI Client for fixing multiple SonarQube issues for class: {}", className);
+        logger.info("Calling AI Client for fixing multiple SonarQube issues for class: {}", LoggerUtil.maskSensitive(className));
 
         // Joining multiple issue descriptions into a formatted bullet list
         String formattedIssues = descriptions.stream()
