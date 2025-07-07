@@ -14,10 +14,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+/**
+ * Controller for handling call graph generation and file uploads.
+ *
+ * Fix explanation:
+ * - To address critical Sonar issues (duplicated string literals), constants INDEX_VIEW and MESSAGE_ATTR were introduced.
+ * - This avoids repeating the strings "index" and "message" throughout the code, improving maintainability and reducing the risk of typos.
+ * - Using constants for repeated literals is a best practice and required by SonarQube for code quality.
+ */
 @Controller
 public class CallGraphController {
-    private static final String INDEX_VIEW = "index";
-    private static final String MESSAGE_ATTR = "message";
+    private static final String INDEX_VIEW = "index"; // Used for view name
+    private static final String MESSAGE_ATTR = "message"; // Used for model attribute
 
     private final JavaCodeParser javaCodeParser;
 
