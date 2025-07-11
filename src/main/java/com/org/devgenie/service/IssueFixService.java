@@ -31,7 +31,7 @@ import static com.org.devgenie.util.StringUtil.getclassDisplayName;
 @Service
 public class IssueFixService {
 
-    private final Map<String, List<String>> operationProgress = new ConcurrentHashMap<>();
+    public final Map<String, List<String>> operationProgress = new ConcurrentHashMap<>();
 
     private final JavaCodeParser javaCodeParser;
 
@@ -91,11 +91,11 @@ public class IssueFixService {
         return CompletableFuture.completedFuture(operationId);
     }
 
-    private String identifyFix(String className, Set<String> description) throws FileNotFoundException {
+    public String identifyFix(String className, Set<String> description) throws FileNotFoundException {
         return javaCodeParser.identifyFixUsingLLModel(className, description);
     }
 
-    private void applyFix(String className, String fixedCode) throws IOException {
+    public void applyFix(String className, String fixedCode) throws IOException {
         String filePath = PathConverter.toSlashedPath(className);
         Files.write(Paths.get(clonedRepoPath,filePath), fixedCode.getBytes());
     }

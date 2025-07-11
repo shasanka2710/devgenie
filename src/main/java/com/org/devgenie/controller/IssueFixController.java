@@ -2,6 +2,7 @@ package com.org.devgenie.controller;
 
 import com.org.devgenie.model.ClassDescription;
 import com.org.devgenie.service.IssueFixService;
+import com.org.devgenie.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -37,7 +38,7 @@ public class IssueFixController {
 
     @GetMapping("/fix-status/{operationId}")
     public ResponseEntity<Map<String, Object>> getFixStatus(@PathVariable String operationId) {
-        logger.info("Operation progress status check ...{}", operationId);
+        logger.info("Operation progress status check ...{}", LoggerUtil.maskSensitive(operationId));
         List<String> step = fixService.getStatus(operationId);
         return ResponseEntity.ok(Map.of("step", step));
     }

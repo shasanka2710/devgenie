@@ -5,6 +5,7 @@ import com.org.devgenie.config.AppConfig;
 import com.org.devgenie.input.GitInputProcessor;
 import com.org.devgenie.input.LocalFileInputProcessor;
 import com.org.devgenie.parser.JavaCodeParser;
+import com.org.devgenie.util.LoggerUtil;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,12 +60,12 @@ public class DocGeneratorService {
         for (File javaFile : javaFiles) {
             try {
                 if (shouldSkipFile(javaFile, appConfig)) {
-                    logger.info("Skipping file: " + javaFile.getAbsolutePath());
+                    logger.info("Skipping file: " + LoggerUtil.maskSensitive(javaFile.getAbsolutePath()));
                     continue;
                 }
                 javaCodeParser.parseAndGenerateDocs(javaFile);
             } catch (Exception e) {
-                logger.error("Error processing file: " + javaFile.getAbsolutePath(), e);
+                logger.error("Error processing file: " + LoggerUtil.maskSensitive(javaFile.getAbsolutePath()), e);
             }
         }
     }
