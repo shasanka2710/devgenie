@@ -1,6 +1,7 @@
 package com.org.devgenie.github;
 
 import com.org.devgenie.config.GitHubConfig;
+import com.org.devgenie.util.LoggerUtil;
 import com.org.devgenie.util.PathConverter;
 import org.kohsuke.github.*;
 import org.slf4j.Logger;
@@ -91,12 +92,12 @@ public class PullRequestHandler {
     private void createBranchFromDefaultBranch(GHRepository repo, String branchName, String defaultBranch) throws IOException {
         try {
             repo.getRef("heads/" + branchName);
-            logger.info("Branch {} already exists, skipping creation.", branchName);
+            logger.info("Branch {} already exists, skipping creation.", LoggerUtil.maskSensitive(branchName));
         } catch (GHFileNotFoundException e) {
             // Branch doesn't exist, so create it
             GHRef defaultRef = repo.getRef("heads/" + defaultBranch);
             repo.createRef("refs/heads/" + branchName, defaultRef.getObject().getSha());
-            logger.info("Created branch {} from {}", branchName, defaultBranch);
+            logger.info("Created branch {} from {}", LoggerUtil.maskSensitive(branchName), LoggerUtil.maskSensitive(defaultBranch));
         }
     }
 
@@ -117,13 +118,13 @@ public class PullRequestHandler {
                 return operation.execute();
             } catch (IOException e) {
                 attempt++;
-                logger.error("{} failed on attempt {}: {}", operationName, attempt, e.getMessage());
+                logger.error("{} failed on attempt {}: {}", LoggerUtil.maskSensitive(operationName), attempt, LoggerUtil.maskSensitive(e.getMessage()));
                 if (attempt >= maxRetries) {
                     throw new IOException(operationName + " failed after " + attempt + " attempts.", e);
                 }
                 // Exponential backoff
                 long delay = BASE_DELAY_MS * (long) Math.pow(2, attempt);
-                logger.warn("{} failed. Retrying in {} ms...", operationName, delay);
+                logger.warn("{} failed. Retrying in {} ms...", LoggerUtil.maskSensitive(operationName), delay);
                 try {
                     TimeUnit.MILLISECONDS.sleep(delay);
                 } catch (InterruptedException ie) {
@@ -154,12 +155,12 @@ public class PullRequestHandler {
         // Add or update the file in the branch
         if (sha != null) {
             // If the file exists, update it
-            logger.info("File exists: {}", shaFilePath);
+            logger.info("File exists: {}", LoggerUtil.maskSensitive(shaFilePath));
             // Provide sha for existing file
             repo.createContent().path(shaFilePath).content(fileContent).message("Apply fix: " + description).sha(sha).branch(branchName).commit();
         } else {
             // If the file doesn't exist, create it
-            logger.info("File doesn't exist: {}", shaFilePath);
+            logger.info("File doesn't exist: {}", LoggerUtil.maskSensitive(shaFilePath));
             repo.createContent().path(shaFilePath).content(fileContent).message("Apply fix: " + description).branch(branchName).commit();
         }
     }
@@ -176,7 +177,7 @@ public class PullRequestHandler {
         try {
             return repo.getFileContent(filePath, branchName);
         } catch (FileNotFoundException e) {
-            logger.warn("File {} not found in branch {}. It might be a new file.", filePath, branchName);
+            logger.warn("File {} not found in branch {}. It might be a new file.", LoggerUtil.maskSensitive(filePath), LoggerUtil.maskSensitive(branchName));
             return null;
         }
     }
