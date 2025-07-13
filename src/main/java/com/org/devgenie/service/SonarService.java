@@ -6,6 +6,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Projections;
 import com.org.devgenie.model.SonarIssue;
 import com.org.devgenie.model.SonarMetricsModel;
+import com.org.devgenie.util.LoggerUtil;
 import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,7 +69,7 @@ public class SonarService {
 
     public String fetchIssuesFromSonar() {
         String url = String.format("%s?componentKeys=%s&severities=%s&resolved=false&ps=%d", sonarUrl, componentKeys, severities, pageSize);
-        logger.info("Fetching issues from Sonar: {}", url);
+        logger.info("Fetching issues from Sonar: {}", LoggerUtil.maskSensitive(url));
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setBasicAuth(sonarUsername, sonarPassword);
@@ -81,7 +82,7 @@ public class SonarService {
                 saveIssuesToMongo(response.getBody());
                 return response.getBody();
             } else {
-                logger.error("Failed to fetch issues from Sonar. Status: {}", response.getStatusCode());
+                logger.error("Failed to fetch issues from Sonar. Status: {}", LoggerUtil.maskSensitive(String.valueOf(response.getStatusCode())));
                 // Return empty JSON if there's an error
                 return "{}";
             }
