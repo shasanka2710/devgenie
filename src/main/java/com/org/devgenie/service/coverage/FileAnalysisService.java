@@ -1,5 +1,20 @@
 package com.org.devgenie.service.coverage;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.org.devgenie.exception.coverage.FileAnalysisException;
+import com.org.devgenie.model.coverage.*;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 @Slf4j
 public class FileAnalysisService {
@@ -22,7 +37,7 @@ public class FileAnalysisService {
 
             // Analyze with AI
             String analysisPrompt = createFileAnalysisPrompt(fileContent, coverageData);
-            String aiAnalysis = chatClient.call(analysisPrompt);
+            String aiAnalysis = chatClient.prompt(analysisPrompt).call().content();
 
             // Parse AI response
             return parseFileAnalysisResponse(aiAnalysis, filePath, coverageData);
@@ -38,7 +53,7 @@ public class FileAnalysisService {
 
         try {
             String prioritizationPrompt = createPrioritizationPrompt(coverageData, targetCoverage);
-            String aiResponse = chatClient.call(prioritizationPrompt);
+            String aiResponse = chatClient.prompt(prioritizationPrompt).call().content();
 
             return parsePrioritizationResponse(aiResponse, coverageData);
 

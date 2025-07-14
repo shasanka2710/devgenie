@@ -1,7 +1,15 @@
 package com.org.devgenie.model.coverage;
 
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProcessingResult {

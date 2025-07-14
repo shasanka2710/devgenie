@@ -1,5 +1,19 @@
 package com.org.devgenie.service.coverage;
 
+import com.org.devgenie.exception.coverage.CoverageDataNotFoundException;
+import com.org.devgenie.model.coverage.CoverageData;
+import com.org.devgenie.model.coverage.FileCoverageData;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+
 @Service
 @Slf4j
 public class CoverageDataService {

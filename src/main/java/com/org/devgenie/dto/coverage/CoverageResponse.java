@@ -1,5 +1,11 @@
 package com.org.devgenie.dto.coverage;
 
+import com.org.devgenie.model.coverage.CoverageSummary;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 @Data
 @Builder
 @NoArgsConstructor

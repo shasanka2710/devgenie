@@ -1,5 +1,10 @@
 package com.org.devgenie.model.coverage;
 
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+
 @Component
 @Slf4j
 public class CoverageReportGenerator {

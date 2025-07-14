@@ -3,13 +3,11 @@ package com.org.devgenie.github;
 import com.org.devgenie.util.FilePathUtil;
 import com.org.devgenie.util.GitCloneUtil;
 import com.org.devgenie.util.LoggerUtil;
-import org.eclipse.jgit.api.errors.GitAPIException;
 import org.kohsuke.github.GHPullRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;

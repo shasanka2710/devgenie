@@ -1,5 +1,23 @@
 package com.org.devgenie.service.coverage;
 
+import com.org.devgenie.exception.coverage.JacocoException;
+import com.org.devgenie.model.coverage.CoverageData;
+import com.org.devgenie.model.coverage.FileCoverageData;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.File;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 @Slf4j
 public class JacocoService {

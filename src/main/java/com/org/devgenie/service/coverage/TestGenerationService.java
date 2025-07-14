@@ -1,5 +1,17 @@
 package com.org.devgenie.service.coverage;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.org.devgenie.model.coverage.*;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @Slf4j
 public class TestGenerationService {
@@ -16,7 +28,7 @@ public class TestGenerationService {
         try {
             String fileContent = fileService.readFile(analysis.getFilePath());
             String testPrompt = createTestGenerationPrompt(fileContent, analysis);
-            String aiResponse = chatClient.call(testPrompt);
+            String aiResponse = chatClient.prompt(testPrompt).call().content();
 
             return parseTestGenerationResponse(aiResponse, analysis);
 

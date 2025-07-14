@@ -1,5 +1,17 @@
 package com.org.devgenie.service.coverage;
 
+import com.org.devgenie.dto.coverage.CoverageResponse;
+import com.org.devgenie.dto.coverage.FileCoverageRequest;
+import com.org.devgenie.dto.coverage.RepoCoverageRequest;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+
 @Service
 @Async
 @Slf4j

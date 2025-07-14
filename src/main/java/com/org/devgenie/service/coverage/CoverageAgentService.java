@@ -1,5 +1,16 @@
 package com.org.devgenie.service.coverage;
 
+import com.org.devgenie.config.CoverageConfiguration;
+import com.org.devgenie.dto.coverage.*;
+import com.org.devgenie.exception.coverage.CoverageException;
+import com.org.devgenie.model.coverage.*;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.UUID;
+
 @Service
 @Slf4j
 public class CoverageAgentService {
