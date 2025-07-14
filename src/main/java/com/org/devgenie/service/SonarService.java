@@ -15,12 +15,11 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.org.devgenie.util.ConverterUtil.convertToHours;
 import static com.org.devgenie.util.ConverterUtil.roundToTwoDecimalPlaces;
@@ -51,7 +50,10 @@ public class SonarService {
     @Value("${developer.dollarValuePerMinute}")
     double dollarValuePerMinute;
 
-    public SonarService(RestTemplate restTemplate, ObjectMapper objectMapper, @Value("${sonar.url}") String sonarUrl, @Value("${sonar.componentKeys}") String componentKeys, @Value("${sonar.severities}") String severities, @Value("${sonar.pageSize}") int pageSize, @Value("${sonar.username}") String sonarUsername, @Value("${sonar.password}") String sonarPassword, MongoTemplate mongoTemplate) {
+    public SonarService(RestTemplate restTemplate, ObjectMapper objectMapper, @Value("${sonar.url}") String sonarUrl, @Value("${sonar.componentKeys}") String componentKeys,
+                        @Value("${sonar.severities}") String severities, @Value("${sonar.pageSize}") int pageSize,
+                        @Value("${sonar.username}") String sonarUsername, @Value("${sonar.password}") String sonarPassword,
+                        MongoTemplate mongoTemplate) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.sonarUrl = sonarUrl;
@@ -68,15 +70,10 @@ public class SonarService {
     }
 
     public String fetchIssuesFromSonar() {
-        String url = String.format("%s?componentKeys=%s&severities=%s&resolved=false&ps=%d", sonarUrl, componentKeys, severities, pageSize);
+        String url = String.format("%s?componentKeys=%s&severities=%s&resolved=false&ps=%d", sonarUrl+"issues/search", componentKeys, severities, pageSize);
         logger.info("Fetching issues from Sonar: {}", LoggerUtil.maskSensitive(url));
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBasicAuth(sonarUsername, sonarPassword);
-            // Disable caching
-            headers.setCacheControl(CacheControl.noCache());
-            HttpEntity<String> entity = new HttpEntity<>(headers);
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, getAuthHeaders(), String.class);
             if (response.getStatusCode().is2xxSuccessful()) {
                 logger.info("Fetched issues from Sonar successfully.");
                 saveIssuesToMongo(response.getBody());
@@ -90,6 +87,13 @@ public class SonarService {
             logger.error("Error fetching issues from SonarQube: ", e);
             return "{}";
         }
+    }
+    private HttpEntity getAuthHeaders(){
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBasicAuth(sonarUsername, sonarPassword);
+        // Disable caching
+        headers.setCacheControl(CacheControl.noCache());
+        return new HttpEntity<>(headers);
     }
 
     private List<SonarIssue> parseSonarIssues(String responseBody) throws IOException {

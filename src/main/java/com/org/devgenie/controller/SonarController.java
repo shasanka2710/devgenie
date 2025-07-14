@@ -40,6 +40,7 @@ public class SonarController {
             model.addAttribute("issues", issues);
             model.addAttribute("severities", severities);
             model.addAttribute("selectedType", filterType);
+            model.addAttribute("page", "insights");
             return "insights";
         } catch (IOException e) {
             log.error("Error parsing issues: {}", LoggerUtil.maskSensitive(e.getMessage()));
