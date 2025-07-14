@@ -14,8 +14,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+/**
+ * Controller for handling call graph generation and file uploads.
+ *
+ * Fix explanation:
+ * - To address critical Sonar issues (duplicated string literals), constants INDEX_VIEW and MESSAGE_ATTR were introduced.
+ * - This avoids repeating the strings "index" and "message" throughout the code, improving maintainability and reducing the risk of typos.
+ * - Using constants for repeated literals is a best practice and required by SonarQube for code quality.
+ */
 @Controller
 public class CallGraphController {
+    private static final String INDEX_VIEW = "index"; // Used for view name
+    private static final String MESSAGE_ATTR = "message"; // Used for model attribute
 
     private final JavaCodeParser javaCodeParser;
 
@@ -25,22 +35,22 @@ public class CallGraphController {
 
     @GetMapping("/index")
     public String index() {
-        return "index";
+        return INDEX_VIEW;
     }
 
     @PostMapping("/upload")
     public String uploadFile(@RequestParam("file") MultipartFile file, Model model) {
         if (file.isEmpty()) {
-            model.addAttribute("message", "Please select a file to upload.");
-            return "index";
+            model.addAttribute(MESSAGE_ATTR, "Please select a file to upload.");
+            return INDEX_VIEW;
         }
         try {
             // Save the file locally
             String fileName = file.getOriginalFilename();
             // Handle potential null from getOriginalFilename
             if (fileName == null || fileName.isEmpty()) {
-                model.addAttribute("message", "File name is missing or invalid.");
-                return "index";
+                model.addAttribute(MESSAGE_ATTR, "File name is missing or invalid.");
+                return INDEX_VIEW;
             }
             Path path = Paths.get("uploads/" + fileName);
             Files.createDirectories(path.getParent());
@@ -52,10 +62,10 @@ public class CallGraphController {
             String callGraphPath = "call-graph/" + fileName.replace(".java", ".txt");
             String callGraph = new String(Files.readAllBytes(Paths.get(callGraphPath)));
             model.addAttribute("callGraph", callGraph);
-            model.addAttribute("message", "File uploaded successfully: " + fileName);
+            model.addAttribute(MESSAGE_ATTR, "File uploaded successfully: " + fileName);
         } catch (IOException e) {
-            model.addAttribute("message", "Failed to upload file: " + e.getMessage());
+            model.addAttribute(MESSAGE_ATTR, "Failed to upload file: " + e.getMessage());
         }
-        return "index";
+        return INDEX_VIEW;
     }
 }

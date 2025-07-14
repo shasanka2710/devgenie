@@ -2,6 +2,7 @@ package com.org.devgenie.controller;
 
 import com.org.devgenie.model.SonarIssue;
 import com.org.devgenie.service.SonarService;
+import com.org.devgenie.util.LoggerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
@@ -9,8 +10,10 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+
 import java.io.IOException;
 import java.util.List;
+
 import static com.org.devgenie.util.StringUtil.getclassDisplayName;
 
 @Controller
@@ -26,7 +29,7 @@ public class SonarController {
 
     @GetMapping("/issues")
     public String getIssues(@RequestParam(value = "filterType", required = false) String filterType, Model model) {
-        log.info("Fetching issues with filterType: {} and filterQuality: {}", filterType);
+        log.info("Fetching issues with filterType: {} and filterQuality: {}", LoggerUtil.maskSensitive(filterType), "MASKED");
         try {
             List<SonarIssue> issues = sonarService.fetchSonarIssues();
             List<String> severities = getDistinctSeverity(issues);
@@ -39,9 +42,10 @@ public class SonarController {
             model.addAttribute("issues", issues);
             model.addAttribute("severities", severities);
             model.addAttribute("selectedType", filterType);
+            model.addAttribute("page", "insights");
             return "insights";
         } catch (IOException e) {
-            log.error("Error parsing issues: {}", e.getMessage());
+            log.error("Error parsing issues: {}", LoggerUtil.maskSensitive(e.getMessage()));
             return "error";
         }
     }

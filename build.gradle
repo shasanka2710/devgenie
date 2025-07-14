@@ -3,6 +3,7 @@ plugins {
 	id 'org.springframework.boot' version '3.4.2-SNAPSHOT'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id "org.sonarqube" version "6.0.1.5171"
+	id 'jacoco'
 }
 sonar {
 	properties {
@@ -37,11 +38,13 @@ ext {
 }
 
 dependencies {
+	implementation 'org.springframework.ai:spring-ai-vertex-ai-gemini'
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
 	implementation 'org.springframework.ai:spring-ai-vertex-ai-gemini-spring-boot-starter:1.0.0-M4'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6:3.1.0.RELEASE'
 	//implementation 'org.springframework.ai:spring-ai-azure-openai-spring-boot-starter'
 	//implementation 'org.springframework.ai:spring-ai-ollama-spring-boot-starter'
@@ -55,6 +58,7 @@ dependencies {
 	// Apache HttpClient for additional HTTP operations (optional)
 	implementation 'org.apache.httpcomponents.client5:httpclient5:5.4'
 	implementation 'org.kohsuke:github-api:1.123'
+	implementation 'org.springframework:spring-websocket'
 	//implementation 'dev.langchain4j:langchain4j:0.23.0' // Replace with the latest version
 
 	// Jackson for JSON parsing
@@ -65,6 +69,7 @@ dependencies {
 
 	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
 	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+	testImplementation 'org.mockito:mockito-core:5.12.0' // or latest
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'io.projectreactor:reactor-test'

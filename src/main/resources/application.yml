@@ -1,0 +1,110 @@
+spring:
+  application:
+    name: devgenie
+
+  ai:
+    vertex:
+      ai:
+        gemini:
+          project-id: springai-446404
+          location: us-central1
+          chat:
+            enabled: true
+            options:
+              model: gemini-2.5-flash
+              # temperature: 0.0           # Ensures strict, predictable Java code fixes.
+              # topP: 0.1                  # Selects only the most relevant completions.
+              # maxOutputTokens: 2048     # Ensures entire class is returned without truncation.
+              # frequency-penalty: 0.2    # Reduces redundant comments & repeated code
+              # presence-penalty: 0.0     # Prevents unwanted new logic from being introduced
+              # stop-sequences: []        # Define stop sequences if needed
+              # response-format: json     # If JSON output is required
+
+  servlet:
+    multipart:
+      enabled: true
+      location: uploads
+
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    cache: false
+
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/devgenie
+
+javadoc:
+  tempDir: /tmp/javadoc-generator
+  overwriteExisting: false
+  enableAi: true
+  includePaths: ""
+  excludePaths: ""
+  dryRun: false
+  aiConfig:
+    key1: value1
+    key2: value2
+  callGraphDepth: 3
+  cyclomaticComplexityThreshold: 10
+
+sonar:
+  url: http://localhost:9000/api/
+  componentKeys: devgenie
+  severities: BLOCKER,CRITICAL,MAJOR,MINOR,INFO
+  pageSize: 100
+
+LOG_PATH: logs/application.log
+
+github:
+  token: ${GITHUB_TOKEN:}
+  api:
+    url: https://api.github.com
+  default:
+    branch: main
+  repo:
+    name: shasanka2710/devgenie
+    url: https://github.com/shasanka2710/devgenie.git
+    branch: main
+  cloned:
+    repo:
+      path: /tmp/cloned-repos/devgenie
+  username: shasanka2710
+
+developer:
+  dollarValuePerMinute: 1.16666667
+
+logging:
+  level:
+    org.eclipse.jgit: INFO
+    com.org.devgenie.github: INFO
+    org.springframework.ai: INFO
+
+coverage:
+  default-coverage-increase: 20.0
+  max-files-to-process: 50
+  excluded-file-patterns:
+    - ".*Test.java"
+    - ".*IT.java"
+    - ".*Application.java"
+  enable-parallel-processing: true
+  max-retries: 3
+  test-framework: junit5
+  enable-mocking: true
+  mocking-frameworks:
+    - mockito
+  quality-thresholds:
+    minimum-method-coverage: 80.0
+    minimum-line-coverage: 75.0
+    minimum-branch-coverage: 70.0
+  data:
+    use-mongo: true
+
+jacoco:
+  exec-path: target/jacoco.exec
+
+maven:
+  command: mvn
+
+git:
+  command: git
+

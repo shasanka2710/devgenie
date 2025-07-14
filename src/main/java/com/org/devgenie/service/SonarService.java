@@ -6,6 +6,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Projections;
 import com.org.devgenie.model.SonarIssue;
 import com.org.devgenie.model.SonarMetricsModel;
+import com.org.devgenie.util.LoggerUtil;
 import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +51,10 @@ public class SonarService {
     @Value("${developer.dollarValuePerMinute}")
     double dollarValuePerMinute;
 
-    public SonarService(RestTemplate restTemplate, ObjectMapper objectMapper, @Value("${sonar.url}") String sonarUrl, @Value("${sonar.componentKeys}") String componentKeys, @Value("${sonar.severities}") String severities, @Value("${sonar.pageSize}") int pageSize, @Value("${sonar.username}") String sonarUsername, @Value("${sonar.password}") String sonarPassword, MongoTemplate mongoTemplate) {
+    public SonarService(RestTemplate restTemplate, ObjectMapper objectMapper, @Value("${sonar.url}") String sonarUrl, @Value("${sonar.componentKeys}") String componentKeys,
+                        @Value("${sonar.severities}") String severities, @Value("${sonar.pageSize}") int pageSize,
+                        @Value("${sonar.username}") String sonarUsername, @Value("${sonar.password}") String sonarPassword,
+                        MongoTemplate mongoTemplate) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.sonarUrl = sonarUrl;
@@ -67,21 +71,16 @@ public class SonarService {
     }
 
     public String fetchIssuesFromSonar() {
-        String url = String.format("%s?componentKeys=%s&severities=%s&resolved=false&ps=%d", sonarUrl, componentKeys, severities, pageSize);
-        logger.info("Fetching issues from Sonar: {}", url);
+        String url = String.format("%s?componentKeys=%s&severities=%s&resolved=false&ps=%d", sonarUrl+"issues/search", componentKeys, severities, pageSize);
+        logger.info("Fetching issues from Sonar: {}", LoggerUtil.maskSensitive(url));
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBasicAuth(sonarUsername, sonarPassword);
-            // Disable caching
-            headers.setCacheControl(CacheControl.noCache());
-            HttpEntity<String> entity = new HttpEntity<>(headers);
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, getAuthHeaders(), String.class);
             if (response.getStatusCode().is2xxSuccessful()) {
                 logger.info("Fetched issues from Sonar successfully.");
                 saveIssuesToMongo(response.getBody());
                 return response.getBody();
             } else {
-                logger.error("Failed to fetch issues from Sonar. Status: {}", response.getStatusCode());
+                logger.error("Failed to fetch issues from Sonar. Status: {}", LoggerUtil.maskSensitive(String.valueOf(response.getStatusCode())));
                 // Return empty JSON if there's an error
                 return "{}";
             }
@@ -89,6 +88,13 @@ public class SonarService {
             logger.error("Error fetching issues from SonarQube: ", e);
             return "{}";
         }
+    }
+    private HttpEntity getAuthHeaders(){
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBasicAuth(sonarUsername, sonarPassword);
+        // Disable caching
+        headers.setCacheControl(CacheControl.noCache());
+        return new HttpEntity<>(headers);
     }
 
     private List<SonarIssue> parseSonarIssues(String responseBody) throws IOException {

@@ -1,0 +1,133 @@
+flowchart TD
+    A[User Interface] --> B{User Action}
+    B -->|File Level| C[Increase Coverage for Single File]
+    B -->|Repo Level| D[Increase Coverage for Entire Repo]
+    
+    %% Single File Flow
+    C --> C1[Get File Coverage Data from UI]
+    C1 --> C2[Analyze Single File]
+    C2 --> C3[Generate Tests for File]
+    C3 --> C4[Create Summary for Single File]
+    C4 --> U[Show Summary to User]
+    
+    %% Repo Level Flow (Main Agentic Flow)
+    D --> E[Initialize Coverage Agent]
+    E --> F{Data Source Selection}
+    F -->|MongoDB Available| G[Read Coverage Data from MongoDB]
+    F -->|Fresh Analysis| H[Execute Jacoco Task]
+    
+    G --> I[Parse Existing Coverage Metrics]
+    H --> I
+    I --> J[Calculate Current Overall Coverage %]
+    J --> K[Determine Target Coverage % +20% or Configurable]
+    
+    K --> L[Coverage Gap Analysis]
+    L --> M[Prioritize Files by Impact/Effort Ratio]
+    M --> N[Create File Processing Queue]
+    
+    N --> O[File Selection Loop]
+    O --> P[Select Next High-Impact File]
+    P --> Q[Read & Analyze File Content]
+    Q --> R[Understand Code Context & Dependencies]
+    R --> S[Identify Uncovered Code Paths]
+    
+    S --> T[Generate Test Cases]
+    T --> T1[Unit Tests]
+    T --> T2[Integration Tests]
+    T --> T3[Edge Case Tests]
+    
+    T1 --> V[Add Tests to Test Class]
+    T2 --> V
+    T3 --> V
+    
+    V --> W[Update Test File]
+    W --> X{More Files to Process?}
+    X -->|Yes| Y[Check Coverage Progress]
+    Y --> Z{Target Reached?}
+    Z -->|No| O
+    Z -->|Yes| AA[Stop Processing]
+    X -->|No| AA
+    
+    AA --> BB[Execute Final Jacoco Analysis]
+    BB --> CC[Generate Comprehensive Summary]
+    CC --> DD[Calculate Coverage Improvement]
+    DD --> EE[List All Modified Files]
+    EE --> FF[Show Test Cases Added]
+    FF --> GG[Display Coverage Before/After Metrics]
+    
+    GG --> U
+    U --> HH{User Approval}
+    HH -->|Rejected| II[Rollback Changes]
+    HH -->|Approved| JJ[Apply All Changes]
+    
+    II --> KK[Restore Original State]
+    KK --> LL[End Process]
+    
+    JJ --> MM[Commit Changes to Repository]
+    MM --> NN[Create Pull Request]
+    NN --> OO[Add PR Description with Summary]
+    OO --> PP[Assign Reviewers]
+    PP --> QQ[Link Coverage Report]
+    QQ --> LL
+    
+    %% Error Handling & Monitoring
+    E --> RR[Initialize Error Handling]
+    RR --> SS[Setup Progress Monitoring]
+    SS --> TT[Create Rollback Points]
+    
+    T --> UU{Test Generation Success?}
+    UU -->|Failed| VV[Log Error & Skip File]
+    VV --> WW[Continue with Next File]
+    WW --> X
+    UU -->|Success| V
+    
+    BB --> XX{Jacoco Execution Success?}
+    XX -->|Failed| YY[Use Previous Coverage Data]
+    XX -->|Success| CC
+    YY --> CC
+    
+    %% Configuration Management
+    K --> ZZ[Load Configuration]
+    ZZ --> AAA[Target Coverage %]
+    ZZ --> BBB[File Exclusions]
+    ZZ --> CCC[Test Types Preferences]
+    ZZ --> DDD[Quality Thresholds]
+    
+    AAA --> L
+    BBB --> L
+    CCC --> T
+    DDD --> T
+    
+    %% Additional Intelligence
+    M --> EEE[AI Code Analysis]
+    EEE --> FFF[Complexity Assessment]
+    EEE --> GGG[Business Logic Identification]
+    EEE --> HHH[Risk Assessment]
+    
+    FFF --> N
+    GGG --> N
+    HHH --> N
+    
+    %% Summary Generation Details
+    CC --> III[Coverage Metrics Summary]
+    CC --> JJJ[File-wise Changes]
+    CC --> KKK[Test Quality Analysis]
+    CC --> LLL[Risk Assessment Report]
+    
+    III --> GG
+    JJJ --> GG
+    KKK --> GG
+    LLL --> GG
+    
+    %% Styling
+    classDef userAction fill:#e1f5fe
+    classDef agentProcess fill:#f3e5f5
+    classDef decision fill:#fff3e0
+    classDef dataProcess fill:#e8f5e8
+    classDef output fill:#fce4ec
+    
+    class A,C,D userAction
+    class E,Q,R,S,T,CC agentProcess
+    class B,F,HH,UU,XX,Z decision
+    class G,H,I,BB dataProcess
+    class U,GG,NN output

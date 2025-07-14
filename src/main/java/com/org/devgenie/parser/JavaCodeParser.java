@@ -21,12 +21,14 @@ import com.org.devgenie.config.AppConfig;
 import com.org.devgenie.model.ClassDetails;
 import com.org.devgenie.model.MethodDetails;
 import com.org.devgenie.model.PackageDetails;
+import com.org.devgenie.util.LoggerUtil;
 import com.org.devgenie.util.PathConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -38,6 +40,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import static com.org.devgenie.util.StringUtil.cleanJavaCode;
 
 @Component
@@ -64,7 +67,7 @@ public class JavaCodeParser {
         CompilationUnit cu = StaticJavaParser.parse(javaFile);
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
         if (typeDeclaration.isEmpty()) {
-            logger.warn("No primary type found in file: {}", javaFile.getName());
+            logger.warn("No primary type found in file: {}", LoggerUtil.maskSensitive(javaFile.getName()));
             return;
         }
         String className = typeDeclaration.get().getNameAsString();
@@ -177,7 +180,7 @@ public class JavaCodeParser {
                 Optional<MethodDeclaration> calledMethod = call.resolve().toAst().filter(MethodDeclaration.class::isInstance).map(MethodDeclaration.class::cast);
                 calledMethod.ifPresent(m -> callGraph.append("  ".repeat(Math.max(0, currentDepth + 1))).append(buildCallGraph(m, currentDepth + 1, maxDepth)));
             } catch (IllegalStateException e) {
-                logger.error("Symbol resolution not configured for method call: {}", call, e);
+                logger.error("Symbol resolution not configured for method call: {}", LoggerUtil.maskSensitive(call), e);
             }
         });
         return callGraph.toString();
@@ -227,7 +230,7 @@ public class JavaCodeParser {
     }
 
     public String identifyFixUsingLLModel(String className, Set<String> description) throws FileNotFoundException {
-        logger.info("Identifying fix using LL model for class: {}", className);
+        logger.info("Identifying fix using LL model for class: {}", LoggerUtil.maskSensitive(className));
         CompilationUnit cu = getCompilationUnit(clonedRepoPath,className);
         Optional<TypeDeclaration<?>> typeDeclaration = cu.getPrimaryType();
         // Fixed: Conditionally invoke aiCommentGenerator

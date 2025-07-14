@@ -9,12 +9,13 @@ import com.org.devgenie.mongo.PullRequestMetricsRepository;
 import com.org.devgenie.parser.JavaCodeParser;
 import com.org.devgenie.util.PathConverter;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.bson.Document;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,6 +24,7 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+
 import static com.mongodb.client.model.Filters.eq;
 import static com.org.devgenie.util.GroupByKeys.groupByKeys;
 import static com.org.devgenie.util.StringUtil.getclassDisplayName;
@@ -31,7 +33,7 @@ import static com.org.devgenie.util.StringUtil.getclassDisplayName;
 @Service
 public class IssueFixService {
 
-    private final Map<String, List<String>> operationProgress = new ConcurrentHashMap<>();
+    public final Map<String, List<String>> operationProgress = new ConcurrentHashMap<>();
 
     private final JavaCodeParser javaCodeParser;
 
@@ -91,11 +93,11 @@ public class IssueFixService {
         return CompletableFuture.completedFuture(operationId);
     }
 
-    private String identifyFix(String className, Set<String> description) throws FileNotFoundException {
+    public String identifyFix(String className, Set<String> description) throws FileNotFoundException {
         return javaCodeParser.identifyFixUsingLLModel(className, description);
     }
 
-    private void applyFix(String className, String fixedCode) throws IOException {
+    public void applyFix(String className, String fixedCode) throws IOException {
         String filePath = PathConverter.toSlashedPath(className);
         Files.write(Paths.get(clonedRepoPath,filePath), fixedCode.getBytes());
     }
