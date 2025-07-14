@@ -33,6 +33,9 @@ public class CoverageAgentService {
     @Autowired
     private CoverageConfiguration config;
 
+    @Autowired
+    ProjectConfigDetectionService projectConfigService;
+
     public CoverageResponse increaseFileCoverage(FileCoverageRequest request) {
         log.info("Starting file coverage increase for: {}", request.getFilePath());
 
@@ -86,16 +89,42 @@ public class CoverageAgentService {
         log.info("Applying changes for session: {}", request.getSessionId());
 
         try {
+            // Get workspace directory
+            String workspaceDir = config.getWorkspaceRootDir() + "/" + request.getWorkspaceId();
+            String repoDir = workspaceDir + "/" + extractRepoName(request.getRepositoryUrl());
+
             // Apply all generated test files
-            gitService.applyChanges(request.getChanges());
+            gitService.applyChanges(request.getChanges(), workspaceDir);
 
-            // Run final Jacoco analysis
-            CoverageData finalCoverage = jacocoService.runAnalysis(request.getRepoPath());
+            // Get original coverage for comparison
+            CoverageData originalCoverage = coverageDataService.getCurrentCoverage(repoDir);
 
-            // Create PR
-            PullRequestResult prResult = gitService.createPullRequest(request.getSessionId(), finalCoverage);
+            // Detect project configuration
+            ProjectConfiguration projectConfig = projectConfigService.detectProjectConfiguration(repoDir);
 
-            return ApplyChangesResponse.success(prResult, finalCoverage);
+            // ENHANCED: Use new validation method with multiple strategies
+            CoverageComparisonResult comparisonResult = jacocoService.validateCoverageImprovement(
+                    repoDir, projectConfig, originalCoverage);
+
+            CoverageData finalCoverage = comparisonResult.getNewCoverage();
+
+            // Create PR if requested
+            PullRequestResult prResult = null;
+            if (request.isCreatePullRequest()) {
+                prResult = gitService.createPullRequest(request.getSessionId(), finalCoverage, repoDir);
+            }
+
+            // Update coverage data in MongoDB
+            coverageDataService.saveCoverageData(finalCoverage);
+
+            return ApplyChangesResponse.builder()
+                    .success(true)
+                    .pullRequest(prResult)
+                    .finalCoverage(finalCoverage)
+                    .coverageComparison(comparisonResult) // NEW: Include comparison details
+                    .validationMethod(comparisonResult.getValidationMethod()) // NEW: Show how coverage was validated
+                    .coverageImprovement(comparisonResult.getCoverageImprovement()) // NEW: Show actual improvement
+                    .build();
 
         } catch (Exception e) {
             log.error("Failed to apply changes", e);
@@ -185,5 +214,12 @@ public class CoverageAgentService {
                 .description("Added " + testResult.getGeneratedTests().size() + " test methods")
                 .content(testResult.getGeneratedTestContent())
                 .build();
+    }
+
+    private String extractRepoName(String repositoryUrl) {
+        // Extract repository name from URL
+        String[] parts = repositoryUrl.split("/");
+        String repoName = parts[parts.length - 1];
+        return repoName.endsWith(".git") ? repoName.substring(0, repoName.length() - 4) : repoName;
     }
 }

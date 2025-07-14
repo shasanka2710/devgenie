@@ -7,11 +7,10 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Getter
-@Setter
 @Document(collection = "file_coverage")
 public class FileCoverageData {
     @Id
@@ -29,4 +28,6 @@ public class FileCoverageData {
     private List<String> uncoveredLines;
     private List<String> uncoveredBranches;
     private LocalDateTime lastUpdated;
+    private String buildTool; // NEW: Track which build tool generated this data
+    private String testFramework; // NEW: Track test framework used
 }

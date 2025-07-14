@@ -31,4 +31,15 @@ public class CoverageData {
     private int coveredMethods;
     private List<FileCoverageData> files;
     private LocalDateTime timestamp;
+    private ProjectConfiguration projectConfiguration;
+    private CoverageSource coverageSource; // NEW: Track data source
+
+    // NEW: Enum to track coverage data source
+    public enum CoverageSource {
+        JACOCO_ANALYSIS,    // From Jacoco execution
+        SONARQUBE,          // From SonarQube API
+        ESTIMATED,          // Estimated based on test generation
+        BASIC_ANALYSIS,     // Basic file analysis (0% coverage)
+        MONGODB_CACHE       // Retrieved from MongoDB cache
+    }
 }

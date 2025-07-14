@@ -16,4 +16,6 @@ public class FilePriority {
     private double impactEffortRatio;
     private String reasoning;
     private double estimatedCoverageGain;
+    private String frameworkConsiderations;
+    private String testingApproach;
 }

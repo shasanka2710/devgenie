@@ -14,6 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 public class CoverageSummary {
     private String sessionId;
+    private String workspaceId;
     private Type type;
     private String filePath;
     private double originalCoverage;
@@ -23,6 +24,7 @@ public class CoverageSummary {
     private int failedFiles;
     private List<FileChange> changes;
     private LocalDateTime timestamp;
+    private ProjectConfiguration projectConfiguration;
 
     public enum Type {
         FILE, REPOSITORY

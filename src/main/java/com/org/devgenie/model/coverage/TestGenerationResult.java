@@ -24,6 +24,8 @@ public class TestGenerationResult {
     private String notes;
     private boolean success;
     private String error;
+    private BuildToolSpecific buildToolSpecific; // NEW: Build tool specific data
+    private ProjectConfiguration projectConfiguration; // NEW: Associated project config
 
     public static TestGenerationResult failure(String filePath, String error) {
         return TestGenerationResult.builder()

@@ -22,3 +22,4 @@ public class FileAnalysisResult {
     private String coverageImpactPotential;
     private double currentCoverage;
 }
+

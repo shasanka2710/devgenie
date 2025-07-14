@@ -25,6 +25,11 @@ public class CoverageConfiguration {
     private boolean enableMocking = true;
     private List<String> mockingFrameworks = Arrays.asList("mockito");
 
+    // NEW: Workspace configuration
+    private String workspaceRootDir = "/tmp/coverage-workspaces";
+    private long workspaceTimeoutHours = 24;
+    private boolean autoCleanupWorkspaces = true;
+
     @Data
     public static class QualityThresholds {
         private double minimumMethodCoverage = 80.0;

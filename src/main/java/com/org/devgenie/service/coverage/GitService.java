@@ -41,7 +41,7 @@ public class GitService {
     @Autowired
     private RestTemplate restTemplate;
 
-    public void applyChanges(List<FileChange> changes) {
+    public void applyChanges(List<FileChange> changes,String workspaceDir) {
         log.info("Applying {} file changes", changes.size());
 
         for (FileChange change : changes) {
@@ -54,7 +54,7 @@ public class GitService {
         }
     }
 
-    public PullRequestResult createPullRequest(String sessionId, CoverageData finalCoverage) {
+    public PullRequestResult createPullRequest(String sessionId, CoverageData finalCoverage, String repoDir) {
         log.info("Creating pull request for session: {}", sessionId);
 
         try {
