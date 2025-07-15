@@ -40,6 +40,7 @@ public class RepositoryAnalysisService {
         try {
             long stepStart, stepEnd;
 
+            log.info("Starting repository analysis for URL: {}, Branch: {}, Workspace ID: {}", request.getRepositoryUrl(), request.getBranch(), request.getWorkspaceId());
             // Setup repository in workspace
             stepStart = System.nanoTime();
             String repoDir = repositoryService.setupRepository(
@@ -51,19 +52,23 @@ public class RepositoryAnalysisService {
             stepEnd = System.nanoTime();
             log.info("Repository setup completed in {} ms", (stepEnd - stepStart) / 1_000_000);
 
+
             // Detect project configuration
+            log.info("Detecting project configuration for repository: {}", repoDir);
             stepStart = System.nanoTime();
             ProjectConfiguration projectConfig = projectConfigService.detectProjectConfiguration(repoDir);
             stepEnd = System.nanoTime();
             log.info("Project configuration detection completed in {} ms", (stepEnd - stepStart) / 1_000_000);
 
             // Find Java files
+            log.info("Discovering Java files in repository: {}", repoDir);
             stepStart = System.nanoTime();
             List<String> javaFiles = repositoryService.findJavaFiles(repoDir, getDefaultExcludePatterns());
             stepEnd = System.nanoTime();
-            log.info("Java file discovery completed in {} ms", (stepEnd - stepStart) / 1_000_000);
+            log.info(javaFiles.size()+" Java file(s) discovery completed in {} ms", (stepEnd - stepStart) / 1_000_000);
 
             // Get existing coverage data if available
+            log.info("Retrieving existing coverage data for repository: {}", repoDir);
             stepStart = System.nanoTime();
             CoverageData existingCoverage = null;
             try {
@@ -75,12 +80,14 @@ public class RepositoryAnalysisService {
             log.info("Coverage data retrieval completed in {} ms", (stepEnd - stepStart) / 1_000_000);
 
             // AI-powered repository analysis
+            log.info("Starting AI-powered repository analysis for: {}", repoDir);
             stepStart = System.nanoTime();
             RepositoryInsights insights = generateRepositoryInsights(repoDir, javaFiles, projectConfig);
             stepEnd = System.nanoTime();
             log.info("AI-powered repository analysis completed in {} ms", (stepEnd - stepStart) / 1_000_000);
 
             // Generate recommendations
+            log.info("Generating coverage recommendations based on analysis");
             stepStart = System.nanoTime();
             List<CoverageRecommendation> recommendations = generateCoverageRecommendations(
                     javaFiles, existingCoverage, projectConfig, insights
@@ -174,8 +181,9 @@ public class RepositoryAnalysisService {
                     javaFiles.size(),
                     String.join("\n\n", sampleFiles)
             );
-
+            log.info("Generated AI analysis prompt: {}", analysisPrompt);
             String aiResponse = chatClient.prompt(analysisPrompt).call().content();
+            log.info("AI response received: {}", aiResponse);
             return parseRepositoryInsights(aiResponse);
 
         } catch (Exception e) {

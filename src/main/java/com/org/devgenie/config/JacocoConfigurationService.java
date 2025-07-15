@@ -162,6 +162,7 @@ public class JacocoConfigurationService {
 
         boolean isKotlinDsl = targetFile.toString().endsWith(".kts");
         String jacocoConfig = generateGradleJacocoConfig(originalBuild, projectConfig, isKotlinDsl);
+        log.info("Generated Jacoco configuration for Gradle: {}", jacocoConfig);
         String updatedBuild = insertJacocoIntoGradle(originalBuild, jacocoConfig, isKotlinDsl);
 
         Files.writeString(targetFile, updatedBuild);
@@ -220,32 +221,41 @@ public class JacocoConfigurationService {
     }
 
     private String generateGradleJacocoConfig(String originalBuild, ProjectConfiguration projectConfig, boolean isKotlinDsl) {
+
         String prompt = String.format("""
-            Generate Jacoco Gradle configuration for this project.
-            
-            Project Configuration:
-            - Test Framework: %s
-            - Java Version: %s
-            - Spring Boot: %s
-            - Kotlin DSL: %s
-            
-            Existing build file snippet:
-            %s
-            
-            Generate the necessary Jacoco configuration including:
-            1. Plugin application
-            2. JacocoTestReport task configuration
-            3. Test task dependency setup
-            
-            Format for %s without markdown formatting.
-            """,
+                Generate Jacoco Gradle configuration for this project.
+                
+                Constraints:
+                - DO NOT rewrite the entire build.gradle file.
+                - DO NOT touch or move the existing plugins {} block.
+                - ONLY add the following:
+                    1. A new plugin line: id 'jacoco'
+                    2. Jacoco-specific configuration (jacocoTestReport task block).
+                    3. Test task dependency (if needed).
+                
+                Project Configuration:
+                - Test Framework: %s
+                - Java Version: %s
+                - Spring Boot: %s
+                - Kotlin DSL: %s
+                
+                Existing build.gradle content:
+                %s
+                
+                Expected Output:
+                - Just the minimal Jacoco additions required to make `gradle test jacocoTestReport` work.
+                - It should NOT reformat or rewrite unrelated parts of the build file.
+                - Output must be in %s format (Groovy if false, Kotlin if true), without markdown formatting.
+                """,
                 projectConfig.getTestFramework(),
                 projectConfig.getJavaVersion(),
                 projectConfig.isSpringBoot(),
                 isKotlinDsl,
-                originalBuild.substring(0, Math.min(originalBuild.length(), 1000)),
+                originalBuild,
                 isKotlinDsl ? "Gradle Kotlin DSL" : "Gradle Groovy DSL"
         );
+
+        log.info("Generated prompt for Gradle Jacoco configuration: {}", prompt);
 
         return chatClient.prompt(prompt).call().content();
     }

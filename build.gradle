@@ -81,6 +81,7 @@ dependencies {
 	testImplementation 'org.junit.platform:junit-platform-engine:1.10.0'
 	testImplementation 'org.mockito:mockito-core:5.5.0'
 	testImplementation 'org.mockito:mockito-junit-jupiter:5.5.0'
+	implementation 'org.jsoup:jsoup:1.17.2'
 }
 dependencyManagement {
 	imports {

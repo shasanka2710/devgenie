@@ -15,7 +15,7 @@ public class GitHubConfig {
     @Value("${github.token}")
     private String githubToken;
 
-    @Value("${github.repo}")
+    @Value("${github.repo.name}")
     private String repository;
 
     @Value("${github.default.branch}")

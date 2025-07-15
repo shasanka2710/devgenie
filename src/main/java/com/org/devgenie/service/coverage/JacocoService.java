@@ -439,6 +439,8 @@ public class JacocoService {
             return parseJacocoXmlReport(reportFile, repoDir, projectConfig);
         } else if (actualReportPath.endsWith(".csv")) {
             return parseJacocoCsvReport(reportFile, repoDir, projectConfig);
+        } else if (actualReportPath.endsWith(".html")) {
+            return parseJacocoHtmlReport(reportFile, repoDir, projectConfig);
         } else {
             throw new JacocoException("Unsupported coverage report format: " + actualReportPath);
         }
@@ -458,13 +460,7 @@ public class JacocoService {
                 break;
 
             case "gradle":
-                paths.add(repoDir + "/build/reports/jacoco/test/jacocoTestReport.xml");
-                paths.add(repoDir + "/build/reports/jacoco/test/jacocoTestReport.csv");
-                // Gradle multi-project builds
-                paths.add(repoDir + "/build/reports/jacoco/testCodeCoverageReport/testCodeCoverageReport.xml");
-                // Alternative Gradle locations
-                paths.add(repoDir + "/build/jacoco/jacoco.xml");
-                paths.add(repoDir + "/build/reports/jacoco/jacocoRootReport/html/jacoco.xml");
+                paths.add(repoDir+ "/build/reports/jacoco/test/html/index.html");
                 break;
 
             case "sbt":
@@ -527,6 +523,44 @@ public class JacocoService {
 
         } catch (Exception e) {
             throw new JacocoException("Failed to parse CSV report: " + reportFile.getAbsolutePath(), e);
+        }
+    }
+
+    /**
+     * Parses Jacoco HTML report (index.html) and extracts overall coverage data.
+     */
+    private CoverageData parseJacocoHtmlReport(File htmlFile, String repoDir, ProjectConfiguration projectConfig) throws IOException {
+        org.jsoup.nodes.Document doc = org.jsoup.Jsoup.parse(htmlFile, "UTF-8");
+        org.jsoup.select.Elements totalRow = doc.select("table.coverage tfoot tr");
+        if (totalRow.isEmpty()) {
+            throw new JacocoException("Could not find total coverage row in HTML report");
+        }
+        org.jsoup.select.Elements tds = totalRow.get(0).select("td");
+        if (tds.size() < 13) {
+            throw new JacocoException("Unexpected coverage table format in HTML report");
+        }
+        // Extract coverage percentages from the table
+        double instructionCoverage = parsePercent(tds.get(2).text());
+        double branchCoverage = parsePercent(tds.get(4).text());
+        double lineCoverage = parsePercent(tds.get(8).text());
+        double methodCoverage = parsePercent(tds.get(10).text());
+
+        // Build CoverageData
+        CoverageData data = CoverageData.builder()
+                .overallCoverage(instructionCoverage)
+                .branchCoverage(branchCoverage)
+                .lineCoverage(lineCoverage)
+                .methodCoverage(methodCoverage)
+                .build();
+        return data;
+    }
+
+    private double parsePercent(String percentText) {
+        // Handles values like "6%" or "40%"
+        try {
+            return Double.parseDouble(percentText.replace("%", "").trim());
+        } catch (Exception e) {
+            return 0.0;
         }
     }
 
