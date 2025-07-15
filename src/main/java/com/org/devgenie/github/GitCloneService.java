@@ -8,7 +8,6 @@ import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -33,7 +32,7 @@ public class GitCloneService {
     @Value("${github.token}")
     private String githubToken;
 
-    @PostConstruct
+    //@PostConstruct
     public void cloneRepositoryAtStartup() {
         try {
             File cloneDir = new File(clonedRepoPath);
@@ -42,7 +41,7 @@ public class GitCloneService {
             if (cloneDir.exists() && cloneDir.list().length!=0 && Files.isDirectory(Paths.get(clonedRepoPath))) {
                 log.info("✅ Repository already cloned at: {}", clonedRepoPath);
                 // Optionally, pull the latest changes from remote to sync
-                //pullLatestChanges(cloneDir);
+                pullLatestChanges(cloneDir);
             } else {
                 log.info("⚡ Cloning repository from {} to {}", repoUrl, clonedRepoPath);
                 cloneRepository(repoUrl, clonedRepoPath, repoBranch);

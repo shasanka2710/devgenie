@@ -1,0 +1,56 @@
+<div th:fragment="repository-list" xmlns:th="http://www.thymeleaf.org">
+    <div th:if="${error}" class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        <span th:text="${error}">Error message</span>
+    </div>
+
+    <div th:if="${repositories.empty and !error}" class="text-center py-5">
+        <i class="bi bi-folder-x" style="font-size: 3rem; color: #6c757d;"></i>
+        <h5 class="mt-3 text-muted">No Java repositories found</h5>
+        <p class="text-muted" th:if="${selectedOrg}">
+            No Java repositories found in <strong th:text="${selectedOrg}">organization</strong>.
+        </p>
+    </div>
+
+    <div th:unless="${repositories.empty}" class="row">
+        <div th:each="repo : ${repositories}" class="col-12 mb-3">
+            <div class="card repo-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-1">
+                                <i class="bi bi-folder-fill me-2 text-primary"></i>
+                                <span th:text="${repo.name}">Repository Name</span>
+                                <span th:class="'badge ms-2 ' + ${repo.visibilityBadgeClass}" th:text="${repo.visibilityBadge}">Public</span>
+                            </h5>
+                            <p class="card-text text-muted mb-2" th:text="${repo.description}" th:if="${repo.description}">
+                                Repository description
+                            </p>
+                            <div class="d-flex align-items-center text-sm text-muted">
+                                <span class="me-3" th:if="${repo.language}">
+                                    <i class="bi bi-circle-fill me-1" style="color: #f89820;"></i>
+                                    <span th:text="${repo.language}">Java</span>
+                                </span>
+                                <span class="me-3" th:if="${repo.stargazersCount}">
+                                    <i class="bi bi-star me-1"></i>
+                                    <span th:text="${repo.stargazersCount}">0</span>
+                                </span>
+                                <span class="me-3" th:if="${repo.forksCount}">
+                                    <i class="bi bi-diagram-3 me-1"></i>
+                                    <span th:text="${repo.forksCount}">0</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <a th:href="@{/coverage/analyze/{owner}/{repo}(owner=${repo.owner.login}, repo=${repo.name})}"
+                               class="btn btn-primary">
+                                <i class="bi bi-graph-up me-2"></i>
+                                Analyze Repository
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

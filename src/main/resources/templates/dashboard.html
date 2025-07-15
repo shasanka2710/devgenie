@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/base}">
+<head>
+    <title>Dashboard</title>
+</head>
+<body>
+<div layout:fragment="content">
+    <!-- User Profile Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <img th:src="${user.avatarUrl}" class="avatar-lg" alt="Avatar" th:if="${user.avatarUrl}">
+                        </div>
+                        <div class="col">
+                            <h3 class="mb-1" th:text="${user.name ?: user.login}">User Name</h3>
+                            <p class="text-muted mb-1" th:text="${user.email}" th:if="${user.email}">user@example.com</p>
+                            <p class="text-muted mb-0">
+                                <i class="bi bi-github me-1"></i>
+                                <a th:href="${user.htmlUrl}" target="_blank" th:text="${user.login}" class="text-decoration-none">username</a>
+                            </p>
+                        </div>
+                        <div class="col-auto">
+                            <div class="row g-3 text-center">
+                                <div class="col">
+                                    <div class="fw-bold text-primary" th:text="${totalRepos}">0</div>
+                                    <small class="text-muted">Total Repos</small>
+                                </div>
+                                <div class="col">
+                                    <div class="fw-bold text-success" th:text="${javaReposCount}">0</div>
+                                    <small class="text-muted">Java Repos</small>
+                                </div>
+                                <div class="col">
+                                    <div class="fw-bold text-info" th:text="${organizations.size()}">0</div>
+                                    <small class="text-muted">Organizations</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Row -->
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-lg-3 mb-4">
+            <div class="sidebar p-3">
+                <h5 class="mb-3">
+                    <i class="bi bi-building me-2"></i>
+                    Organizations
+                </h5>
+
+                <!-- Organization Selector -->
+                <select class="form-select org-selector mb-3" id="organizationSelect" onchange="loadOrgRepositories()">
+                    <option value="">Select Organization</option>
+                    <option value="personal">Personal Repositories</option>
+                    <option th:each="org : ${organizations}" th:value="${org.login}" th:text="${org.name ?: org.login}">
+                        Organization Name
+                    </option>
+                </select>
+
+                <!-- Organization List -->
+                <div class="org-list">
+                    <div th:each="org : ${organizations}" class="org-item mb-2 p-2 rounded" style="background-color: #f8f9fa;">
+                        <div class="d-flex align-items-center">
+                            <img th:src="${org.avatarUrl}" class="avatar-sm me-2" alt="Org Avatar" th:if="${org.avatarUrl}">
+                            <div class="flex-grow-1">
+                                <div class="fw-medium" th:text="${org.name ?: org.login}">Org Name</div>
+                                <small class="text-muted" th:text="${org.publicRepos + ' repos'}" th:if="${org.publicRepos}">0 repos</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <div class="main-content p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="mb-0">
+                        <i class="bi bi-folder me-2"></i>
+                        Java Repositories
+                    </h4>
+                    <span class="badge bg-primary" th:text="${javaReposCount + ' repositories'}">0 repositories</span>
+                </div>
+
+                <!-- Repository List -->
+                <div id="repositoryList">
+                    <div th:if="${javaRepositories.empty}" class="text-center py-5">
+                        <i class="bi bi-folder-x" style="font-size: 3rem; color: #6c757d;"></i>
+                        <h5 class="mt-3 text-muted">No Java repositories found</h5>
+                        <p class="text-muted">Select an organization to view its repositories or check if you have Java projects in your account.</p>
+                    </div>
+
+                    <div th:unless="${javaRepositories.empty}" class="row">
+                        <div th:each="repo : ${javaRepositories}" class="col-12 mb-3">
+                            <div class="card repo-card">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col">
+                                            <h5 class="card-title mb-1">
+                                                <i class="bi bi-folder-fill me-2 text-primary"></i>
+                                                <span th:text="${repo.name}">Repository Name</span>
+                                                <span th:class="'badge ms-2 ' + ${repo.visibilityBadgeClass}" th:text="${repo.visibilityBadge}">Public</span>
+                                            </h5>
+                                            <p class="card-text text-muted mb-2" th:text="${repo.description}" th:if="${repo.description}">
+                                                Repository description
+                                            </p>
+                                            <div class="d-flex align-items-center text-sm text-muted">
+                                                    <span class="me-3" th:if="${repo.language}">
+                                                        <i class="bi bi-circle-fill me-1" style="color: #f89820;"></i>
+                                                        <span th:text="${repo.language}">Java</span>
+                                                    </span>
+                                                <span class="me-3" th:if="${repo.stargazersCount}">
+                                                        <i class="bi bi-star me-1"></i>
+                                                        <span th:text="${repo.stargazersCount}">0</span>
+                                                    </span>
+                                                <span class="me-3" th:if="${repo.forksCount}">
+                                                        <i class="bi bi-diagram-3 me-1"></i>
+                                                        <span th:text="${repo.forksCount}">0</span>
+                                                    </span>
+                                                <span th:if="${repo.updatedAt}">
+                                                        <i class="bi bi-clock me-1"></i>
+                                                        Updated <span th:text="${#temporals.format(#temporals.createNow(), 'MMM dd, yyyy')}">Recently</span>
+                                                    </span>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <a th:href="@{/coverage/analyze/{owner}/{repo}(owner=${repo.owner.login}, repo=${repo.name})}"
+                                               class="btn btn-primary">
+                                                <i class="bi bi-graph-up me-2"></i>
+                                                Analyze Repository
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<th:block layout:fragment="scripts">
+    <script>
+        function loadOrgRepositories() {
+            const select = document.getElementById('organizationSelect');
+            const selectedOrg = select.value;
+
+            if (!selectedOrg) {
+                location.reload(); // Reload to show all repositories
+                return;
+            }
+
+            if (selectedOrg === 'personal') {
+                location.reload(); // Reload to show personal repositories
+                return;
+            }
+
+            // Show loading
+            showLoading('repositoryList');
+
+            // Fetch organization repositories
+            fetch(`/organization?org=${selectedOrg}`)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('repositoryList').innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error loading repositories:', error);
+                    document.getElementById('repositoryList').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Failed to load repositories for ${selectedOrg}
+                        </div>
+                    `;
+                });
+        }
+    </script>
+</th:block>
+</body>
+</html>
