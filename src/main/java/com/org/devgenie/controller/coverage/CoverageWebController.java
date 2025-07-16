@@ -68,13 +68,7 @@ public class CoverageWebController {
 
             GitHubRepository repository = repoOpt.get();
             String cacheKey = owner + "/" + repo;
-            RepositoryAnalysisResponse analysis = null;
-            // Try to fetch from Mongo first
-            try{
-                analysis = repositoryAnalysisService.getAnalysisFromMongo(repository.getHtmlUrl(), "main");
-            }catch (CoverageDataNotFoundException ce){
-                log.warn("No analysis found in Mongo for {}/{}: {}", owner, repo, ce.getMessage());
-            }
+            RepositoryAnalysisResponse analysis = fetchAnalysisResponseFromMongo(owner, repo, repository);
             if (analysis == null) {
                 analysis = analysisCache.get(cacheKey);
                 if (analysis == null) {
@@ -104,16 +98,21 @@ public class CoverageWebController {
         }
     }
 
+    private RepositoryAnalysisResponse fetchAnalysisResponseFromMongo(String owner, String repo, GitHubRepository repository) {
+        // Try to fetch from Mongo first
+        RepositoryAnalysisResponse analysis = null;
+        try{
+            analysis = repositoryAnalysisService.getAnalysisFromMongo(repository.getHtmlUrl(), "main");
+        }catch (CoverageDataNotFoundException ce){
+            log.warn("No analysis found in Mongo for {}/{}: {}", owner, repo, ce.getMessage());
+        }
+        return analysis;
+    }
+
     @GetMapping("/analyze/{owner}/{repo}/status")
     @ResponseBody
     public RepositoryAnalysisResponse getAnalysisStatus(@PathVariable String owner, @PathVariable String repo) {
         String cacheKey = owner + "/" + repo;
-        // Try to fetch from Mongo first
-        Optional<GitHubRepository> repoOpt = gitHubService.getRepository(null, owner, repo);
-        if (repoOpt.isPresent()) {
-            RepositoryAnalysisResponse mongoAnalysis = repositoryAnalysisService.getAnalysisFromMongo(repoOpt.get().getHtmlUrl(), "main");
-            if (mongoAnalysis != null) return mongoAnalysis;
-        }
         return analysisCache.get(cacheKey);
     }
 
