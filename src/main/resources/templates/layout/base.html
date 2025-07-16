@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${pageTitle != null ? pageTitle + ' - DevGenie Coverage Agent' : 'DevGenie Coverage Agent'}">DevGenie Coverage Agent</title>
+    <title layout:title-pattern="$CONTENT_TITLE - DevGenie Coverage Agent">DevGenie Coverage Agent</title>
 
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -14,293 +14,384 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Custom CSS -->
     <style>
         :root {
-            --primary-color: #0d6efd;
-            --secondary-color: #6c757d;
-            --success-color: #198754;
-            --danger-color: #dc3545;
-            --warning-color: #ffc107;
-            --info-color: #0dcaf0;
-            --dark-color: #212529;
-            --light-color: #f8f9fa;
-            --border-radius: 12px;
-            --box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --box-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --wf-red: #d71921;
+            --wf-red-dark: #b71c1c;
+            --wf-red-light: #ffebee;
+            --wf-blue: #1976d2;
+            --wf-green: #388e3c;
+            --wf-yellow: #f57c00;
+            --wf-gray: #f5f5f5;
+            --wf-dark-gray: #424242;
+            --wf-light-gray: #fafafa;
+            --wf-border: #e0e0e0;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-            color: #334155;
+            background-color: var(--wf-light-gray);
+            color: var(--wf-dark-gray);
             line-height: 1.6;
         }
 
-        .main-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        /* Navigation Styles */
+        .navbar {
+            background: white !important;
+            border-bottom: 1px solid var(--wf-border);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
             padding: 1rem 0;
-            box-shadow: var(--box-shadow);
         }
 
         .navbar-brand {
             font-weight: 700;
+            color: var(--wf-red) !important;
             font-size: 1.5rem;
+            display: flex;
+            align-items: center;
         }
 
-        .card {
-            border: none;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            transition: all 0.3s ease;
+        .navbar-brand i {
+            margin-right: 0.5rem;
+            color: var(--wf-red);
         }
 
-        .card:hover {
-            box-shadow: var(--box-shadow-lg);
-            transform: translateY(-2px);
-        }
-
-        .card-header {
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-            border-radius: var(--border-radius) var(--border-radius) 0 0;
-            font-weight: 600;
-            color: var(--dark-color);
-        }
-
-        .btn {
-            border-radius: 8px;
+        .navbar-nav .nav-link {
+            color: var(--wf-dark-gray) !important;
             font-weight: 500;
-            padding: 0.5rem 1.5rem;
+            padding: 0.5rem 1rem !important;
+            border-radius: 6px;
             transition: all 0.2s ease;
+            margin: 0 0.25rem;
+        }
+
+        .navbar-nav .nav-link:hover {
+            background-color: var(--wf-red-light);
+            color: var(--wf-red) !important;
+        }
+
+        .navbar-nav .nav-link.active {
+            background-color: var(--wf-red);
+            color: white !important;
+        }
+
+        .dropdown-menu {
+            border: 1px solid var(--wf-border);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            padding: 0.5rem 0;
+        }
+
+        .dropdown-item {
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            color: var(--wf-dark-gray);
+            transition: all 0.2s ease;
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--wf-red-light);
+            color: var(--wf-red);
+        }
+
+        .dropdown-divider {
+            border-color: var(--wf-border);
+            margin: 0.5rem 0;
+        }
+
+        /* User Avatar in Navbar */
+        .navbar-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid var(--wf-border);
+            margin-right: 0.5rem;
+        }
+
+        /* Main Container */
+        .main-container {
+            min-height: calc(100vh - 120px);
+            padding: 2rem 0;
+        }
+
+        /* Footer */
+        .footer {
+            background: white;
+            border-top: 1px solid var(--wf-border);
+            padding: 2rem 0;
+            margin-top: 3rem;
+            color: var(--wf-dark-gray);
+        }
+
+        .footer-brand {
+            color: var(--wf-red);
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .footer-links a {
+            color: var(--wf-dark-gray);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--wf-red);
+        }
+
+        /* Utility Classes */
+        .text-primary {
+            color: var(--wf-red) !important;
+        }
+
+        .bg-primary {
+            background-color: var(--wf-red) !important;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
+            background-color: var(--wf-red);
+            border-color: var(--wf-red);
+            font-weight: 500;
         }
 
         .btn-primary:hover {
-            background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
-            transform: translateY(-1px);
+            background-color: var(--wf-red-dark);
+            border-color: var(--wf-red-dark);
         }
 
-        .badge {
-            border-radius: 6px;
-            font-weight: 500;
-            padding: 0.35em 0.65em;
+        /* Loading Spinner */
+        .spinner-border.text-primary {
+            color: var(--wf-red) !important;
         }
 
-        .badge-private {
-            background-color: #fef3c7;
-            color: #92400e;
-        }
-
-        .badge-public {
-            background-color: #d1fae5;
-            color: #065f46;
-        }
-
-        .stats-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: var(--border-radius);
-        }
-
-        .repo-card {
-            transition: all 0.3s ease;
-            border-left: 4px solid var(--primary-color);
-        }
-
-        .repo-card:hover {
-            border-left-color: var(--success-color);
-        }
-
-        .org-selector {
-            border-radius: var(--border-radius);
-            border: 2px solid #e2e8f0;
-            transition: all 0.2s ease;
-        }
-
-        .org-selector:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
-        }
-
-        .avatar-lg {
-            width: 60px;
-            height: 60px;
-            border-radius: 12px;
-        }
-
-        .avatar-sm {
-            width: 32px;
-            height: 32px;
+        /* Alert Styles */
+        .alert {
+            border: none;
             border-radius: 8px;
+            font-weight: 500;
         }
 
-        .coverage-bar {
-            height: 8px;
-            border-radius: 4px;
-            background-color: #e2e8f0;
-            overflow: hidden;
+        .alert-success {
+            background-color: #e8f5e8;
+            color: var(--wf-green);
+            border-left: 4px solid var(--wf-green);
         }
 
-        .coverage-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.8s ease;
+        .alert-danger {
+            background-color: var(--wf-red-light);
+            color: var(--wf-red-dark);
+            border-left: 4px solid var(--wf-red);
         }
 
-        .coverage-low { background-color: var(--danger-color); }
-        .coverage-medium { background-color: var(--warning-color); }
-        .coverage-high { background-color: var(--success-color); }
-
-        .sidebar {
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            height: fit-content;
+        .alert-warning {
+            background-color: #fff3e0;
+            color: var(--wf-yellow);
+            border-left: 4px solid var(--wf-yellow);
         }
 
-        .main-content {
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            min-height: 600px;
+        .alert-info {
+            background-color: #e3f2fd;
+            color: var(--wf-blue);
+            border-left: 4px solid var(--wf-blue);
         }
 
-        .loading-spinner {
-            display: none;
-        }
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 1rem 0;
+            }
 
-        .fade-in {
-            animation: fadeIn 0.5s ease-in;
-        }
+            .navbar-brand {
+                font-size: 1.25rem;
+            }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .footer {
-            background: var(--dark-color);
-            color: white;
-            padding: 2rem 0;
-            margin-top: 4rem;
+            .navbar-nav .nav-link {
+                text-align: center;
+                margin: 0.25rem 0;
+            }
         }
     </style>
+
+    <th:block layout:fragment="head">
+        <!-- Additional head content can be added by individual pages -->
+    </th:block>
 </head>
 <body>
-<!-- Header -->
-<header class="main-header">
+<!-- Navigation -->
+<nav class="navbar navbar-expand-lg navbar-light">
     <div class="container">
-        <nav class="navbar navbar-expand-lg navbar-dark">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="/" th:href="@{/dashboard}">
-                    <i class="bi bi-shield-check me-2"></i>
-                    DevGenie Coverage Agent
-                </a>
+        <a class="navbar-brand" href="/dashboard">
+            <i class="bi bi-shield-check"></i>
+            DevGenie Coverage Agent
+        </a>
 
-                <div class="navbar-nav ms-auto" sec:authorize="isAuthenticated()">
-                    <div class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
-                            <img th:src="${user?.avatarUrl}" class="avatar-sm me-2" alt="Avatar" th:if="${user?.avatarUrl}">
-                            <span th:text="${user?.name ?: user?.login}">User</span>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" th:href="@{/dashboard}"><i class="bi bi-house me-2"></i>Dashboard</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" th:href="@{/logout}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </nav>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/dashboard">
+                        <i class="bi bi-speedometer2 me-1"></i>
+                        Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="alert('Coming Soon!')">
+                        <i class="bi bi-graph-up me-1"></i>
+                        Analytics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="alert('Coming Soon!')">
+                        <i class="bi bi-gear me-1"></i>
+                        Settings
+                    </a>
+                </li>
+            </ul>
+
+            <ul class="navbar-nav">
+                <li class="nav-item dropdown" sec:authorize="isAuthenticated()">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                        <img src="https://github.com/identicons/user.png" class="navbar-avatar" alt="User Avatar">
+                        <span sec:authentication="name">User</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" href="#" onclick="alert('Coming Soon!')">
+                                <i class="bi bi-person me-2"></i>
+                                Profile
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#" onclick="alert('Coming Soon!')">
+                                <i class="bi bi-gear me-2"></i>
+                                Settings
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="/logout">
+                                <i class="bi bi-box-arrow-right me-2"></i>
+                                Sign Out
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="nav-item" sec:authorize="!isAuthenticated()">
+                    <a class="nav-link" href="/login">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>
+                        Sign In
+                    </a>
+                </li>
+            </ul>
+        </div>
     </div>
-</header>
+</nav>
 
 <!-- Main Content -->
-<main class="container my-4">
-    <!-- Flash Messages -->
-    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="bi bi-exclamation-triangle me-2"></i>
-        <span th:text="${error}">Error message</span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
+<div class="main-container">
+    <div class="container">
+        <!-- Flash Messages - Using standard model attributes -->
+        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <span th:text="${error}">Error message</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
 
-    <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
-        <i class="bi bi-check-circle me-2"></i>
-        <span th:text="${success}">Success message</span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
+        <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i>
+            <span th:text="${success}">Success message</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
 
-    <!-- Page Content -->
-    <div layout:fragment="content">
-        <!-- Page content will be inserted here -->
+        <div th:if="${info}" class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="bi bi-info-circle me-2"></i>
+            <span th:text="${info}">Info message</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <!-- Page Content -->
+        <div layout:fragment="content">
+            <!-- Page content will be inserted here -->
+        </div>
     </div>
-</main>
+</div>
 
 <!-- Footer -->
 <footer class="footer">
     <div class="container">
         <div class="row">
             <div class="col-md-6">
-                <h5>DevGenie Coverage Agent</h5>
-                <p class="text-muted">AI-powered code coverage enhancement platform</p>
+                <div class="footer-brand mb-2">DevGenie Coverage Agent</div>
+                <p class="text-muted mb-0">AI-powered code coverage enhancement for Java applications.</p>
             </div>
-            <div class="col-md-6 text-md-end">
-                <p class="text-muted mb-0">© 2024 DevGenie. All rights reserved.</p>
+            <div class="col-md-6">
+                <div class="footer-links text-md-end">
+                    <a href="#" class="me-3" onclick="alert('Coming Soon!')">Documentation</a>
+                    <a href="#" class="me-3" onclick="alert('Coming Soon!')">Support</a>
+                    <a href="#" onclick="alert('Coming Soon!')">Privacy Policy</a>
+                </div>
+                <div class="text-muted text-md-end mt-2">
+                    <small>&copy; 2025 DevGenie. All rights reserved.</small>
+                </div>
             </div>
         </div>
     </div>
 </footer>
 
-<!-- Bootstrap 5.3 JS -->
+<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- Custom JavaScript -->
+<!-- Common JavaScript Functions -->
 <script>
-    // Global JavaScript functionality
-    document.addEventListener('DOMContentLoaded', function() {
-        // Auto-hide alerts after 5 seconds
-        setTimeout(() => {
-            const alerts = document.querySelectorAll('.alert-dismissible');
-            alerts.forEach(alert => {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            });
-        }, 5000);
-
-        // Add fade-in animation to cards
-        const cards = document.querySelectorAll('.card');
-        cards.forEach((card, index) => {
-            setTimeout(() => {
-                card.classList.add('fade-in');
-            }, index * 100);
-        });
-    });
-
-    // Show loading spinner
-    function showLoading(elementId) {
+    // Show loading spinner for any element
+    function showLoading(elementId, message = 'Loading...') {
         const element = document.getElementById(elementId);
         if (element) {
             element.innerHTML = `
-                <div class="text-center p-4">
-                    <div class="spinner-border text-primary" role="status">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary mb-3" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                    <p class="mt-2 text-muted">Loading...</p>
+                    <h5>${message}</h5>
                 </div>
             `;
         }
     }
+
+    // Hide flash messages after 5 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const alerts = document.querySelectorAll('.alert-dismissible');
+        alerts.forEach(function(alert) {
+            setTimeout(function() {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }, 5000);
+        });
+    });
+
+    // Set active navigation link
+    function setActiveNavLink() {
+        const currentPath = window.location.pathname;
+        const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
+
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === currentPath) {
+                link.classList.add('active');
+            }
+        });
+    }
+
+    // Call on page load
+    document.addEventListener('DOMContentLoaded', setActiveNavLink);
 </script>
 
-<!-- Page-specific scripts -->
 <th:block layout:fragment="scripts">
-    <!-- Page-specific JavaScript will be inserted here -->
+    <!-- Additional scripts can be added by individual pages -->
 </th:block>
 </body>
 </html>

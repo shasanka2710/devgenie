@@ -1,12 +1,100 @@
 <div th:fragment="repository-list" xmlns:th="http://www.thymeleaf.org">
+    <style>
+        :root {
+            --wf-red: #d71921;
+            --wf-red-dark: #b71c1c;
+            --wf-red-light: #ffebee;
+            --wf-blue: #1976d2;
+            --wf-green: #388e3c;
+            --wf-yellow: #f57c00;
+            --wf-gray: #f5f5f5;
+            --wf-dark-gray: #424242;
+            --wf-light-gray: #fafafa;
+            --wf-border: #e0e0e0;
+        }
+
+        .alert {
+            border: none;
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .alert-danger {
+            background-color: var(--wf-red-light);
+            color: var(--wf-red-dark);
+            border-left: 4px solid var(--wf-red);
+        }
+
+        .empty-state {
+            color: #6c757d;
+            text-align: center;
+            padding: 3rem 1rem;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .repo-card {
+            transition: all 0.2s ease;
+            border: 1px solid var(--wf-border);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .repo-card:hover {
+            border-color: var(--wf-red);
+            box-shadow: 0 4px 16px rgba(215, 25, 33, 0.1);
+        }
+
+        .repo-card .card-title {
+            color: var(--wf-dark-gray);
+            font-weight: 600;
+        }
+
+        .text-primary {
+            color: var(--wf-red) !important;
+        }
+
+        .btn-primary {
+            background-color: var(--wf-red);
+            border-color: var(--wf-red);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--wf-red-dark);
+            border-color: var(--wf-red-dark);
+            transform: translateY(-1px);
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+        }
+
+        .text-muted {
+            color: #6c757d !important;
+        }
+    </style>
+
     <div th:if="${error}" class="alert alert-danger">
         <i class="bi bi-exclamation-triangle me-2"></i>
         <span th:text="${error}">Error message</span>
     </div>
 
-    <div th:if="${repositories.empty and !error}" class="text-center py-5">
-        <i class="bi bi-folder-x" style="font-size: 3rem; color: #6c757d;"></i>
-        <h5 class="mt-3 text-muted">No Java repositories found</h5>
+    <div th:if="${repositories.empty and !error}" class="empty-state">
+        <i class="bi bi-folder-x"></i>
+        <h5 class="mt-3">No Java repositories found</h5>
         <p class="text-muted" th:if="${selectedOrg}">
             No Java repositories found in <strong th:text="${selectedOrg}">organization</strong>.
         </p>
