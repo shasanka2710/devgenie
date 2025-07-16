@@ -14,6 +14,7 @@ public class ApplyChangesRequest {
     private String sessionId;
     private String workspaceId;
     private String repositoryUrl;
+    private String branch;
     private String repoPath;
     private List<FileChange> changes;
     private boolean createPullRequest = true;

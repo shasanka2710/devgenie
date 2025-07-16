@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.org.devgenie.exception.coverage.CoverageDataNotFoundException;
 import com.org.devgenie.model.coverage.*;
+import com.org.devgenie.mongo.RepositoryAnalysisMongoUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,12 +35,16 @@ public class RepositoryAnalysisService {
     @Autowired
     private ChatClient chatClient;
 
+    @Autowired
+    private RepositoryAnalysisMongoUtil analysisMongoUtil;
+
     public RepositoryAnalysisResponse analyzeRepository(RepositoryAnalysisRequest request) {
         log.info("Analyzing repository: {}", request.getRepositoryUrl());
         long overallStart = System.nanoTime();
         try {
             long stepStart, stepEnd;
 
+            log.info("Starting repository analysis for URL: {}, Branch: {}, Workspace ID: {}", request.getRepositoryUrl(), request.getBranch(), request.getWorkspaceId());
             // Setup repository in workspace
             stepStart = System.nanoTime();
             String repoDir = repositoryService.setupRepository(
@@ -51,23 +56,27 @@ public class RepositoryAnalysisService {
             stepEnd = System.nanoTime();
             log.info("Repository setup completed in {} ms", (stepEnd - stepStart) / 1_000_000);
 
+
             // Detect project configuration
+            log.info("Detecting project configuration for repository: {}", repoDir);
             stepStart = System.nanoTime();
             ProjectConfiguration projectConfig = projectConfigService.detectProjectConfiguration(repoDir);
             stepEnd = System.nanoTime();
             log.info("Project configuration detection completed in {} ms", (stepEnd - stepStart) / 1_000_000);
 
             // Find Java files
+            log.info("Discovering Java files in repository: {}", repoDir);
             stepStart = System.nanoTime();
             List<String> javaFiles = repositoryService.findJavaFiles(repoDir, getDefaultExcludePatterns());
             stepEnd = System.nanoTime();
-            log.info("Java file discovery completed in {} ms", (stepEnd - stepStart) / 1_000_000);
+            log.info(javaFiles.size()+" Java file(s) discovery completed in {} ms", (stepEnd - stepStart) / 1_000_000);
 
             // Get existing coverage data if available
+            log.info("Retrieving existing coverage data for repository: {}", repoDir);
             stepStart = System.nanoTime();
             CoverageData existingCoverage = null;
             try {
-                existingCoverage = coverageDataService.getCurrentCoverage(repoDir);
+                existingCoverage = coverageDataService.getCurrentCoverage(repoDir, request.getBranch());
             } catch (CoverageDataNotFoundException e) {
                 log.info("No existing coverage data found, will generate fresh analysis");
             }
@@ -75,12 +84,14 @@ public class RepositoryAnalysisService {
             log.info("Coverage data retrieval completed in {} ms", (stepEnd - stepStart) / 1_000_000);
 
             // AI-powered repository analysis
+            log.info("Starting AI-powered repository analysis for: {}", repoDir);
             stepStart = System.nanoTime();
             RepositoryInsights insights = generateRepositoryInsights(repoDir, javaFiles, projectConfig);
             stepEnd = System.nanoTime();
             log.info("AI-powered repository analysis completed in {} ms", (stepEnd - stepStart) / 1_000_000);
 
             // Generate recommendations
+            log.info("Generating coverage recommendations based on analysis");
             stepStart = System.nanoTime();
             List<CoverageRecommendation> recommendations = generateCoverageRecommendations(
                     javaFiles, existingCoverage, projectConfig, insights
@@ -91,7 +102,7 @@ public class RepositoryAnalysisService {
             long overallEnd = System.nanoTime();
             log.info("Total analysis completed in {} ms", (overallEnd - overallStart) / 1_000_000);
 
-            return RepositoryAnalysisResponse.builder()
+            RepositoryAnalysisResponse response = RepositoryAnalysisResponse.builder()
                     .repositoryUrl(request.getRepositoryUrl())
                     .branch(request.getBranch())
                     .workspaceId(extractWorkspaceId(repoDir))
@@ -104,6 +115,11 @@ public class RepositoryAnalysisService {
                     .analysisTimestamp(LocalDateTime.now())
                     .success(true)
                     .build();
+
+            // Persist asynchronously
+            analysisMongoUtil.persistAnalysisAsync(response);
+
+            return response;
 
         } catch (Exception e) {
             log.error("Failed to analyze repository", e);
@@ -174,8 +190,9 @@ public class RepositoryAnalysisService {
                     javaFiles.size(),
                     String.join("\n\n", sampleFiles)
             );
-
+            log.info("Generated AI analysis prompt: {}", analysisPrompt);
             String aiResponse = chatClient.prompt(analysisPrompt).call().content();
+            log.info("AI response received: {}", aiResponse);
             return parseRepositoryInsights(aiResponse);
 
         } catch (Exception e) {
@@ -356,5 +373,9 @@ public class RepositoryAnalysisService {
         }
 
         throw new IllegalArgumentException("No valid JSON found in AI response");
+    }
+
+    public RepositoryAnalysisResponse getAnalysisFromMongo(String htmlUrl, String main) {
+        return analysisMongoUtil.getAnalysisFromMongo(htmlUrl,main);
     }
 }

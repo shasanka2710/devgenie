@@ -11,6 +11,7 @@ import java.util.List;
 @AllArgsConstructor
 public class RepoCoverageRequest {
     private String repoPath;
+    private String branch = "main";
     private Double targetCoverageIncrease;
     private List<String> excludeFiles;
     private boolean forceRefresh;

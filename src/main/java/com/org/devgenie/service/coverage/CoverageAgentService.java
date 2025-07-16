@@ -62,7 +62,7 @@ public class CoverageAgentService {
 
         try {
             // Initialize coverage analysis
-            CoverageData currentCoverage = coverageDataService.getCurrentCoverage(request.getRepoPath());
+            CoverageData currentCoverage = coverageDataService.getCurrentCoverage(request.getRepoPath(),request.getBranch());
 
             // Calculate target coverage
             double targetCoverage = currentCoverage.getOverallCoverage() +
@@ -97,7 +97,7 @@ public class CoverageAgentService {
             gitService.applyChanges(request.getChanges(), workspaceDir);
 
             // Get original coverage for comparison
-            CoverageData originalCoverage = coverageDataService.getCurrentCoverage(repoDir);
+            CoverageData originalCoverage = coverageDataService.getCurrentCoverage(repoDir,request.getBranch());
 
             // Detect project configuration
             ProjectConfiguration projectConfig = projectConfigService.detectProjectConfiguration(repoDir);
@@ -115,7 +115,7 @@ public class CoverageAgentService {
             }
 
             // Update coverage data in MongoDB
-            coverageDataService.saveCoverageData(finalCoverage);
+            //coverageDataService.saveCoverageData(finalCoverage);
 
             return ApplyChangesResponse.builder()
                     .success(true)

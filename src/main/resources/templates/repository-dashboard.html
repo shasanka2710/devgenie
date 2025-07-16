@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${repository.name} + ' Dashboard'">Repository Dashboard</title>
+    <style>
+        :root {
+            --wf-red: #d71921;
+            --wf-red-dark: #b71c1c;
+            --wf-red-light: #ffebee;
+            --wf-blue: #1976d2;
+            --wf-green: #388e3c;
+            --wf-yellow: #f57c00;
+            --wf-gray: #f5f5f5;
+            --wf-dark-gray: #424242;
+            --wf-light-gray: #fafafa;
+            --wf-border: #e0e0e0;
+        }
+
+        body {
+            background-color: var(--wf-light-gray);
+            color: var(--wf-dark-gray);
+        }
+
+        .card {
+            border: 1px solid var(--wf-border);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            background: white;
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            background: white;
+            border-bottom: 1px solid var(--wf-border);
+            font-weight: 600;
+            color: var(--wf-dark-gray);
+        }
+
+        /* RBGY Stats Cards */
+        .stats-card {
+            border: none;
+        }
+
+        .stats-card-red {
+            background: linear-gradient(135deg, var(--wf-red) 0%, var(--wf-red-dark) 100%);
+            color: white;
+        }
+
+        .stats-card-blue {
+            background: linear-gradient(135deg, var(--wf-blue) 0%, #1565c0 100%);
+            color: white;
+        }
+
+        .stats-card-green {
+            background: linear-gradient(135deg, var(--wf-green) 0%, #2e7d32 100%);
+            color: white;
+        }
+
+        .stats-card-yellow {
+            background: linear-gradient(135deg, var(--wf-yellow) 0%, #ef6c00 100%);
+            color: white;
+        }
+
+        .stats-card h3 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .stats-card p {
+            font-size: 0.9rem;
+            opacity: 0.95;
+            font-weight: 500;
+            margin-bottom: 0;
+        }
+
+        .stats-card i {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .text-primary {
+            color: var(--wf-red) !important;
+        }
+
+        .btn-primary {
+            background-color: var(--wf-red);
+            border-color: var(--wf-red);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--wf-red-dark);
+            border-color: var(--wf-red-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline-secondary {
+            border-color: var(--wf-border);
+            color: var(--wf-dark-gray);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            border-radius: 6px;
+        }
+
+        .btn-outline-secondary:hover {
+            background-color: var(--wf-gray);
+            border-color: var(--wf-red);
+            color: var(--wf-red);
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8rem;
+        }
+
+        .dashboard-header-icon {
+            background: var(--wf-red-light);
+            color: var(--wf-red);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--wf-red);
+        }
+
+        .file-tree {
+            max-height: 500px;
+            overflow-y: auto;
+            border-radius: 6px;
+        }
+
+        .file-item {
+            padding: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+
+        .file-item:hover {
+            background-color: var(--wf-red-light);
+        }
+
+        .file-item.selected {
+            background-color: var(--wf-red-light);
+            border-left: 3px solid var(--wf-red);
+        }
+
+        .coverage-bar {
+            height: 6px;
+            background-color: var(--wf-gray);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .coverage-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .coverage-high {
+            background: linear-gradient(90deg, var(--wf-green), #4caf50);
+        }
+
+        .coverage-medium {
+            background: linear-gradient(90deg, var(--wf-yellow), #ff9800);
+        }
+
+        .coverage-low {
+            background: linear-gradient(90deg, var(--wf-red), #e53935);
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.75rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--wf-border);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .timeline-marker {
+            position: absolute;
+            left: -2rem;
+            top: 0.5rem;
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 50%;
+            z-index: 1;
+        }
+
+        .timeline-marker.bg-primary {
+            background-color: var(--wf-red) !important;
+        }
+
+        .timeline-marker.bg-success {
+            background-color: var(--wf-green) !important;
+        }
+
+        .timeline-content {
+            margin-left: 1rem;
+        }
+
+        .alert {
+            border: none;
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .alert-warning {
+            background-color: #fff3e0;
+            color: var(--wf-yellow);
+            border-left: 4px solid var(--wf-yellow);
+        }
+
+        .alert-info {
+            background-color: #e3f2fd;
+            color: var(--wf-blue);
+            border-left: 4px solid var(--wf-blue);
+        }
+
+        .alert-success {
+            background-color: #e8f5e8;
+            color: var(--wf-green);
+            border-left: 4px solid var(--wf-green);
+        }
+
+        .empty-state {
+            color: #6c757d;
+            text-align: center;
+            padding: 3rem 1rem;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+<div layout:fragment="content">
+    <!-- Repository Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <div class="dashboard-header-icon me-3">
+                                <i class="bi bi-speedometer2" style="font-size: 2rem;"></i>
+                            </div>
+                            <div>
+                                <h2 class="mb-1" th:text="${repository.name} + ' Dashboard'" style="color: var(--wf-dark-gray);">Repository Dashboard</h2>
+                                <p class="text-muted mb-0">
+                                    <i class="bi bi-github me-1"></i>
+                                    <span th:text="${owner} + '/' + ${repoName}">owner/repo</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div>
+                            <a th:href="@{/dashboard}" class="btn btn-outline-secondary me-2">
+                                <i class="bi bi-arrow-left me-2"></i>
+                                Back to Dashboard
+                            </a>
+                            <button class="btn btn-primary" onclick="improveCoverage()">
+                                <i class="bi bi-graph-up me-2"></i>
+                                Improve Coverage
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coverage Overview - RBGY Colors -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-red">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-graph-up"></i>
+                    <h3>73.5%</h3>
+                    <p>Overall Coverage</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-blue">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-code-slash"></i>
+                    <h3>76.2%</h3>
+                    <p>Line Coverage</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-green">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-diagram-3"></i>
+                    <h3>68.1%</h3>
+                    <p>Branch Coverage</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-yellow">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-braces"></i>
+                    <h3>82.4%</h3>
+                    <p>Method Coverage</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row">
+        <!-- File Tree -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-folder-tree me-2 text-primary"></i>
+                        Project Structure
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="fileTree" class="file-tree">
+                        <div class="p-3">
+                            <div class="d-flex align-items-center mb-2 file-item" onclick="toggleFolder(this)">
+                                <i class="bi bi-folder-fill text-warning me-2"></i>
+                                <span class="fw-medium">src</span>
+                            </div>
+                            <div class="ms-3">
+                                <div class="d-flex align-items-center mb-2 file-item" onclick="toggleFolder(this)">
+                                    <i class="bi bi-folder-fill text-warning me-2"></i>
+                                    <span class="fw-medium">main</span>
+                                </div>
+                                <div class="ms-3">
+                                    <div class="d-flex align-items-center mb-2 file-item" onclick="toggleFolder(this)">
+                                        <i class="bi bi-folder-fill text-warning me-2"></i>
+                                        <span class="fw-medium">java</span>
+                                    </div>
+                                    <div class="ms-3">
+                                        <div class="d-flex align-items-center mb-1 file-item" onclick="selectFile(this, 'com/example/service/UserService.java')">
+                                            <i class="bi bi-file-earmark-code text-primary me-2"></i>
+                                            <span>UserService.java</span>
+                                            <div class="coverage-bar ms-auto" style="width: 60px;">
+                                                <div class="coverage-fill coverage-medium" style="width: 65%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-1 file-item" onclick="selectFile(this, 'com/example/controller/UserController.java')">
+                                            <i class="bi bi-file-earmark-code text-primary me-2"></i>
+                                            <span>UserController.java</span>
+                                            <div class="coverage-bar ms-auto" style="width: 60px;">
+                                                <div class="coverage-fill coverage-high" style="width: 85%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center mb-1 file-item" onclick="selectFile(this, 'com/example/model/User.java')">
+                                            <i class="bi bi-file-earmark-code text-primary me-2"></i>
+                                            <span>User.java</span>
+                                            <div class="coverage-bar ms-auto" style="width: 60px;">
+                                                <div class="coverage-fill coverage-low" style="width: 30%;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Details -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-file-earmark-code me-2 text-primary"></i>
+                            <span id="selectedFileName">Select a file</span>
+                        </h5>
+                        <button id="improveFileBtn" class="btn btn-primary btn-sm" style="display: none;" onclick="improveFileCoverage()">
+                            <i class="bi bi-plus-circle me-1"></i>
+                            Improve Coverage
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="fileDetails">
+                        <div class="empty-state">
+                            <i class="bi bi-cursor"></i>
+                            <h5 class="mt-3">Select a file from the tree</h5>
+                            <p>Choose a Java file to view its coverage details and improvement options.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2 text-primary"></i>
+                        Recent Activity
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1" style="color: var(--wf-dark-gray);">Repository Analyzed</h6>
+                                <p class="text-muted mb-1">Initial coverage analysis completed</p>
+                                <small class="text-muted">Just now</small>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1" style="color: var(--wf-dark-gray);">Project Configuration Detected</h6>
+                                <p class="text-muted mb-1">Maven, JUnit 5, Spring Boot project identified</p>
+                                <small class="text-muted">2 minutes ago</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<th:block layout:fragment="scripts">
+    <script>
+        function selectFile(element, filePath) {
+            // Remove previous selection
+            document.querySelectorAll('.file-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            // Add selection to clicked item
+            element.classList.add('selected');
+
+            // Update file details
+            document.getElementById('selectedFileName').textContent = filePath.split('/').pop();
+            document.getElementById('improveFileBtn').style.display = 'block';
+
+            // Show file details
+            const fileDetails = document.getElementById('fileDetails');
+            fileDetails.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Coverage Metrics</h6>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span>Line Coverage</span>
+                                <span class="fw-bold">65.2%</span>
+                            </div>
+                            <div class="coverage-bar">
+                                <div class="coverage-fill coverage-medium" style="width: 65.2%;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span>Branch Coverage</span>
+                                <span class="fw-bold">58.7%</span>
+                            </div>
+                            <div class="coverage-bar">
+                                <div class="coverage-fill coverage-medium" style="width: 58.7%;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span>Method Coverage</span>
+                                <span class="fw-bold">72.1%</span>
+                            </div>
+                            <div class="coverage-bar">
+                                <div class="coverage-fill coverage-high" style="width: 72.1%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Improvement Opportunities</h6>
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>5 uncovered methods</strong> detected
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Edge cases</strong> need test coverage
+                        </div>
+                        <div class="alert alert-success">
+                            <i class="bi bi-lightbulb me-2"></i>
+                            Estimated <strong>+15%</strong> coverage possible
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleFolder(element) {
+            const icon = element.querySelector('i');
+            const nextSibling = element.nextElementSibling;
+
+            if (nextSibling && nextSibling.classList.contains('ms-3')) {
+                if (nextSibling.style.display === 'none') {
+                    nextSibling.style.display = 'block';
+                    icon.className = 'bi bi-folder-fill text-warning me-2';
+                } else {
+                    nextSibling.style.display = 'none';
+                    icon.className = 'bi bi-folder text-warning me-2';
+                }
+            }
+        }
+
+        function improveCoverage() {
+            alert('Repository-wide coverage improvement will be implemented here!');
+        }
+
+        function improveFileCoverage() {
+            const fileName = document.getElementById('selectedFileName').textContent;
+            alert(`File-specific coverage improvement for ${fileName} will be implemented here!`);
+        }
+    </script>
+</th:block>
+</body>
+</html>

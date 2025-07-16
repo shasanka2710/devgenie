@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/base}">
+<head>
+    <title th:text="'Analyzing ' + ${repository.name}">Repository Analysis</title>
+    <style>
+        :root {
+            --wf-red: #d71921;
+            --wf-red-dark: #b71c1c;
+            --wf-red-light: #ffebee;
+            --wf-blue: #1976d2;
+            --wf-green: #388e3c;
+            --wf-yellow: #f57c00;
+            --wf-gray: #f5f5f5;
+            --wf-dark-gray: #424242;
+            --wf-light-gray: #fafafa;
+            --wf-border: #e0e0e0;
+        }
+
+        body {
+            background-color: var(--wf-light-gray);
+            color: var(--wf-dark-gray);
+        }
+
+        .card {
+            border: 1px solid var(--wf-border);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            background: white;
+        }
+
+        .card-header {
+            background: white;
+            border-bottom: 1px solid var(--wf-border);
+            font-weight: 600;
+            color: var(--wf-dark-gray);
+        }
+
+        .text-primary {
+            color: var(--wf-red) !important;
+        }
+
+        .btn-primary {
+            background-color: var(--wf-red);
+            border-color: var(--wf-red);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--wf-red-dark);
+            border-color: var(--wf-red-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline-secondary {
+            border-color: var(--wf-border);
+            color: var(--wf-dark-gray);
+            font-weight: 500;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8rem;
+            border-radius: 6px;
+        }
+
+        .btn-outline-secondary:hover {
+            background-color: var(--wf-gray);
+            border-color: var(--wf-red);
+            color: var(--wf-red);
+        }
+
+        .btn-success {
+            background-color: var(--wf-green);
+            border-color: var(--wf-green);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            border-radius: 6px;
+        }
+
+        .btn-success:hover {
+            background-color: #2e7d32;
+            border-color: #2e7d32;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+        }
+
+        .bg-info {
+            background-color: var(--wf-blue) !important;
+        }
+
+        .bg-success {
+            background-color: var(--wf-green) !important;
+        }
+
+        .bg-warning {
+            background-color: var(--wf-yellow) !important;
+        }
+
+        .bg-primary {
+            background-color: var(--wf-red) !important;
+        }
+
+        .bg-secondary {
+            background-color: var(--wf-dark-gray) !important;
+        }
+
+        .spinner-border.text-primary {
+            color: var(--wf-red) !important;
+        }
+
+        .progress {
+            background-color: var(--wf-gray);
+            border-radius: 6px;
+        }
+
+        .progress-bar {
+            background-color: var(--wf-red);
+        }
+
+        .alert {
+            border: none;
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .alert-info {
+            background-color: #e3f2fd;
+            color: var(--wf-blue);
+            border-left: 4px solid var(--wf-blue);
+        }
+
+        .alert-warning {
+            background-color: #fff3e0;
+            color: var(--wf-yellow);
+            border-left: 4px solid var(--wf-yellow);
+        }
+
+        .repo-header-icon {
+            background: var(--wf-red-light);
+            color: var(--wf-red);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--wf-red);
+        }
+
+        .action-card {
+            transition: all 0.2s ease;
+            border: 1px solid var(--wf-border);
+        }
+
+        .action-card:hover {
+            border-color: var(--wf-red);
+            box-shadow: 0 4px 16px rgba(215, 25, 33, 0.1);
+        }
+
+        .action-icon {
+            color: var(--wf-red);
+        }
+
+        .success-icon {
+            color: var(--wf-green);
+        }
+    </style>
+</head>
+<body>
+<div layout:fragment="content">
+    <!-- Repository Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="repo-header-icon me-3">
+                            <i class="bi bi-folder-fill" style="font-size: 2rem;"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h2 class="mb-1" th:text="${repository.name}" style="color: var(--wf-dark-gray);">Repository Name</h2>
+                            <p class="text-muted mb-2" th:text="${repository.description}" th:if="${repository.description}">
+                                Repository description
+                            </p>
+                            <div class="d-flex align-items-center">
+                                <span th:class="'badge me-2 ' + ${repository.visibilityBadgeClass}" th:text="${repository.visibilityBadge}">Public</span>
+                                <span class="me-3" th:if="${repository.language}">
+                                    <i class="bi bi-circle-fill me-1" style="color: #f89820;"></i>
+                                    <span th:text="${repository.language}">Java</span>
+                                </span>
+                                <a th:href="${repository.htmlUrl}" target="_blank" class="btn btn-outline-secondary">
+                                    <i class="bi bi-github me-1"></i>
+                                    View on GitHub
+                                </a>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <a th:href="@{/coverage/dashboard/{owner}/{repo}(owner=${owner}, repo=${repoName})}"
+                               class="btn btn-primary"
+                               th:classappend="${analysis == null || !analysis.success || analysis.existingCoverage == null} ? ' disabled' : ''"
+                               th:attr="tabindex=${analysis == null || !analysis.success || analysis.existingCoverage == null ? -1 : null}, aria-disabled=${analysis == null || !analysis.success || analysis.existingCoverage == null ? true : null}">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                Go to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Status -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-cpu me-2 text-primary"></i>
+                        Repository Analysis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div th:if="${analysis == null || !analysis.success}" id="analysisStatus" class="text-center py-5">
+                        <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <h5 style="color: var(--wf-dark-gray);">Analyzing Repository</h5>
+                        <p class="text-muted">Please wait while we analyze your repository structure and configuration...</p>
+                        <div class="progress mt-4" style="height: 8px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                 role="progressbar" style="width: 100%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Analysis Results -->
+                    <div th:if="${analysis != null && analysis.success}" id="analysisResults">
+                        <div class="row">
+                            <!-- Project Configuration Card -->
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-header bg-info text-white">
+                                        <i class="bi bi-gear me-2"></i> Project Configuration
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush">
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-tools me-2"></i>Build Tool</span>
+                                                <span class="badge bg-info" th:text="${analysis.projectConfiguration.buildTool}"></span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-bezier2 me-2"></i>Test Framework</span>
+                                                <span class="badge bg-success" th:text="${analysis.projectConfiguration.testFramework}"></span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-cup-hot me-2"></i>Java Version</span>
+                                                <span class="badge bg-warning text-dark" th:text="${analysis.projectConfiguration.javaVersion}"></span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-lightning-charge me-2"></i>Spring Boot</span>
+                                                <span class="badge bg-primary" th:text="${analysis.projectConfiguration.isSpringBoot ? 'Yes' : 'No'}"></span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Repository Insights Card -->
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-header bg-warning text-dark">
+                                        <i class="bi bi-bar-chart-steps me-2"></i> Repository Insights
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush">
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-diagram-3 me-2"></i>Complexity</span>
+                                                <span class="badge bg-warning text-dark" th:text="${analysis.insights.repositoryComplexity}"></span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-file-earmark-code me-2"></i>Total Java Files</span>
+                                                <span class="badge bg-info" th:text="${analysis.totalJavaFiles}"></span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-diagram-2 me-2"></i>Architecture</span>
+                                                <span class="badge bg-secondary" th:text="${#lists.isEmpty(analysis.insights.architecturalInsights) ? 'N/A' : analysis.insights.architecturalInsights[0]}"></span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Recommendations</h6>
+                            <div id="recommendations">
+                                <div th:if="${#lists.isEmpty(analysis.recommendations)}">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        No recommendations available.
+                                    </div>
+                                </div>
+                                <div th:each="rec : ${analysis.recommendations}">
+                                    <div th:class="'alert ' + (${rec.priority} == 'HIGH' ? 'alert-info' : (${rec.priority} == 'MEDIUM' ? 'alert-warning' : 'alert-secondary'))">
+                                        <i th:class="${rec.priority} == 'HIGH' ? 'bi bi-info-circle me-2' : (${rec.priority} == 'MEDIUM' ? 'bi bi-exclamation-triangle me-2' : 'bi bi-lightbulb me-2')"></i>
+                                        <strong th:text="${rec.priority + ' Priority:'}"></strong>
+                                        <span th:text="${rec.title}"></span>
+                                        <div th:text="${rec.description}" class="mt-1"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <div class="card action-card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-graph-up action-icon" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3" style="color: var(--wf-dark-gray);">Improve Coverage</h5>
+                    <p class="text-muted">Start AI-powered coverage improvement for this repository</p>
+                    <button class="btn btn-primary" onclick="startCoverageImprovement()">
+                        <i class="bi bi-play-fill me-2"></i>
+                        Start Improvement
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card action-card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-speedometer2 success-icon" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3" style="color: var(--wf-dark-gray);">View Dashboard</h5>
+                    <p class="text-muted">Explore detailed coverage metrics and file structure</p>
+                    <a th:href="@{/coverage/dashboard/{owner}/{repo}(owner=${owner}, repo=${repoName})}"
+                       class="btn btn-success">
+                        <i class="bi bi-arrow-right me-2"></i>
+                        Open Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<th:block layout:fragment="scripts">
+    <script>
+        // Poll for analysis status every 2 seconds
+        function pollAnalysis() {
+            // Remove trailing slash if present
+            let url = window.location.pathname;
+            if (url.endsWith('/')) url = url.slice(0, -1);
+            url += '/status';
+            fetch(url, { cache: 'no-store' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.success) {
+                        window.location.reload();
+                    } else {
+                        setTimeout(pollAnalysis, 2000);
+                    }
+                })
+                .catch(() => setTimeout(pollAnalysis, 2000));
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            var analysisStatus = document.getElementById('analysisStatus');
+            var analysisResults = document.getElementById('analysisResults');
+            if (analysisStatus) {
+                if (analysisResults) analysisResults.style.display = 'none';
+                pollAnalysis();
+            }
+        });
+        function startCoverageImprovement() {
+            alert('Coverage improvement process will be implemented here!');
+        }
+    </script>
+</th:block>
+</body>
+</html>

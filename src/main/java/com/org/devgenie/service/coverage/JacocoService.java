@@ -50,7 +50,7 @@ public class JacocoService {
         log.info("Running coverage analysis with {} configuration for: {}", projectConfig.getBuildTool(), repoDir);
 
         try {
-            // Strategy 1: Check if Jacoco is already configured
+            /*// Strategy 1: Check if Jacoco is already configured
             if (jacocoConfigService.isJacocoConfigured(repoDir, projectConfig)) {
                 log.info("Jacoco is already configured, running analysis");
                 return runExistingJacocoAnalysis(repoDir, projectConfig);
@@ -61,10 +61,10 @@ public class JacocoService {
             if (jacocoConfigService.autoConfigureJacoco(repoDir, projectConfig)) {
                 log.info("Jacoco auto-configured successfully, running analysis");
                 return runExistingJacocoAnalysis(repoDir, projectConfig);
-            }
+            }*/
 
             // Strategy 3: Try SonarQube integration
-            log.info("Auto-configuration failed, trying SonarQube integration");
+            log.info("Fetching coverage using SonarQube integration");
             CoverageData sonarData = sonarQubeService.getCoverageData(repoDir, projectConfig);
             if (sonarData != null) {
                 log.info("Successfully retrieved coverage data from SonarQube");
@@ -148,7 +148,6 @@ public class JacocoService {
 
             return CoverageData.builder()
                     .repoPath(repoDir)
-                    .files(files)
                     .overallCoverage(0.0)
                     .lineCoverage(0.0)
                     .branchCoverage(0.0)
@@ -234,7 +233,6 @@ public class JacocoService {
 
         return CoverageData.builder()
                 .repoPath(originalCoverage.getRepoPath())
-                .files(originalCoverage.getFiles()) // Keep original file data
                 .overallCoverage(newOverallCoverage)
                 .lineCoverage(Math.min(originalCoverage.getLineCoverage() + estimatedImprovement, 100.0))
                 .branchCoverage(Math.min(originalCoverage.getBranchCoverage() + estimatedImprovement * 0.8, 100.0))
@@ -439,6 +437,10 @@ public class JacocoService {
             return parseJacocoXmlReport(reportFile, repoDir, projectConfig);
         } else if (actualReportPath.endsWith(".csv")) {
             return parseJacocoCsvReport(reportFile, repoDir, projectConfig);
+        } else if (actualReportPath.endsWith(".html") || actualReportPath.contains("html")) {
+            // NEW: Use HTML parser for HTML reports
+            String reportDir = reportFile.getParent();
+            return parseJacocoHtmlReport(reportDir, projectConfig);
         } else {
             throw new JacocoException("Unsupported coverage report format: " + actualReportPath);
         }
@@ -458,13 +460,7 @@ public class JacocoService {
                 break;
 
             case "gradle":
-                paths.add(repoDir + "/build/reports/jacoco/test/jacocoTestReport.xml");
-                paths.add(repoDir + "/build/reports/jacoco/test/jacocoTestReport.csv");
-                // Gradle multi-project builds
-                paths.add(repoDir + "/build/reports/jacoco/testCodeCoverageReport/testCodeCoverageReport.xml");
-                // Alternative Gradle locations
-                paths.add(repoDir + "/build/jacoco/jacoco.xml");
-                paths.add(repoDir + "/build/reports/jacoco/jacocoRootReport/html/jacoco.xml");
+                paths.add(repoDir+ "/build/reports/jacoco/test/html/index.html");
                 break;
 
             case "sbt":
@@ -527,6 +523,112 @@ public class JacocoService {
 
         } catch (Exception e) {
             throw new JacocoException("Failed to parse CSV report: " + reportFile.getAbsolutePath(), e);
+        }
+    }
+
+    // Helper to extract all file-level coverage from Jacoco HTML (using CSV or XML is more accurate, but this is fallback)
+    private List<FileCoverageData> extractAllFilesFromHtml(org.jsoup.nodes.Document doc, ProjectConfiguration projectConfig) {
+        List<FileCoverageData> files = new ArrayList<>();
+        org.jsoup.select.Elements fileRows = doc.select("table.coverage tbody tr");
+        for (org.jsoup.nodes.Element row : fileRows) {
+            org.jsoup.select.Elements cols = row.select("td");
+            if (cols.size() < 13) continue;
+            String element = cols.get(0).text();
+            if (element.endsWith(".java")) {
+                // Try to reconstruct file path from package and file name
+                String filePath = "src/main/java/" + element.replace('.', '/');
+                double lineCov = parsePercent(cols.get(8).text());
+                double branchCov = parsePercent(cols.get(4).text());
+                double methodCov = parsePercent(cols.get(10).text());
+                int totalLines = parseInt(cols.get(8).text().replace("%", ""), 0);
+                int coveredLines = (int) (totalLines * lineCov / 100.0);
+                int totalBranches = parseInt(cols.get(4).text().replace("%", ""), 0);
+                int coveredBranches = (int) (totalBranches * branchCov / 100.0);
+                int totalMethods = parseInt(cols.get(10).text().replace("%", ""), 0);
+                int coveredMethods = (int) (totalMethods * methodCov / 100.0);
+                files.add(FileCoverageData.builder()
+                        .filePath(filePath)
+                        .lineCoverage(lineCov)
+                        .branchCoverage(branchCov)
+                        .methodCoverage(methodCov)
+                        .totalLines(totalLines)
+                        .coveredLines(coveredLines)
+                        .totalBranches(totalBranches)
+                        .coveredBranches(coveredBranches)
+                        .totalMethods(totalMethods)
+                        .coveredMethods(coveredMethods)
+                        .uncoveredLines(new ArrayList<>())
+                        .uncoveredBranches(new ArrayList<>())
+                        .lastUpdated(LocalDateTime.now())
+                        .buildTool(projectConfig.getBuildTool())
+                        .testFramework(projectConfig.getTestFramework())
+                        .build());
+            }
+        }
+        return files;
+    }
+
+    // Recursive directory tree builder (same as SonarQubeService)
+    private DirectoryCoverageData buildDirectoryTreeRecursive(List<FileCoverageData> files, String dirPath, LocalDateTime now) {
+        List<FileCoverageData> directFiles = new ArrayList<>();
+        Map<String, List<FileCoverageData>> subDirMap = new HashMap<>();
+        for (FileCoverageData file : files) {
+            if (file.getFilePath() == null || !file.getFilePath().startsWith(dirPath + "/")) continue;
+            String relative = file.getFilePath().substring(dirPath.length() + 1);
+            if (!relative.contains("/")) {
+                directFiles.add(file);
+            } else {
+                String subDir = relative.substring(0, relative.indexOf("/"));
+                String subDirPath = dirPath + "/" + subDir;
+                subDirMap.computeIfAbsent(subDirPath, k -> new ArrayList<>()).add(file);
+            }
+        }
+        if (directFiles.isEmpty() && subDirMap.isEmpty()) return null;
+        List<DirectoryCoverageData> subdirectories = new ArrayList<>();
+        for (Map.Entry<String, List<FileCoverageData>> entry : subDirMap.entrySet()) {
+            DirectoryCoverageData sub = buildDirectoryTreeRecursive(entry.getValue(), entry.getKey(), now);
+            if (sub != null) subdirectories.add(sub);
+        }
+        // Aggregate coverage for this directory
+        int totalLines = directFiles.stream().mapToInt(FileCoverageData::getTotalLines).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getTotalLines).sum();
+        int coveredLines = directFiles.stream().mapToInt(FileCoverageData::getCoveredLines).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getCoveredLines).sum();
+        int totalBranches = directFiles.stream().mapToInt(FileCoverageData::getTotalBranches).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getTotalBranches).sum();
+        int coveredBranches = directFiles.stream().mapToInt(FileCoverageData::getCoveredBranches).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getCoveredBranches).sum();
+        int totalMethods = directFiles.stream().mapToInt(FileCoverageData::getTotalMethods).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getTotalMethods).sum();
+        int coveredMethods = directFiles.stream().mapToInt(FileCoverageData::getCoveredMethods).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getCoveredMethods).sum();
+        double lineCoverage = totalLines > 0 ? (double) coveredLines / totalLines * 100 : 0;
+        double branchCoverage = totalBranches > 0 ? (double) coveredBranches / totalBranches * 100 : 0;
+        double methodCoverage = totalMethods > 0 ? (double) coveredMethods / totalMethods * 100 : 0;
+        return DirectoryCoverageData.builder()
+                .directoryPath(dirPath)
+                .overallCoverage(lineCoverage)
+                .lineCoverage(lineCoverage)
+                .branchCoverage(branchCoverage)
+                .methodCoverage(methodCoverage)
+                .totalLines(totalLines)
+                .coveredLines(coveredLines)
+                .totalBranches(totalBranches)
+                .coveredBranches(coveredBranches)
+                .totalMethods(totalMethods)
+                .coveredMethods(coveredMethods)
+                .files(directFiles)
+                .subdirectories(subdirectories)
+                .lastUpdated(now)
+                .build();
+    }
+
+    private double parsePercent(String percentText) {
+        // Handles values like "6%" or "40%"
+        try {
+            return Double.parseDouble(percentText.replace("%", "").trim());
+        } catch (Exception e) {
+            return 0.0;
         }
     }
 
@@ -615,7 +717,6 @@ public class JacocoService {
 
         return CoverageData.builder()
                 .repoPath(repoDir)
-                .files(files)
                 .overallCoverage(overallLineCoverage)
                 .lineCoverage(overallLineCoverage)
                 .branchCoverage(overallBranchCoverage)
@@ -672,7 +773,6 @@ public class JacocoService {
         double overallMethodCoverage = totalMethods > 0 ? (double) coveredMethods / totalMethods * 100 : 0;
 
         return builder
-                .files(files)
                 .overallCoverage(overallLineCoverage)
                 .lineCoverage(overallLineCoverage)
                 .branchCoverage(overallBranchCoverage)
@@ -1097,7 +1197,7 @@ public class JacocoService {
         }
 
         // Check for suspicious values
-        if (coverageData.getOverallCoverage() == 0 && coverageData.getFiles().size() > 0) {
+        if (coverageData.getOverallCoverage() == 0 && coverageData.getRootDirectory() != null && !getAllFilesFromDirectory(coverageData.getRootDirectory()).isEmpty()) {
             warnings.add("Overall coverage is 0% but files are present - possible analysis issue");
         }
 
@@ -1108,13 +1208,13 @@ public class JacocoService {
         // Check individual file data consistency
         int totalCalculatedLines = 0;
         int totalCalculatedCovered = 0;
-
-        for (FileCoverageData file : coverageData.getFiles()) {
-            totalCalculatedLines += file.getTotalLines();
-            totalCalculatedCovered += file.getCoveredLines();
-
-            if (file.getLineCoverage() > 100) {
-                warnings.add("File " + file.getFilePath() + " has line coverage > 100%: " + file.getLineCoverage());
+        if (coverageData.getRootDirectory() != null) {
+            for (FileCoverageData file : getAllFilesFromDirectory(coverageData.getRootDirectory())) {
+                totalCalculatedLines += file.getTotalLines();
+                totalCalculatedCovered += file.getCoveredLines();
+                if (file.getLineCoverage() > 100) {
+                    warnings.add("File " + file.getFilePath() + " has line coverage > 100%: " + file.getLineCoverage());
+                }
             }
         }
 
@@ -1128,7 +1228,7 @@ public class JacocoService {
                 .valid(errors.isEmpty())
                 .warnings(warnings)
                 .errors(errors)
-                .totalFiles(coverageData.getFiles().size())
+                .totalFiles(coverageData.getRootDirectory() != null ? getAllFilesFromDirectory(coverageData.getRootDirectory()).size() : 0)
                 .validatedAt(LocalDateTime.now())
                 .build();
     }
@@ -1169,5 +1269,32 @@ public class JacocoService {
                 .message(message)
                 .analyzedAt(LocalDateTime.now())
                 .build();
+    }
+
+    public CoverageData parseJacocoHtmlReport(String htmlReportDir, ProjectConfiguration projectConfig) {
+        log.info("Parsing JaCoCo HTML report from: {}", htmlReportDir);
+        try {
+            return new CoverageData();
+        } catch (Exception e) {
+            log.error("Failed to parse JaCoCo HTML report", e);
+            throw new JacocoException("Failed to parse HTML report: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Utility to recursively collect all FileCoverageData from a nested DirectoryCoverageData tree.
+     */
+    private List<FileCoverageData> getAllFilesFromDirectory(DirectoryCoverageData directory) {
+        List<FileCoverageData> files = new ArrayList<>();
+        if (directory == null) return files;
+        if (directory.getFiles() != null) {
+            files.addAll(directory.getFiles());
+        }
+        if (directory.getSubdirectories() != null) {
+            for (DirectoryCoverageData subdir : directory.getSubdirectories()) {
+                files.addAll(getAllFilesFromDirectory(subdir));
+            }
+        }
+        return files;
     }
 }

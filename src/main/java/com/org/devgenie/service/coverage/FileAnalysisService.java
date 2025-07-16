@@ -115,13 +115,34 @@ public class FileAnalysisService {
         );
     }
 
+    /**
+     * Recursively collects all FileCoverageData objects from a nested DirectoryCoverageData tree.
+     */
+    private List<FileCoverageData> getAllFilesFromDirectory(DirectoryCoverageData directory) {
+        List<FileCoverageData> files = new ArrayList<>();
+        if (directory == null) return files;
+        if (directory.getFiles() != null) {
+            files.addAll(directory.getFiles());
+        }
+        if (directory.getSubdirectories() != null) {
+            for (DirectoryCoverageData subdir : directory.getSubdirectories()) {
+                files.addAll(getAllFilesFromDirectory(subdir));
+            }
+        }
+        return files;
+    }
+
     private String createPrioritizationPrompt(CoverageData coverageData, double targetCoverage) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("Prioritize the following files for test coverage improvement to reach ").append(targetCoverage).append("% overall coverage.\n\n");
         prompt.append("Current Overall Coverage: ").append(coverageData.getOverallCoverage()).append("%\n\n");
         prompt.append("Files and their coverage data:\n");
 
-        for (FileCoverageData fileData : coverageData.getFiles()) {
+        List<FileCoverageData> allFiles = new ArrayList<>();
+        if (coverageData.getRootDirectory() != null) {
+            allFiles = getAllFilesFromDirectory(coverageData.getRootDirectory());
+        }
+        for (FileCoverageData fileData : allFiles) {
             prompt.append(String.format("- %s: %.2f%% line coverage, %.2f%% branch coverage, %d uncovered lines\n",
                     fileData.getFilePath(),
                     fileData.getLineCoverage(),

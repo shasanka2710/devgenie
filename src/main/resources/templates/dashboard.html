@@ -1,164 +1,421 @@
 <!DOCTYPE html>
-<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      xmlns:th="http://www.thymeleaf.org"
-      layout:decorate="~{base.html}">
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/base}">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Engineering Metrics Dashboard</title>
+    <title>Dashboard</title>
     <style>
-        * {
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        :root {
+            --wf-red: #d71921;
+            --wf-red-dark: #b71c1c;
+            --wf-red-light: #ffebee;
+            --wf-blue: #1976d2;
+            --wf-green: #388e3c;
+            --wf-yellow: #f57c00;
+            --wf-gray: #f5f5f5;
+            --wf-dark-gray: #424242;
+            --wf-light-gray: #fafafa;
+            --wf-border: #e0e0e0;
         }
 
         body {
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f6fa;
+            background-color: var(--wf-light-gray);
+            color: var(--wf-dark-gray);
         }
 
-        .dashboard-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+        .card {
+            border: 1px solid var(--wf-border);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            transition: all 0.2s ease;
         }
 
-        .metric-section {
+        .card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
             background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-        }
-
-        .section-title {
-            color: #2c3e50;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            font-size: 20px;
+            border-bottom: 1px solid var(--wf-border);
             font-weight: 600;
+            color: var(--wf-dark-gray);
         }
 
-        .metric-card {
-            margin-bottom: 15px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-left: 4px solid #3498db;
-            border-radius: 5px;
+        .avatar-lg {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid var(--wf-border);
+        }
+
+        .avatar-sm {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid var(--wf-border);
+        }
+
+        /* Metrics Cards with RBGY Colors */
+        .metric-red {
+            background: linear-gradient(135deg, var(--wf-red) 0%, var(--wf-red-dark) 100%);
+            color: white;
+            border: none;
+        }
+
+        .metric-blue {
+            background: linear-gradient(135deg, var(--wf-blue) 0%, #1565c0 100%);
+            color: white;
+            border: none;
+        }
+
+        .metric-green {
+            background: linear-gradient(135deg, var(--wf-green) 0%, #2e7d32 100%);
+            color: white;
+            border: none;
+        }
+
+        .metric-yellow {
+            background: linear-gradient(135deg, var(--wf-yellow) 0%, #ef6c00 100%);
+            color: white;
+            border: none;
         }
 
         .metric-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin: 5px 0;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
         }
 
         .metric-label {
-            color: #7f8c8d;
-            font-size: 14px;
+            font-size: 0.875rem;
+            opacity: 0.9;
+            font-weight: 500;
         }
 
-        .highlight-card {
-            background: #fff3cd;
-            border-color: #ffc107;
+        .sidebar {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid var(--wf-border);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
         }
 
-        .currency {
-            color: #27ae60;
+        .main-content {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid var(--wf-border);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
         }
 
-        .time-saved {
-            color: #e74c3c;
+        .org-selector {
+            border: 1px solid var(--wf-border);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.9rem;
+            transition: border-color 0.2s ease;
         }
 
-        .chart-container {
-            height: 200px;
-            margin-top: 20px;
+        .org-selector:focus {
+            border-color: var(--wf-red);
+            box-shadow: 0 0 0 0.2rem rgba(215, 25, 33, 0.15);
         }
 
-        .footer-note {
+        .org-item {
+            background-color: var(--wf-gray);
+            border: 1px solid var(--wf-border);
+            transition: all 0.2s ease;
+        }
+
+        .org-item:hover {
+            background-color: var(--wf-red-light);
+            border-color: var(--wf-red);
+        }
+
+        .repo-card {
+            transition: all 0.2s ease;
+            border: 1px solid var(--wf-border);
+        }
+
+        .repo-card:hover {
+            border-color: var(--wf-red);
+            box-shadow: 0 4px 16px rgba(215, 25, 33, 0.1);
+        }
+
+        .repo-card .card-title {
+            color: var(--wf-dark-gray);
+            font-weight: 600;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+        }
+
+        .bg-primary {
+            background-color: var(--wf-red) !important;
+        }
+
+        .text-primary {
+            color: var(--wf-red) !important;
+        }
+
+        .btn-primary {
+            background-color: var(--wf-red);
+            border-color: var(--wf-red);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--wf-red-dark);
+            border-color: var(--wf-red-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8rem;
+        }
+
+        .text-muted {
+            color: #6c757d !important;
+        }
+
+        .section-header {
+            color: var(--wf-dark-gray);
+            font-weight: 600;
+            border-bottom: 2px solid var(--wf-red);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Empty state styling */
+        .empty-state {
+            color: #6c757d;
             text-align: center;
-            margin-top: 20px;
-            color: #7f8c8d;
-            font-size: 12px;
+            padding: 3rem 1rem;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
         }
     </style>
-    <!-- Include Chart.js for visualizations -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <div layout:fragment="content">
-    <h2 class="section-title">Engineering Metrics Dashboard</h2>
-
-    <!-- Debug Statements -->
-    <div th:if="${dashboardMetrics == null}">
-        <p style="color: red;">dashboardMetrics is null!</p>
-    </div>
-    <div th:if="${dashboardMetrics.sonarMetrics == null}">
-        <p style="color: red;">sonarMetrics is null!</p>
-    </div>
-    <div th:if="${dashboardMetrics.pullRequestMetrics == null}">
-        <p style="color: red;">pullRequestMetrics is null!</p>
-    </div>
-
-    <div class="dashboard-container">
-        <!-- SonarQube Metrics Section -->
-        <div class="metric-section">
-            <h2 class="section-title">SonarQube Metrics</h2>
-
-            <div class="metric-card">
-                <div class="metric-value" th:text="${dashboardMetrics.sonarMetrics.totalIssuesCount}">1,452</div>
-                <div class="metric-label">Total Issues Count</div>
+    <!-- User Profile Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <img th:src="${user.avatarUrl}" class="avatar-lg" alt="Avatar" th:if="${user.avatarUrl}">
+                        </div>
+                        <div class="col">
+                            <h3 class="mb-1" th:text="${user.name ?: user.login}" style="color: var(--wf-dark-gray);">User Name</h3>
+                            <p class="text-muted mb-1" th:text="${user.email}" th:if="${user.email}">user@example.com</p>
+                            <p class="text-muted mb-0">
+                                <i class="bi bi-github me-1"></i>
+                                <a th:href="${user.htmlUrl}" target="_blank" th:text="${user.login}" class="text-decoration-none" style="color: var(--wf-red);">username</a>
+                            </p>
+                        </div>
+                        <div class="col-auto">
+                            <div class="row g-3 text-center">
+                                <div class="col">
+                                    <div class="card metric-red">
+                                        <div class="card-body py-3 px-4">
+                                            <div class="metric-value" th:text="${totalRepos}">0</div>
+                                            <div class="metric-label">Total Repos</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card metric-blue">
+                                        <div class="card-body py-3 px-4">
+                                            <div class="metric-value" th:text="${javaReposCount}">0</div>
+                                            <div class="metric-label">Java Repos</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card metric-green">
+                                        <div class="card-body py-3 px-4">
+                                            <div class="metric-value" th:text="${organizations.size()}">0</div>
+                                            <div class="metric-label">Organizations</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
+        </div>
+    </div>
 
-            <div class="metric-card highlight-card">
-                <div class="metric-value time-saved" th:text="${dashboardMetrics.sonarMetrics.techDebtTime}">650h</div>
-                <div class="metric-label">Technical Debt Time</div>
-            </div>
+    <!-- Main Content Row -->
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-lg-3 mb-4">
+            <div class="sidebar p-3">
+                <h5 class="section-header">
+                    <i class="bi bi-building me-2"></i>
+                    Organizations
+                </h5>
 
-            <div class="metric-card">
-                <div class="metric-value currency" th:text="${dashboardMetrics.sonarMetrics.dollarImpact}">$184k</div>
-                <div class="metric-label">Estimated Dollar Impact</div>
+                <!-- Organization Selector -->
+                <select class="form-select org-selector mb-3" id="organizationSelect" onchange="loadOrgRepositories()">
+                    <option value="">Select Organization</option>
+                    <option value="personal">Personal Repositories</option>
+                    <option th:each="org : ${organizations}" th:value="${org.login}" th:text="${org.name ?: org.login}">
+                        Organization Name
+                    </option>
+                </select>
+
+                <!-- Organization List -->
+                <div class="org-list">
+                    <div th:each="org : ${organizations}" class="org-item mb-2 p-2 rounded">
+                        <div class="d-flex align-items-center">
+                            <img th:src="${org.avatarUrl}" class="avatar-sm me-2" alt="Org Avatar" th:if="${org.avatarUrl}">
+                            <div class="flex-grow-1">
+                                <div class="fw-medium" th:text="${org.name ?: org.login}" style="color: var(--wf-dark-gray);">Org Name</div>
+                                <small class="text-muted" th:text="${org.publicRepos + ' repos'}" th:if="${org.publicRepos}">0 repos</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Automatic Bug Fix Metrics Section -->
-        <div class="metric-section">
-            <h2 class="section-title">Automatic Bug Fix Metrics</h2>
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <div class="main-content p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="section-header mb-0">
+                        <i class="bi bi-folder me-2"></i>
+                        Java Repositories
+                    </h4>
+                    <div class="card metric-yellow">
+                        <div class="card-body py-2 px-3">
+                            <span class="fw-bold" th:text="${javaReposCount}">0</span>
+                            <small class="ms-1">repositories</small>
+                        </div>
+                    </div>
+                </div>
 
-            <div class="metric-card">
-                <div class="metric-value" th:text="${dashboardMetrics.pullRequestMetrics.prCreatedCount}">78</div>
-                <div class="metric-label">PRs Created</div>
-            </div>
+                <!-- Repository List -->
+                <div id="repositoryList">
+                    <div th:if="${javaRepositories.empty}" class="empty-state">
+                        <i class="bi bi-folder-x"></i>
+                        <h5 class="mt-3">No Java repositories found</h5>
+                        <p>Select an organization to view its repositories or check if you have Java projects in your account.</p>
+                    </div>
 
-            <div class="metric-card">
-                <div class="metric-value" th:text="${dashboardMetrics.pullRequestMetrics.issuesResolved}">142</div>
-                <div class="metric-label">Issues Resolved</div>
-            </div>
-
-            <div class="metric-card highlight-card">
-                <div class="metric-value time-saved" th:text="${dashboardMetrics.pullRequestMetrics.engineeringTimeSaved}">320h</div>
-                <div class="metric-label">Engineering Time Saved</div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-value currency" th:text="${dashboardMetrics.pullRequestMetrics.costSavings}">$64k</div>
-                <div class="metric-label">Cost Savings</div>
-            </div>
-        </div>
-
-        <!-- Time Savings Visualization -->
-        <div class="metric-section">
-            <h2 class="section-title">Time Savings Breakdown</h2>
-            <div class="chart-container">
-                <canvas id="timeChart"></canvas>
+                    <div th:unless="${javaRepositories.empty}" class="row">
+                        <div th:each="repo : ${javaRepositories}" class="col-12 mb-3">
+                            <div class="card repo-card">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col">
+                                            <h5 class="card-title mb-1">
+                                                <i class="bi bi-folder-fill me-2 text-primary"></i>
+                                                <span th:text="${repo.name}">Repository Name</span>
+                                                <span th:class="'badge ms-2 ' + ${repo.visibilityBadgeClass}" th:text="${repo.visibilityBadge}">Public</span>
+                                            </h5>
+                                            <p class="card-text text-muted mb-2" th:text="${repo.description}" th:if="${repo.description}">
+                                                Repository description
+                                            </p>
+                                            <div class="d-flex align-items-center text-sm text-muted">
+                                                <span class="me-3" th:if="${repo.language}">
+                                                    <i class="bi bi-circle-fill me-1" style="color: #f89820;"></i>
+                                                    <span th:text="${repo.language}">Java</span>
+                                                </span>
+                                                <span class="me-3" th:if="${repo.stargazersCount}">
+                                                    <i class="bi bi-star me-1"></i>
+                                                    <span th:text="${repo.stargazersCount}">0</span>
+                                                </span>
+                                                <span class="me-3" th:if="${repo.forksCount}">
+                                                    <i class="bi bi-diagram-3 me-1"></i>
+                                                    <span th:text="${repo.forksCount}">0</span>
+                                                </span>
+                                                <span th:if="${repo.updatedAt}">
+                                                    <i class="bi bi-clock me-1"></i>
+                                                    Updated <span th:text="${#temporals.format(#temporals.createNow(), 'MMM dd, yyyy')}">Recently</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <a th:href="@{/coverage/analyze/{owner}/{repo}(owner=${repo.owner.login}, repo=${repo.name})}"
+                                               class="btn btn-primary">
+                                                <i class="bi bi-graph-up me-2"></i>
+                                                Analyze Repository
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Scripts -->
+<th:block layout:fragment="scripts">
+    <script>
+        function loadOrgRepositories() {
+            const select = document.getElementById('organizationSelect');
+            const selectedOrg = select.value;
+
+            if (!selectedOrg) {
+                location.reload(); // Reload to show all repositories
+                return;
+            }
+
+            if (selectedOrg === 'personal') {
+                location.reload(); // Reload to show personal repositories
+                return;
+            }
+
+            // Show loading
+            showLoading('repositoryList');
+
+            // Fetch organization repositories
+            fetch(`/organization?org=${selectedOrg}`)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('repositoryList').innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error loading repositories:', error);
+                    document.getElementById('repositoryList').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Failed to load repositories for ${selectedOrg}
+                        </div>
+                    `;
+                });
+        }
+
+        function showLoading(elementId) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h5>Loading repositories...</h5>
+                </div>
+            `;
+        }
+    </script>
+</th:block>
 </body>
 </html>

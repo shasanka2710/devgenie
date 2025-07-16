@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{base.html}">
+<head>
+    <link rel="stylesheet" href="/css/styles.css">
+
+</head>
+<body data-page="class-details">
+<div layout:fragment="content">
+    <!-- Title and Description -->
+    <div class="mb-4">
+        <h2 class="text-primary" th:text="${title}"></h2>
+        <p class="text-muted" th:text="${description}"></p>
+    </div>
+
+    <!-- Fields Section -->
+    <div>
+        <div class="section-header">
+            <h3>Fields</h3>
+        </div>
+        <div th:each="field : ${fields}" class="card">
+            <p class="card-text" th:text="${field}"></p>
+        </div>
+    </div>
+
+    <!-- Separator -->
+    <hr>
+
+    <!-- Constructors Section -->
+    <div>
+        <div class="section-header">
+            <h3>Constructors</h3>
+        </div>
+        <div th:each="constructor : ${constructors}" class="card">
+            <p class="card-text" th:text="${constructor}"></p>
+        </div>
+    </div>
+
+    <!-- Separator -->
+    <hr>
+
+    <!-- Methods Section -->
+    <div>
+        <div class="section-header">
+            <h3>Methods</h3>
+        </div>
+        <div th:each="method : ${methods}" class="card">
+            <h5 class="card-title" th:text="${method.signature}"></h5>
+            <p class="card-text ai-style-change-1" th:text="${method.description}"></p>
+            <p class="key-value" th:text="'Return Type: ' + ${method.returnType}"></p>
+            <p class="key-value" th:if="${method.exceptions}" th:text="'Exceptions: ' + ${method.exceptions}"></p>
+        </div>
+    </div>
+</div>
+<script>
+    const textContent = $0.textContent;
+    const lines = textContent.split('\n').filter(line => line.trim() !== '');
+    const headings = lines.filter(line => line.trim().startsWith('**') || line.trim().endsWith(':'));
+    const formattedContent = lines.map(line => {
+      if (headings.includes(line)) {
+        return `<li class="heading">${line}</li>`;
+      } else {
+        return `<li>${line}</li>`;
+      }
+    }).join('');
+    $0.innerHTML = `<ul>${formattedContent}</ul>`;
+</script>
+</body>
+</html>

@@ -1,4 +1,23 @@
 spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
+            scope:
+              - read:org
+              - repo
+              - user:email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+        provider:
+          github:
+            authorization-uri: https://github.com/login/oauth/authorize
+            token-uri: https://github.com/login/oauth/access_token
+            user-info-uri: https://api.github.com/user
+            user-name-attribute: login
+
   application:
     name: devgenie
 
@@ -48,10 +67,12 @@ javadoc:
   cyclomaticComplexityThreshold: 10
 
 sonar:
-  url: http://localhost:9000/api/
+  url: http://localhost:9000
+  token: ${SONAR_TOKEN:}
   componentKeys: devgenie
   severities: BLOCKER,CRITICAL,MAJOR,MINOR,INFO
   pageSize: 100
+  enabled: true
 
 LOG_PATH: logs/application.log
 
@@ -59,6 +80,7 @@ github:
   token: ${GITHUB_TOKEN:}
   api:
     url: https://api.github.com
+    timeout: 30s
   default:
     branch: main
   repo:

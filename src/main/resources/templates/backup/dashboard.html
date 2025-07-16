@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:th="http://www.thymeleaf.org"
+      layout:decorate="~{base.html}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engineering Metrics Dashboard</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f6fa;
+        }
+
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .metric-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .metric-card {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            border-radius: 5px;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 5px 0;
+        }
+
+        .metric-label {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .highlight-card {
+            background: #fff3cd;
+            border-color: #ffc107;
+        }
+
+        .currency {
+            color: #27ae60;
+        }
+
+        .time-saved {
+            color: #e74c3c;
+        }
+
+        .chart-container {
+            height: 200px;
+            margin-top: 20px;
+        }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 20px;
+            color: #7f8c8d;
+            font-size: 12px;
+        }
+    </style>
+    <!-- Include Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div layout:fragment="content">
+    <h2 class="section-title">Engineering Metrics Dashboard</h2>
+
+    <!-- Debug Statements -->
+    <div th:if="${dashboardMetrics == null}">
+        <p style="color: red;">dashboardMetrics is null!</p>
+    </div>
+    <div th:if="${dashboardMetrics.sonarMetrics == null}">
+        <p style="color: red;">sonarMetrics is null!</p>
+    </div>
+    <div th:if="${dashboardMetrics.pullRequestMetrics == null}">
+        <p style="color: red;">pullRequestMetrics is null!</p>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- SonarQube Metrics Section -->
+        <div class="metric-section">
+            <h2 class="section-title">SonarQube Metrics</h2>
+
+            <div class="metric-card">
+                <div class="metric-value" th:text="${dashboardMetrics.sonarMetrics.totalIssuesCount}">1,452</div>
+                <div class="metric-label">Total Issues Count</div>
+            </div>
+
+            <div class="metric-card highlight-card">
+                <div class="metric-value time-saved" th:text="${dashboardMetrics.sonarMetrics.techDebtTime}">650h</div>
+                <div class="metric-label">Technical Debt Time</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-value currency" th:text="${dashboardMetrics.sonarMetrics.dollarImpact}">$184k</div>
+                <div class="metric-label">Estimated Dollar Impact</div>
+            </div>
+        </div>
+
+        <!-- Automatic Bug Fix Metrics Section -->
+        <div class="metric-section">
+            <h2 class="section-title">Automatic Bug Fix Metrics</h2>
+
+            <div class="metric-card">
+                <div class="metric-value" th:text="${dashboardMetrics.pullRequestMetrics.prCreatedCount}">78</div>
+                <div class="metric-label">PRs Created</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-value" th:text="${dashboardMetrics.pullRequestMetrics.issuesResolved}">142</div>
+                <div class="metric-label">Issues Resolved</div>
+            </div>
+
+            <div class="metric-card highlight-card">
+                <div class="metric-value time-saved" th:text="${dashboardMetrics.pullRequestMetrics.engineeringTimeSaved}">320h</div>
+                <div class="metric-label">Engineering Time Saved</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-value currency" th:text="${dashboardMetrics.pullRequestMetrics.costSavings}">$64k</div>
+                <div class="metric-label">Cost Savings</div>
+            </div>
+        </div>
+
+        <!-- Time Savings Visualization -->
+        <div class="metric-section">
+            <h2 class="section-title">Time Savings Breakdown</h2>
+            <div class="chart-container">
+                <canvas id="timeChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
