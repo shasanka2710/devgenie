@@ -204,7 +204,9 @@
                         </div>
                         <div class="text-end">
                             <a th:href="@{/coverage/dashboard/{owner}/{repo}(owner=${owner}, repo=${repoName})}"
-                               class="btn btn-primary">
+                               class="btn btn-primary"
+                               th:classappend="${analysis == null || !analysis.success || analysis.existingCoverage == null} ? ' disabled' : ''"
+                               th:attr="tabindex=${analysis == null || !analysis.success || analysis.existingCoverage == null ? -1 : null}, aria-disabled=${analysis == null || !analysis.success || analysis.existingCoverage == null ? true : null}">
                                 <i class="bi bi-speedometer2 me-2"></i>
                                 Go to Dashboard
                             </a>
@@ -226,7 +228,7 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div id="analysisStatus" class="text-center py-5">
+                    <div th:if="${analysis == null || !analysis.success}" id="analysisStatus" class="text-center py-5">
                         <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
                             <span class="visually-hidden">Loading...</span>
                         </div>
@@ -238,34 +240,59 @@
                         </div>
                     </div>
 
-                    <!-- Analysis Results (Initially Hidden) -->
-                    <div id="analysisResults" style="display: none;">
+                    <!-- Analysis Results -->
+                    <div th:if="${analysis != null && analysis.success}" id="analysisResults">
                         <div class="row">
-                            <div class="col-md-6">
-                                <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Project Configuration</h6>
-                                <div class="mb-2">
-                                    <strong>Build Tool:</strong> <span id="buildTool" class="badge bg-info">Maven</span>
-                                </div>
-                                <div class="mb-2">
-                                    <strong>Test Framework:</strong> <span id="testFramework" class="badge bg-success">JUnit 5</span>
-                                </div>
-                                <div class="mb-2">
-                                    <strong>Java Version:</strong> <span id="javaVersion" class="badge bg-warning">11</span>
-                                </div>
-                                <div class="mb-2">
-                                    <strong>Spring Boot:</strong> <span id="springBoot" class="badge bg-primary">Yes</span>
+                            <!-- Project Configuration Card -->
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-header bg-info text-white">
+                                        <i class="bi bi-gear me-2"></i> Project Configuration
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush">
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-tools me-2"></i>Build Tool</span>
+                                                <span class="badge bg-info" th:text="${analysis.projectConfiguration.buildTool}"></span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-bezier2 me-2"></i>Test Framework</span>
+                                                <span class="badge bg-success" th:text="${analysis.projectConfiguration.testFramework}"></span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-cup-hot me-2"></i>Java Version</span>
+                                                <span class="badge bg-warning text-dark" th:text="${analysis.projectConfiguration.javaVersion}"></span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-lightning-charge me-2"></i>Spring Boot</span>
+                                                <span class="badge bg-primary" th:text="${analysis.projectConfiguration.isSpringBoot ? 'Yes' : 'No'}"></span>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Repository Insights</h6>
-                                <div class="mb-2">
-                                    <strong>Complexity:</strong> <span id="complexity" class="badge bg-warning">Medium</span>
-                                </div>
-                                <div class="mb-2">
-                                    <strong>Total Java Files:</strong> <span id="totalFiles" class="badge bg-info">45</span>
-                                </div>
-                                <div class="mb-2">
-                                    <strong>Architecture:</strong> <span id="architecture" class="badge bg-secondary">MVC Pattern</span>
+                            <!-- Repository Insights Card -->
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-header bg-warning text-dark">
+                                        <i class="bi bi-bar-chart-steps me-2"></i> Repository Insights
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group list-group-flush">
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-diagram-3 me-2"></i>Complexity</span>
+                                                <span class="badge bg-warning text-dark" th:text="${analysis.insights.repositoryComplexity}"></span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-file-earmark-code me-2"></i>Total Java Files</span>
+                                                <span class="badge bg-info" th:text="${analysis.totalJavaFiles}"></span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <span><i class="bi bi-diagram-2 me-2"></i>Architecture</span>
+                                                <span class="badge bg-secondary" th:text="${#lists.isEmpty(analysis.insights.architecturalInsights) ? 'N/A' : analysis.insights.architecturalInsights[0]}"></span>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -273,7 +300,20 @@
                         <div class="mt-4">
                             <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Recommendations</h6>
                             <div id="recommendations">
-                                <!-- Recommendations will be loaded here -->
+                                <div th:if="${#lists.isEmpty(analysis.recommendations)}">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        No recommendations available.
+                                    </div>
+                                </div>
+                                <div th:each="rec : ${analysis.recommendations}">
+                                    <div th:class="'alert ' + (${rec.priority} == 'HIGH' ? 'alert-info' : (${rec.priority} == 'MEDIUM' ? 'alert-warning' : 'alert-secondary'))">
+                                        <i th:class="${rec.priority} == 'HIGH' ? 'bi bi-info-circle me-2' : (${rec.priority} == 'MEDIUM' ? 'bi bi-exclamation-triangle me-2' : 'bi bi-lightbulb me-2')"></i>
+                                        <strong th:text="${rec.priority + ' Priority:'}"></strong>
+                                        <span th:text="${rec.title}"></span>
+                                        <div th:text="${rec.description}" class="mt-1"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -316,30 +356,32 @@
 
 <th:block layout:fragment="scripts">
     <script>
-        // Simulate analysis process
+        // Poll for analysis status every 2 seconds
+        function pollAnalysis() {
+            // Remove trailing slash if present
+            let url = window.location.pathname;
+            if (url.endsWith('/')) url = url.slice(0, -1);
+            url += '/status';
+            fetch(url, { cache: 'no-store' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.success) {
+                        window.location.reload();
+                    } else {
+                        setTimeout(pollAnalysis, 2000);
+                    }
+                })
+                .catch(() => setTimeout(pollAnalysis, 2000));
+        }
         document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(() => {
-                // Hide loading, show results
-                document.getElementById('analysisStatus').style.display = 'none';
-                document.getElementById('analysisResults').style.display = 'block';
-
-                // Add sample recommendations
-                const recommendationsDiv = document.getElementById('recommendations');
-                recommendationsDiv.innerHTML = `
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle me-2"></i>
-                        <strong>High Priority:</strong> Focus on service layer classes for maximum coverage impact.
-                    </div>
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        <strong>Medium Priority:</strong> Consider upgrading to JUnit 5 for better test features.
-                    </div>
-                `;
-            }, 3000); // Simulate 3 second analysis
+            var analysisStatus = document.getElementById('analysisStatus');
+            var analysisResults = document.getElementById('analysisResults');
+            if (analysisStatus) {
+                if (analysisResults) analysisResults.style.display = 'none';
+                pollAnalysis();
+            }
         });
-
         function startCoverageImprovement() {
-            // This would trigger the actual coverage improvement process
             alert('Coverage improvement process will be implemented here!');
         }
     </script>

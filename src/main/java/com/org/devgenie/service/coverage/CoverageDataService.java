@@ -3,10 +3,11 @@ package com.org.devgenie.service.coverage;
 import com.org.devgenie.exception.coverage.CoverageDataNotFoundException;
 import com.org.devgenie.model.coverage.CoverageData;
 import com.org.devgenie.model.coverage.FileCoverageData;
+import com.org.devgenie.model.coverage.RepositoryAnalysisResponse;
+import com.org.devgenie.mongo.RepositoryAnalysisMongoUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -27,12 +28,15 @@ public class CoverageDataService {
     @Value("${coverage.data.use-mongo:true}")
     private boolean useMongoData;
 
-    public CoverageData getCurrentCoverage(String repoPath) {
+    @Autowired
+    private RepositoryAnalysisMongoUtil analysisMongoUtil;
+
+    public CoverageData getCurrentCoverage(String repoPath, String branch) {
         log.info("Getting current coverage data for repo: {}", repoPath);
 
         if (useMongoData) {
             try {
-                return getCoverageFromMongo(repoPath);
+                return getCoverageFromMongo(repoPath,branch);
             } catch (Exception e) {
                 log.warn("Failed to get coverage from MongoDB, falling back to Jacoco", e);
                 return jacocoService.runAnalysis(repoPath);
@@ -69,18 +73,15 @@ public class CoverageDataService {
         }
     }
 
-    private CoverageData getCoverageFromMongo(String repoPath) {
-        Query query = new Query(Criteria.where("repoPath").is(repoPath));
-        query.with(Sort.by(Sort.Direction.DESC, "timestamp")).limit(1);
+private CoverageData getCoverageFromMongo(String repoPath,String branch) {
+    RepositoryAnalysisResponse data = analysisMongoUtil.getAnalysisFromMongo(repoPath, branch);
 
-        CoverageData data = mongoTemplate.findOne(query, CoverageData.class, "repo_coverage");
-
-        if (data == null) {
-            throw new CoverageDataNotFoundException("No coverage data found for repo: " + repoPath);
-        }
-
-        return data;
+    if (data == null) {
+        throw new CoverageDataNotFoundException("No coverage data found for repo: " + repoPath);
     }
+
+    return data.getExistingCoverage();
+}
 
     private FileCoverageData createDefaultFileCoverage(String filePath) {
         return FileCoverageData.builder()

@@ -1,5 +1,8 @@
 package com.org.devgenie.controller.coverage;
 
+import com.org.devgenie.exception.coverage.CoverageDataNotFoundException;
+import com.org.devgenie.model.coverage.RepositoryAnalysisRequest;
+import com.org.devgenie.model.coverage.RepositoryAnalysisResponse;
 import com.org.devgenie.model.login.GitHubRepository;
 import com.org.devgenie.service.coverage.CoverageAgentService;
 import com.org.devgenie.service.coverage.RepositoryAnalysisService;
@@ -15,9 +18,13 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Controller
 @RequestMapping("/coverage")
@@ -35,6 +42,9 @@ public class CoverageWebController {
 
     @Autowired
     private OAuth2AuthorizedClientService authorizedClientService;
+
+    private static final ConcurrentHashMap<String, RepositoryAnalysisResponse> analysisCache = new ConcurrentHashMap<>();
+    private static final ExecutorService executor = Executors.newCachedThreadPool();
 
     @GetMapping("/analyze/{owner}/{repo}")
     public String analyzeRepository(@PathVariable String owner,
@@ -57,14 +67,33 @@ public class CoverageWebController {
             }
 
             GitHubRepository repository = repoOpt.get();
-
-            // TODO: Analyze repository using your existing service
-            // RepositoryAnalysisResponse analysis = repositoryAnalysisService.analyzeRepository(...);
+            String cacheKey = owner + "/" + repo;
+            RepositoryAnalysisResponse analysis = null;
+            // Try to fetch from Mongo first
+            try{
+                analysis = repositoryAnalysisService.getAnalysisFromMongo(repository.getHtmlUrl(), "main");
+            }catch (CoverageDataNotFoundException ce){
+                log.warn("No analysis found in Mongo for {}/{}: {}", owner, repo, ce.getMessage());
+            }
+            if (analysis == null) {
+                analysis = analysisCache.get(cacheKey);
+                if (analysis == null) {
+                    // Start async analysis
+                    executor.submit(() -> {
+                        RepositoryAnalysisRequest analysisRequest = new RepositoryAnalysisRequest();
+                        analysisRequest.setRepositoryUrl(repository.getHtmlUrl());
+                        analysisRequest.setGithubToken(accessToken);
+                        analysisRequest.setBranch("main");
+                        RepositoryAnalysisResponse result = repositoryAnalysisService.analyzeRepository(analysisRequest);
+                        analysisCache.put(cacheKey, result);
+                    });
+                }
+            }
 
             model.addAttribute("repository", repository);
             model.addAttribute("owner", owner);
             model.addAttribute("repoName", repo);
-            // model.addAttribute("analysis", analysis);
+            model.addAttribute("analysis", analysis); // will be null or ready
 
             return "repository-analysis";
 
@@ -73,6 +102,19 @@ public class CoverageWebController {
             redirectAttributes.addFlashAttribute("error", "Failed to analyze repository: " + e.getMessage());
             return "redirect:/dashboard";
         }
+    }
+
+    @GetMapping("/analyze/{owner}/{repo}/status")
+    @ResponseBody
+    public RepositoryAnalysisResponse getAnalysisStatus(@PathVariable String owner, @PathVariable String repo) {
+        String cacheKey = owner + "/" + repo;
+        // Try to fetch from Mongo first
+        Optional<GitHubRepository> repoOpt = gitHubService.getRepository(null, owner, repo);
+        if (repoOpt.isPresent()) {
+            RepositoryAnalysisResponse mongoAnalysis = repositoryAnalysisService.getAnalysisFromMongo(repoOpt.get().getHtmlUrl(), "main");
+            if (mongoAnalysis != null) return mongoAnalysis;
+        }
+        return analysisCache.get(cacheKey);
     }
 
     @GetMapping("/dashboard/{owner}/{repo}")
@@ -96,10 +138,12 @@ public class CoverageWebController {
             }
 
             GitHubRepository repository = repoOpt.get();
-
+            // Try to fetch from Mongo first
+            RepositoryAnalysisResponse analysis = repositoryAnalysisService.getAnalysisFromMongo(repository.getHtmlUrl(), "main");
             model.addAttribute("repository", repository);
             model.addAttribute("owner", owner);
             model.addAttribute("repoName", repo);
+            model.addAttribute("analysis", analysis);
 
             return "repository-dashboard";
 

@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.Id;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -13,10 +12,9 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class FileCoverageData {
-    @Id
-    private String id;
-    private String filePath;
+public class DirectoryCoverageData {
+    private String directoryPath; // Relative to repo root, e.g., src/main/java/com/org/devgenie/service
+    private double overallCoverage;
     private double lineCoverage;
     private double branchCoverage;
     private double methodCoverage;
@@ -26,9 +24,7 @@ public class FileCoverageData {
     private int coveredBranches;
     private int totalMethods;
     private int coveredMethods;
-    private List<String> uncoveredLines;
-    private List<String> uncoveredBranches;
+    private List<FileCoverageData> files; // List of file coverage data directly under this directory
+    private List<DirectoryCoverageData> subdirectories; // List of subdirectory DirectoryCoverageData objects
     private LocalDateTime lastUpdated;
-    private String buildTool; // NEW: Track which build tool generated this data
-    private String testFramework; // NEW: Track test framework used
 }

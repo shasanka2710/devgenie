@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.org.devgenie.exception.coverage.CoverageDataNotFoundException;
 import com.org.devgenie.model.coverage.*;
+import com.org.devgenie.mongo.RepositoryAnalysisMongoUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,9 @@ public class RepositoryAnalysisService {
 
     @Autowired
     private ChatClient chatClient;
+
+    @Autowired
+    private RepositoryAnalysisMongoUtil analysisMongoUtil;
 
     public RepositoryAnalysisResponse analyzeRepository(RepositoryAnalysisRequest request) {
         log.info("Analyzing repository: {}", request.getRepositoryUrl());
@@ -72,7 +76,7 @@ public class RepositoryAnalysisService {
             stepStart = System.nanoTime();
             CoverageData existingCoverage = null;
             try {
-                existingCoverage = coverageDataService.getCurrentCoverage(repoDir);
+                existingCoverage = coverageDataService.getCurrentCoverage(repoDir, request.getBranch());
             } catch (CoverageDataNotFoundException e) {
                 log.info("No existing coverage data found, will generate fresh analysis");
             }
@@ -98,7 +102,7 @@ public class RepositoryAnalysisService {
             long overallEnd = System.nanoTime();
             log.info("Total analysis completed in {} ms", (overallEnd - overallStart) / 1_000_000);
 
-            return RepositoryAnalysisResponse.builder()
+            RepositoryAnalysisResponse response = RepositoryAnalysisResponse.builder()
                     .repositoryUrl(request.getRepositoryUrl())
                     .branch(request.getBranch())
                     .workspaceId(extractWorkspaceId(repoDir))
@@ -111,6 +115,11 @@ public class RepositoryAnalysisService {
                     .analysisTimestamp(LocalDateTime.now())
                     .success(true)
                     .build();
+
+            // Persist asynchronously
+            analysisMongoUtil.persistAnalysisAsync(response);
+
+            return response;
 
         } catch (Exception e) {
             log.error("Failed to analyze repository", e);
@@ -364,5 +373,9 @@ public class RepositoryAnalysisService {
         }
 
         throw new IllegalArgumentException("No valid JSON found in AI response");
+    }
+
+    public RepositoryAnalysisResponse getAnalysisFromMongo(String htmlUrl, String main) {
+        return analysisMongoUtil.getAnalysisFromMongo(htmlUrl,main);
     }
 }

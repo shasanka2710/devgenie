@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,7 +13,6 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "coverage_data")
 public class CoverageData {
     @Id
     private String id;
@@ -30,6 +28,7 @@ public class CoverageData {
     private int totalMethods;
     private int coveredMethods;
     private List<FileCoverageData> files;
+    private List<DirectoryCoverageData> directories; // NEW: Directory-level coverage
     private LocalDateTime timestamp;
     private ProjectConfiguration projectConfiguration;
     private CoverageSource coverageSource; // NEW: Track data source

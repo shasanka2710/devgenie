@@ -9,5 +9,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class FileCoverageRequest {
     private String filePath;
+    private String branch;
     private Double targetCoverageIncrease;
 }

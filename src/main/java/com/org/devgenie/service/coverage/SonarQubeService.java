@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -65,9 +66,14 @@ public class SonarQubeService {
             // Get file-level coverage
             List<FileCoverageData> files = getSonarQubeFileCoverage(projectKey, projectConfig);
 
+            // Build a recursive directory tree from file list
+            DirectoryCoverageData rootDirectory = buildDirectoryTreeRecursive(files, "src/main/java", LocalDateTime.now());
+            List<DirectoryCoverageData> directories = rootDirectory != null ? List.of(rootDirectory) : new ArrayList<>();
+
             return CoverageData.builder()
                     .repoPath(repoDir)
                     .files(files)
+                    .directories(directories)
                     .overallCoverage(metrics.getLineCoverage())
                     .lineCoverage(metrics.getLineCoverage())
                     .branchCoverage(metrics.getBranchCoverage())
@@ -80,7 +86,7 @@ public class SonarQubeService {
                     .coveredMethods(0)
                     .timestamp(LocalDateTime.now())
                     .projectConfiguration(projectConfig)
-                    .coverageSource(CoverageData.CoverageSource.SONARQUBE) // NEW: Track source
+                    .coverageSource(CoverageData.CoverageSource.SONARQUBE)
                     .build();
 
         } catch (Exception e) {
@@ -288,5 +294,60 @@ public class SonarQubeService {
                 .uncoveredBranches(new ArrayList<>());
 
         return builder.build();
+    }
+
+    // Recursively build directory tree from file list
+    private DirectoryCoverageData buildDirectoryTreeRecursive(List<FileCoverageData> files, String dirPath, LocalDateTime now) {
+        List<FileCoverageData> directFiles = new ArrayList<>();
+        Map<String, List<FileCoverageData>> subDirMap = new java.util.HashMap<>();
+        for (FileCoverageData file : files) {
+            if (file.getFilePath() == null || !file.getFilePath().startsWith(dirPath + "/")) continue;
+            String relative = file.getFilePath().substring(dirPath.length() + 1);
+            if (!relative.contains("/")) {
+                directFiles.add(file);
+            } else {
+                String subDir = relative.substring(0, relative.indexOf("/"));
+                String subDirPath = dirPath + "/" + subDir;
+                subDirMap.computeIfAbsent(subDirPath, k -> new ArrayList<>()).add(file);
+            }
+        }
+        if (directFiles.isEmpty() && subDirMap.isEmpty()) return null;
+        List<DirectoryCoverageData> subdirectories = new ArrayList<>();
+        for (Map.Entry<String, List<FileCoverageData>> entry : subDirMap.entrySet()) {
+            DirectoryCoverageData sub = buildDirectoryTreeRecursive(entry.getValue(), entry.getKey(), now);
+            if (sub != null) subdirectories.add(sub);
+        }
+        // Aggregate coverage for this directory
+        int totalLines = directFiles.stream().mapToInt(FileCoverageData::getTotalLines).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getTotalLines).sum();
+        int coveredLines = directFiles.stream().mapToInt(FileCoverageData::getCoveredLines).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getCoveredLines).sum();
+        int totalBranches = directFiles.stream().mapToInt(FileCoverageData::getTotalBranches).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getTotalBranches).sum();
+        int coveredBranches = directFiles.stream().mapToInt(FileCoverageData::getCoveredBranches).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getCoveredBranches).sum();
+        int totalMethods = directFiles.stream().mapToInt(FileCoverageData::getTotalMethods).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getTotalMethods).sum();
+        int coveredMethods = directFiles.stream().mapToInt(FileCoverageData::getCoveredMethods).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getCoveredMethods).sum();
+        double lineCoverage = totalLines > 0 ? (double) coveredLines / totalLines * 100 : 0;
+        double branchCoverage = totalBranches > 0 ? (double) coveredBranches / totalBranches * 100 : 0;
+        double methodCoverage = totalMethods > 0 ? (double) coveredMethods / totalMethods * 100 : 0;
+        return DirectoryCoverageData.builder()
+                .directoryPath(dirPath)
+                .overallCoverage(lineCoverage)
+                .lineCoverage(lineCoverage)
+                .branchCoverage(branchCoverage)
+                .methodCoverage(methodCoverage)
+                .totalLines(totalLines)
+                .coveredLines(coveredLines)
+                .totalBranches(totalBranches)
+                .coveredBranches(coveredBranches)
+                .totalMethods(totalMethods)
+                .coveredMethods(coveredMethods)
+                .files(directFiles)
+                .subdirectories(subdirectories)
+                .lastUpdated(now)
+                .build();
     }
 }

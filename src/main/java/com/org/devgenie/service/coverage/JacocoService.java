@@ -539,11 +539,16 @@ public class JacocoService {
         if (tds.size() < 13) {
             throw new JacocoException("Unexpected coverage table format in HTML report");
         }
-        // Extract coverage percentages from the table
+        // Extract overall coverage percentages from the table
         double instructionCoverage = parsePercent(tds.get(2).text());
         double branchCoverage = parsePercent(tds.get(4).text());
         double lineCoverage = parsePercent(tds.get(8).text());
         double methodCoverage = parsePercent(tds.get(10).text());
+
+        // Build recursive directory tree from file-level coverage
+        List<FileCoverageData> allFiles = extractAllFilesFromHtml(doc, projectConfig);
+        DirectoryCoverageData rootDirectory = buildDirectoryTreeRecursive(allFiles, "src/main/java", LocalDateTime.now());
+        List<DirectoryCoverageData> directories = rootDirectory != null ? List.of(rootDirectory) : new ArrayList<>();
 
         // Build CoverageData
         CoverageData data = CoverageData.builder()
@@ -551,8 +556,107 @@ public class JacocoService {
                 .branchCoverage(branchCoverage)
                 .lineCoverage(lineCoverage)
                 .methodCoverage(methodCoverage)
+                .directories(directories)
+                .timestamp(LocalDateTime.now())
                 .build();
         return data;
+    }
+
+    // Helper to extract all file-level coverage from Jacoco HTML (using CSV or XML is more accurate, but this is fallback)
+    private List<FileCoverageData> extractAllFilesFromHtml(org.jsoup.nodes.Document doc, ProjectConfiguration projectConfig) {
+        List<FileCoverageData> files = new ArrayList<>();
+        org.jsoup.select.Elements fileRows = doc.select("table.coverage tbody tr");
+        for (org.jsoup.nodes.Element row : fileRows) {
+            org.jsoup.select.Elements cols = row.select("td");
+            if (cols.size() < 13) continue;
+            String element = cols.get(0).text();
+            if (element.endsWith(".java")) {
+                // Try to reconstruct file path from package and file name
+                String filePath = "src/main/java/" + element.replace('.', '/');
+                double lineCov = parsePercent(cols.get(8).text());
+                double branchCov = parsePercent(cols.get(4).text());
+                double methodCov = parsePercent(cols.get(10).text());
+                int totalLines = parseInt(cols.get(8).text().replace("%", ""), 0);
+                int coveredLines = (int) (totalLines * lineCov / 100.0);
+                int totalBranches = parseInt(cols.get(4).text().replace("%", ""), 0);
+                int coveredBranches = (int) (totalBranches * branchCov / 100.0);
+                int totalMethods = parseInt(cols.get(10).text().replace("%", ""), 0);
+                int coveredMethods = (int) (totalMethods * methodCov / 100.0);
+                files.add(FileCoverageData.builder()
+                        .filePath(filePath)
+                        .lineCoverage(lineCov)
+                        .branchCoverage(branchCov)
+                        .methodCoverage(methodCov)
+                        .totalLines(totalLines)
+                        .coveredLines(coveredLines)
+                        .totalBranches(totalBranches)
+                        .coveredBranches(coveredBranches)
+                        .totalMethods(totalMethods)
+                        .coveredMethods(coveredMethods)
+                        .uncoveredLines(new ArrayList<>())
+                        .uncoveredBranches(new ArrayList<>())
+                        .lastUpdated(LocalDateTime.now())
+                        .buildTool(projectConfig.getBuildTool())
+                        .testFramework(projectConfig.getTestFramework())
+                        .build());
+            }
+        }
+        return files;
+    }
+
+    // Recursive directory tree builder (same as SonarQubeService)
+    private DirectoryCoverageData buildDirectoryTreeRecursive(List<FileCoverageData> files, String dirPath, LocalDateTime now) {
+        List<FileCoverageData> directFiles = new ArrayList<>();
+        Map<String, List<FileCoverageData>> subDirMap = new HashMap<>();
+        for (FileCoverageData file : files) {
+            if (file.getFilePath() == null || !file.getFilePath().startsWith(dirPath + "/")) continue;
+            String relative = file.getFilePath().substring(dirPath.length() + 1);
+            if (!relative.contains("/")) {
+                directFiles.add(file);
+            } else {
+                String subDir = relative.substring(0, relative.indexOf("/"));
+                String subDirPath = dirPath + "/" + subDir;
+                subDirMap.computeIfAbsent(subDirPath, k -> new ArrayList<>()).add(file);
+            }
+        }
+        if (directFiles.isEmpty() && subDirMap.isEmpty()) return null;
+        List<DirectoryCoverageData> subdirectories = new ArrayList<>();
+        for (Map.Entry<String, List<FileCoverageData>> entry : subDirMap.entrySet()) {
+            DirectoryCoverageData sub = buildDirectoryTreeRecursive(entry.getValue(), entry.getKey(), now);
+            if (sub != null) subdirectories.add(sub);
+        }
+        // Aggregate coverage for this directory
+        int totalLines = directFiles.stream().mapToInt(FileCoverageData::getTotalLines).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getTotalLines).sum();
+        int coveredLines = directFiles.stream().mapToInt(FileCoverageData::getCoveredLines).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getCoveredLines).sum();
+        int totalBranches = directFiles.stream().mapToInt(FileCoverageData::getTotalBranches).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getTotalBranches).sum();
+        int coveredBranches = directFiles.stream().mapToInt(FileCoverageData::getCoveredBranches).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getCoveredBranches).sum();
+        int totalMethods = directFiles.stream().mapToInt(FileCoverageData::getTotalMethods).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getTotalMethods).sum();
+        int coveredMethods = directFiles.stream().mapToInt(FileCoverageData::getCoveredMethods).sum() +
+                subdirectories.stream().mapToInt(DirectoryCoverageData::getCoveredMethods).sum();
+        double lineCoverage = totalLines > 0 ? (double) coveredLines / totalLines * 100 : 0;
+        double branchCoverage = totalBranches > 0 ? (double) coveredBranches / totalBranches * 100 : 0;
+        double methodCoverage = totalMethods > 0 ? (double) coveredMethods / totalMethods * 100 : 0;
+        return DirectoryCoverageData.builder()
+                .directoryPath(dirPath)
+                .overallCoverage(lineCoverage)
+                .lineCoverage(lineCoverage)
+                .branchCoverage(branchCoverage)
+                .methodCoverage(methodCoverage)
+                .totalLines(totalLines)
+                .coveredLines(coveredLines)
+                .totalBranches(totalBranches)
+                .coveredBranches(coveredBranches)
+                .totalMethods(totalMethods)
+                .coveredMethods(coveredMethods)
+                .files(directFiles)
+                .subdirectories(subdirectories)
+                .lastUpdated(now)
+                .build();
     }
 
     private double parsePercent(String percentText) {
