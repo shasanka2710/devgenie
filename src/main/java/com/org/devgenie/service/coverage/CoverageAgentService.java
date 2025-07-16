@@ -115,7 +115,7 @@ public class CoverageAgentService {
             }
 
             // Update coverage data in MongoDB
-            coverageDataService.saveCoverageData(finalCoverage);
+            //coverageDataService.saveCoverageData(finalCoverage);
 
             return ApplyChangesResponse.builder()
                     .success(true)

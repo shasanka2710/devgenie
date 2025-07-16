@@ -58,21 +58,6 @@ public class CoverageDataService {
         return data;
     }
 
-    public void saveCoverageData(CoverageData coverageData) {
-        try {
-            mongoTemplate.save(coverageData, "repo_coverage");
-
-            // Save individual file data
-            for (FileCoverageData fileData : coverageData.getFiles()) {
-                mongoTemplate.save(fileData, "file_coverage");
-            }
-
-            log.info("Saved coverage data for {} files", coverageData.getFiles().size());
-        } catch (Exception e) {
-            log.error("Failed to save coverage data", e);
-        }
-    }
-
 private CoverageData getCoverageFromMongo(String repoPath,String branch) {
     RepositoryAnalysisResponse data = analysisMongoUtil.getAnalysisFromMongo(repoPath, branch);
 
