@@ -251,22 +251,10 @@
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-group list-group-flush">
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-tools me-2"></i>Build Tool</span>
-                                                <span class="badge bg-info" th:text="${analysis.projectConfiguration.buildTool}"></span>
-                                            </li>
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-bezier2 me-2"></i>Test Framework</span>
-                                                <span class="badge bg-success" th:text="${analysis.projectConfiguration.testFramework}"></span>
-                                            </li>
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-cup-hot me-2"></i>Java Version</span>
-                                                <span class="badge bg-warning text-dark" th:text="${analysis.projectConfiguration.javaVersion}"></span>
-                                            </li>
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-lightning-charge me-2"></i>Spring Boot</span>
-                                                <span class="badge bg-primary" th:text="${analysis.projectConfiguration.isSpringBoot ? 'Yes' : 'No'}"></span>
-                                            </li>
+                                            <li class="list-group-item"><strong>Build Tool:</strong> <span th:text="${analysis.repositoryAnalysis.projectConfiguration.buildTool}"></span></li>
+                                            <li class="list-group-item"><strong>Test Framework:</strong> <span th:text="${analysis.repositoryAnalysis.projectConfiguration.testFramework}"></span></li>
+                                            <li class="list-group-item"><strong>Java Version:</strong> <span th:text="${analysis.repositoryAnalysis.projectConfiguration.javaVersion}"></span></li>
+                                            <li class="list-group-item"><strong>Total Java Files:</strong> <span th:text="${analysis.repositoryAnalysis.totalJavaFiles}"></span></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -279,36 +267,27 @@
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-group list-group-flush">
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-diagram-3 me-2"></i>Complexity</span>
-                                                <span class="badge bg-warning text-dark" th:text="${analysis.insights.repositoryComplexity}"></span>
-                                            </li>
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-file-earmark-code me-2"></i>Total Java Files</span>
-                                                <span class="badge bg-info" th:text="${analysis.totalJavaFiles}"></span>
-                                            </li>
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-diagram-2 me-2"></i>Architecture</span>
-                                                <span class="badge bg-secondary" th:text="${#lists.isEmpty(analysis.insights.architecturalInsights) ? 'N/A' : analysis.insights.architecturalInsights[0]}"></span>
-                                            </li>
+                                            <li class="list-group-item"><strong>Executive Summary:</strong> <span th:text="${analysis.repositoryAnalysis.insights.executiveSummary}"></span></li>
+                                            <li class="list-group-item"><strong>Complexity:</strong> <span th:text="${analysis.repositoryAnalysis.insights.repositoryComplexity}"></span></li>
+                                            <li class="list-group-item"><strong>Patterns:</strong> <span th:text="${analysis.repositoryAnalysis.insights.dominantPatterns}"></span></li>
                                         </ul>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
+                        <!-- Recommendations -->
                         <div class="mt-4">
                             <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Recommendations</h6>
                             <div id="recommendations">
-                                <div th:if="${#lists.isEmpty(analysis.recommendations)}">
+                                <div th:if="${#lists.isEmpty(analysis.repositoryAnalysis.recommendations)}">
                                     <div class="alert alert-info">
                                         <i class="bi bi-info-circle me-2"></i>
                                         No recommendations available.
                                     </div>
                                 </div>
-                                <div th:each="rec : ${analysis.recommendations}">
-                                    <div th:class="'alert ' + (${rec.priority} == 'HIGH' ? 'alert-info' : (${rec.priority} == 'MEDIUM' ? 'alert-warning' : 'alert-secondary'))">
-                                        <i th:class="${rec.priority} == 'HIGH' ? 'bi bi-info-circle me-2' : (${rec.priority} == 'MEDIUM' ? 'bi bi-exclamation-triangle me-2' : 'bi bi-lightbulb me-2')"></i>
+                                <div th:each="rec : ${analysis.repositoryAnalysis.recommendations}">
+                                    <div th:class="'alert ' + (rec.priority == 'HIGH' ? 'alert-info' : (rec.priority == 'MEDIUM' ? 'alert-warning' : 'alert-secondary'))">
+                                        <i th:class="rec.priority == 'HIGH' ? 'bi bi-info-circle me-2' : (rec.priority == 'MEDIUM' ? 'bi bi-exclamation-triangle me-2' : 'bi bi-lightbulb me-2')"></i>
                                         <strong th:text="${rec.priority + ' Priority:'}"></strong>
                                         <span th:text="${rec.title}"></span>
                                         <div th:text="${rec.description}" class="mt-1"></div>

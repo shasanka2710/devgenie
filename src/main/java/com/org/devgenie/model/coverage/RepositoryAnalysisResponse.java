@@ -1,11 +1,12 @@
 package com.org.devgenie.model.coverage;
 
+import com.org.devgenie.model.SonarBaseComponentMetrics;
+import com.org.devgenie.service.metadata.MetadataAnalyzer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -15,21 +16,15 @@ import java.util.List;
 public class RepositoryAnalysisResponse {
     private boolean success;
     private String error;
-    private String repositoryUrl;
-    private String branch;
-    private String workspaceId;
-    private ProjectConfiguration projectConfiguration;
-    private int totalJavaFiles;
-    private List<String> javaFiles;
-    private CoverageData existingCoverage;
-    private RepositoryInsights insights;
-    private List<CoverageRecommendation> recommendations;
-    private LocalDateTime analysisTimestamp;
+    private RepositoryAnalysis repositoryAnalysis;
+    private SonarBaseComponentMetrics sonarBaseComponentMetrics;
+    private List<MetadataAnalyzer.FileMetadata> fileMetadata;
+    private List<CoverageData> existingCoverage;
 
-    public static RepositoryAnalysisResponse error(String error) {
+    public static RepositoryAnalysisResponse error(String errorMessage) {
         return RepositoryAnalysisResponse.builder()
                 .success(false)
-                .error(error)
+                .error(errorMessage)
                 .build();
     }
 }

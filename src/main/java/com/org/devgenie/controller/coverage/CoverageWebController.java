@@ -52,6 +52,7 @@ public class CoverageWebController {
                                     Authentication authentication,
                                     Model model,
                                     RedirectAttributes redirectAttributes) {
+        log.info("Analyzing repository {}/{}", owner, repo);
         try {
             String accessToken = getAccessToken(authentication);
             if (accessToken == null) {

@@ -2,6 +2,7 @@ package com.org.devgenie.service.coverage;
 
 import com.org.devgenie.config.JacocoConfigurationService;
 import com.org.devgenie.exception.coverage.JacocoException;
+import com.org.devgenie.model.SonarQubeMetricsResponse;
 import com.org.devgenie.model.coverage.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +47,7 @@ public class JacocoService {
     /**
      * ENHANCED: Main entry point with intelligent fallback strategy
      */
-    public CoverageData runAnalysisWithConfig(String repoDir, ProjectConfiguration projectConfig) {
+    public SonarQubeMetricsResponse runAnalysisWithConfig(String repoDir, String branch, ProjectConfiguration projectConfig) {
         log.info("Running coverage analysis with {} configuration for: {}", projectConfig.getBuildTool(), repoDir);
 
         try {
@@ -65,10 +66,11 @@ public class JacocoService {
 
             // Strategy 3: Try SonarQube integration
             log.info("Fetching coverage using SonarQube integration");
-            CoverageData sonarData = sonarQubeService.getCoverageData(repoDir, projectConfig);
-            if (sonarData != null) {
+            SonarQubeMetricsResponse sonarQubeMetricsResponse = sonarQubeService.getFlatCoverageData(repoDir, branch, projectConfig);
+            List<CoverageData> sonarDataList =sonarQubeMetricsResponse.getCoverageDataList();
+            if (sonarQubeMetricsResponse != null) {
                 log.info("Successfully retrieved coverage data from SonarQube");
-                return sonarData;
+                return sonarQubeMetricsResponse;
             }
 
             // Strategy 4: Generate basic coverage data with minimal setup
@@ -85,14 +87,14 @@ public class JacocoService {
     /**
      * ENHANCED: Auto-detection with fallback strategies
      */
-    public CoverageData runAnalysis(String repoDir) {
+    public SonarQubeMetricsResponse runAnalysis(String repoDir, String branch) {
         log.info("Running coverage analysis with auto-detection for: {}", repoDir);
 
         try {
             ProjectConfiguration projectConfig = projectConfigService.detectProjectConfiguration(repoDir);
             log.info("Auto-detected build tool: {}", projectConfig.getBuildTool());
 
-            return runAnalysisWithConfig(repoDir, projectConfig);
+            return runAnalysisWithConfig(repoDir, branch,projectConfig);
 
         } catch (Exception e) {
             log.error("Failed to run coverage analysis with auto-detection", e);
@@ -108,18 +110,13 @@ public class JacocoService {
         return parseCoverageReport(repoDir, projectConfig);
     }
 
-    /**
-     * NEW: Generate basic coverage data when all else fails
-     */
-    private CoverageData generateBasicCoverageData(String repoDir, ProjectConfiguration projectConfig) {
+    private SonarQubeMetricsResponse generateBasicCoverageData(String repoDir, ProjectConfiguration projectConfig) {
         log.info("Generating basic coverage data for: {}", repoDir);
 
         try {
-            // Find all Java files
             List<String> javaFiles = findJavaFiles(repoDir);
             List<FileCoverageData> files = new ArrayList<>();
 
-            // Create basic file coverage data (0% coverage)
             for (String javaFile : javaFiles) {
                 int lineCount = countLinesInFile(Paths.get(repoDir, javaFile));
 
@@ -146,7 +143,7 @@ public class JacocoService {
 
             int totalLines = files.stream().mapToInt(FileCoverageData::getTotalLines).sum();
 
-            return CoverageData.builder()
+            CoverageData coverageData = CoverageData.builder()
                     .repoPath(repoDir)
                     .overallCoverage(0.0)
                     .lineCoverage(0.0)
@@ -160,8 +157,10 @@ public class JacocoService {
                     .coveredMethods(0)
                     .timestamp(LocalDateTime.now())
                     .projectConfiguration(projectConfig)
-                    .coverageSource(CoverageData.CoverageSource.BASIC_ANALYSIS) // NEW: Track data source
+                    .coverageSource(CoverageData.CoverageSource.BASIC_ANALYSIS)
                     .build();
+
+            return SonarQubeMetricsResponse.builder().build();
 
         } catch (Exception e) {
             log.error("Failed to generate basic coverage data", e);
@@ -169,10 +168,11 @@ public class JacocoService {
         }
     }
 
+
     /**
      * NEW: Method to validate and potentially fix coverage after test generation
      */
-    public CoverageComparisonResult validateCoverageImprovement(String repoDir, ProjectConfiguration projectConfig,
+    public CoverageComparisonResult validateCoverageImprovement(String repoDir, String branch, ProjectConfiguration projectConfig,
                                                                 CoverageData originalCoverage) {
         log.info("Validating coverage improvement after test generation");
 
@@ -192,7 +192,8 @@ public class JacocoService {
             // Strategy 2: Try SonarQube for validation
             if (newCoverage == null) {
                 try {
-                    newCoverage = sonarQubeService.getCoverageData(repoDir, projectConfig);
+                    //TODO: revisit the logic
+                    newCoverage = sonarQubeService.getFlatCoverageData(repoDir, branch,projectConfig).getCoverageDataList().get(0);
                     if (newCoverage != null) {
                         log.info("Successfully retrieved updated coverage from SonarQube");
                     }
@@ -1173,9 +1174,9 @@ public class JacocoService {
         }
     }
 
-    /**
+   /* *//**
      * Validate that coverage data is reasonable (basic sanity checks)
-     */
+     *//*
     public CoverageValidationResult validateCoverageData(CoverageData coverageData) {
         CoverageValidationResult.CoverageValidationResultBuilder resultBuilder =
                 CoverageValidationResult.builder();
@@ -1196,10 +1197,10 @@ public class JacocoService {
             errors.add("Branch coverage exceeds 100%: " + coverageData.getBranchCoverage());
         }
 
-        // Check for suspicious values
+     *//*   // Check for suspicious values
         if (coverageData.getOverallCoverage() == 0 && coverageData.getRootDirectory() != null && !getAllFilesFromDirectory(coverageData.getRootDirectory()).isEmpty()) {
             warnings.add("Overall coverage is 0% but files are present - possible analysis issue");
-        }
+        }*//*
 
         if (coverageData.getTotalLines() == 0) {
             warnings.add("Total lines is 0 - possible empty project or analysis issue");
@@ -1231,7 +1232,7 @@ public class JacocoService {
                 .totalFiles(coverageData.getRootDirectory() != null ? getAllFilesFromDirectory(coverageData.getRootDirectory()).size() : 0)
                 .validatedAt(LocalDateTime.now())
                 .build();
-    }
+    }*/
 
     /**
      * Get coverage trend analysis by comparing with previous coverage data

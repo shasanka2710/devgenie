@@ -57,12 +57,12 @@ public class CoverageAgentService {
         }
     }
 
-    public CoverageResponse increaseRepoCoverage(RepoCoverageRequest request) {
+    public CoverageResponse increaseRepoCoverage(RepoCoverageRequest request) {/*
         log.info("Starting repository coverage increase for target: {}%", request.getTargetCoverageIncrease());
 
         try {
             // Initialize coverage analysis
-            CoverageData currentCoverage = coverageDataService.getCurrentCoverage(request.getRepoPath(),request.getBranch());
+            List<CoverageData> currentCoverage = coverageDataService.getCurrentCoverage(request.getRepoPath(),request.getBranch());
 
             // Calculate target coverage
             double targetCoverage = currentCoverage.getOverallCoverage() +
@@ -82,7 +82,8 @@ public class CoverageAgentService {
         } catch (Exception e) {
             log.error("Failed to increase repo coverage", e);
             throw new CoverageException("Failed to process repository: " + e.getMessage(), e);
-        }
+        }*/
+        return null;
     }
 
     public ApplyChangesResponse applyChanges(ApplyChangesRequest request) {
@@ -97,14 +98,14 @@ public class CoverageAgentService {
             gitService.applyChanges(request.getChanges(), workspaceDir);
 
             // Get original coverage for comparison
-            CoverageData originalCoverage = coverageDataService.getCurrentCoverage(repoDir,request.getBranch());
+            CoverageData originalCoverage = coverageDataService.getCurrentCoverage(repoDir,request.getBranch()).getCoverageDataList().get(0);
 
             // Detect project configuration
             ProjectConfiguration projectConfig = projectConfigService.detectProjectConfiguration(repoDir);
 
             // ENHANCED: Use new validation method with multiple strategies
             CoverageComparisonResult comparisonResult = jacocoService.validateCoverageImprovement(
-                    repoDir, projectConfig, originalCoverage);
+                    repoDir, request.getBranch(),projectConfig, originalCoverage);
 
             CoverageData finalCoverage = comparisonResult.getNewCoverage();
 

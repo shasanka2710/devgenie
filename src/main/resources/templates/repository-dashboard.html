@@ -350,47 +350,32 @@
                     </h5>
                 </div>
                 <div class="card-body p-0">
+                    <!--
+                        Dynamically render the file tree and coverage metrics from flat coverage node documents.
+                        Replace hardcoded file tree with Thymeleaf iteration over coverage nodes.
+                    -->
                     <div id="fileTree" class="file-tree">
                         <div class="p-3">
-                            <div class="d-flex align-items-center mb-2 file-item" onclick="toggleFolder(this)">
-                                <i class="bi bi-folder-fill text-warning me-2"></i>
-                                <span class="fw-medium">src</span>
-                            </div>
-                            <div class="ms-3">
-                                <div class="d-flex align-items-center mb-2 file-item" onclick="toggleFolder(this)">
+                            <th:block th:each="dir : ${directories}">
+                                <div class="d-flex align-items-center mb-2 file-item" th:onclick="|toggleFolder(this)|">
                                     <i class="bi bi-folder-fill text-warning me-2"></i>
-                                    <span class="fw-medium">main</span>
+                                    <span class="fw-medium" th:text="${dir.directoryName}"></span>
                                 </div>
                                 <div class="ms-3">
-                                    <div class="d-flex align-items-center mb-2 file-item" onclick="toggleFolder(this)">
-                                        <i class="bi bi-folder-fill text-warning me-2"></i>
-                                        <span class="fw-medium">java</span>
-                                    </div>
-                                    <div class="ms-3">
-                                        <div class="d-flex align-items-center mb-1 file-item" onclick="selectFile(this, 'com/example/service/UserService.java')">
+                                    <th:block th:each="file : ${dir.files}">
+                                        <div class="d-flex align-items-center mb-1 file-item"
+                                             th:onclick="|selectFile(this, '${file.filePath}')|">
                                             <i class="bi bi-file-earmark-code text-primary me-2"></i>
-                                            <span>UserService.java</span>
+                                            <span th:text="${file.fileName}"></span>
                                             <div class="coverage-bar ms-auto" style="width: 60px;">
-                                                <div class="coverage-fill coverage-medium" style="width: 65%;"></div>
+                                                <div class="coverage-fill"
+                                                     th:classappend="${file.lineCoverage} &gt; 80 ? 'coverage-high' : (${file.lineCoverage} &gt; 50 ? 'coverage-medium' : 'coverage-low')"
+                                                     th:style="|width: ${file.lineCoverage}%;|"></div>
                                             </div>
                                         </div>
-                                        <div class="d-flex align-items-center mb-1 file-item" onclick="selectFile(this, 'com/example/controller/UserController.java')">
-                                            <i class="bi bi-file-earmark-code text-primary me-2"></i>
-                                            <span>UserController.java</span>
-                                            <div class="coverage-bar ms-auto" style="width: 60px;">
-                                                <div class="coverage-fill coverage-high" style="width: 85%;"></div>
-                                            </div>
-                                        </div>
-                                        <div class="d-flex align-items-center mb-1 file-item" onclick="selectFile(this, 'com/example/model/User.java')">
-                                            <i class="bi bi-file-earmark-code text-primary me-2"></i>
-                                            <span>User.java</span>
-                                            <div class="coverage-bar ms-auto" style="width: 60px;">
-                                                <div class="coverage-fill coverage-low" style="width: 30%;"></div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    </th:block>
                                 </div>
-                            </div>
+                            </th:block>
                         </div>
                     </div>
                 </div>
