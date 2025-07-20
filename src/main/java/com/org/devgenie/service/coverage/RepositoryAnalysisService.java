@@ -109,7 +109,7 @@ public class RepositoryAnalysisService {
             // AI-powered repository analysis
             log.info("Starting AI-powered repository analysis for: {}", repoDir);
             stepStart = System.nanoTime();
-            RepositoryInsights insights = generateRepositoryInsights(repoDir, javaFiles, projectConfig, fileMetadata, existingCoverage);
+            SimplifiedRepositoryInsights insights = generateSimplifiedRepositoryInsights(repoDir, javaFiles, projectConfig, fileMetadata, existingCoverage);
             stepEnd = System.nanoTime();
             log.info("AI-powered repository analysis completed in {} ms", (stepEnd - stepStart) / 1_000_000);
 
@@ -165,23 +165,6 @@ public class RepositoryAnalysisService {
                     .success(false)
                     .error(e.getMessage())
                     .build();
-        }
-    }
-
-    private RepositoryInsights generateRepositoryInsights(String repoDir, List<String> javaFiles, 
-            ProjectConfiguration config, List<MetadataAnalyzer.FileMetadata> fileMetadata, 
-            List<CoverageData> existingCoverage) {
-        try {
-            // Generate simplified analysis - more focused and reliable
-            SimplifiedRepositoryInsights simplifiedInsights = generateSimplifiedRepositoryInsights(
-                repoDir, javaFiles, config, fileMetadata, existingCoverage);
-            
-            // Convert simplified insights to legacy format for compatibility
-            return convertToLegacyInsights(simplifiedInsights);
-
-        } catch (Exception e) {
-            log.error("Failed to generate repository insights", e);
-            return createDefaultInsights();
         }
     }
 
@@ -387,7 +370,7 @@ public class RepositoryAnalysisService {
 
     private List<CoverageRecommendation> generateCoverageRecommendations(
             List<String> javaFiles, CoverageData existingCoverage, ProjectConfiguration config, 
-            RepositoryInsights insights, List<MetadataAnalyzer.FileMetadata> fileMetadata) {
+            SimplifiedRepositoryInsights insights, List<MetadataAnalyzer.FileMetadata> fileMetadata) {
 
         try {
             // Generate AI-driven coverage recommendations
@@ -413,7 +396,7 @@ public class RepositoryAnalysisService {
      */
     private List<CoverageRecommendation> generateAIDrivenCoverageRecommendations(
             List<String> javaFiles, CoverageData existingCoverage, ProjectConfiguration config, 
-            RepositoryInsights insights, List<MetadataAnalyzer.FileMetadata> fileMetadata) {
+            SimplifiedRepositoryInsights insights, List<MetadataAnalyzer.FileMetadata> fileMetadata) {
         String coverageRecommendationPrompt = "";
 
         /*// Build comprehensive context for AI analysis
@@ -431,7 +414,7 @@ public class RepositoryAnalysisService {
      * Build comprehensive prompt for AI coverage recommendation generation
      */
     /*private String buildCoverageRecommendationPrompt(List<String> javaFiles, CoverageData existingCoverage,
-            ProjectConfiguration config, RepositoryInsights insights, List<MetadataAnalyzer.FileMetadata> fileMetadata) {
+            ProjectConfiguration config, SimplifiedRepositoryInsights insights, List<MetadataAnalyzer.FileMetadata> fileMetadata) {
         
         StringBuilder promptBuilder = new StringBuilder();
         
@@ -744,140 +727,6 @@ public class RepositoryAnalysisService {
         return recommendations;
     }
 
-    private RepositoryInsights parseRepositoryInsights(String aiResponse) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode jsonResponse = mapper.readTree(extractJsonFromResponse(aiResponse));
-
-            return RepositoryInsights.builder()
-                    .repositoryComplexity(jsonResponse.get("repositoryComplexity").asText())
-                    .dominantPatterns(parseStringArray(jsonResponse.get("dominantPatterns")))
-                    .testingGaps(parseTestingGaps(jsonResponse.get("testingGaps")))
-                    .architecturalInsights(parseStringArray(jsonResponse.get("architecturalInsights")))
-                    .coverageStrategy(parseCoverageStrategy(jsonResponse.get("coverageStrategy")))
-                    .riskAssessment(parseRiskAssessment(jsonResponse.get("riskAssessment")))
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Failed to parse repository insights", e);
-            return createDefaultInsights();
-        }
-    }
-
-    /**
-     * Parse enhanced repository insights from AI response
-     */
-    private RepositoryInsights parseEnhancedRepositoryInsights(String aiResponse) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode jsonResponse = mapper.readTree(extractJsonFromResponse(aiResponse));
-
-            return RepositoryInsights.builder()
-                    .executiveSummary(getJsonText(jsonResponse, "executiveSummary"))
-                    .repositoryComplexity(getJsonText(jsonResponse, "repositoryComplexity"))
-                    .dominantPatterns(parseStringArray(jsonResponse.get("dominantPatterns")))
-                    .keyFindings(parseStringArray(jsonResponse.get("keyFindings")))
-                    .criticalActions(parseStringArray(jsonResponse.get("criticalActions")))
-                    .testingGaps(parseTestingGaps(jsonResponse.get("testingGaps")))
-                    .architecturalInsights(parseStringArray(jsonResponse.get("architecturalInsights")))
-                    .codeQualityAssessment(parseCodeQualityAssessment(jsonResponse.get("codeQualityAssessment")))
-                    .businessImpactAnalysis(parseBusinessImpactAnalysis(jsonResponse.get("businessImpactAnalysis")))
-                    .technicalDebtAssessment(parseTechnicalDebtAssessment(jsonResponse.get("technicalDebtAssessment")))
-                    .coverageStrategy(parseCoverageStrategy(jsonResponse.get("coverageStrategy")))
-                    .riskAssessment(parseRiskAssessment(jsonResponse.get("riskAssessment")))
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Failed to parse enhanced repository insights", e);
-            return createDefaultInsights();
-        }
-    }
-    
-    /**
-     * Parse simplified repository insights from AI response
-     */
-    private SimplifiedRepositoryInsights parseSimplifiedRepositoryInsights(String aiResponse) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode jsonResponse = mapper.readTree(extractJsonFromResponse(aiResponse));
-
-            // Parse repository summary
-            JsonNode summaryNode = jsonResponse.get("repositorySummary");
-            SimplifiedRepositoryInsights.RepositorySummary summary = SimplifiedRepositoryInsights.RepositorySummary.builder()
-                    .overallRiskLevel(getJsonText(summaryNode, "overallRiskLevel"))
-                    .complexityScore(summaryNode.get("complexityScore") != null ? summaryNode.get("complexityScore").asInt() : 5)
-                    .coverageGrade(getJsonText(summaryNode, "coverageGrade"))
-                    .primaryConcerns(parseStringArray(summaryNode.get("primaryConcerns")))
-                    .build();
-
-            // Parse critical findings
-            JsonNode findingsNode = jsonResponse.get("criticalFindings");
-            List<SimplifiedRepositoryInsights.HighRiskFile> highRiskFiles = new ArrayList<>();
-            JsonNode riskFilesArray = findingsNode.get("highestRiskFiles");
-            if (riskFilesArray != null && riskFilesArray.isArray()) {
-                for (JsonNode fileNode : riskFilesArray) {
-                    highRiskFiles.add(SimplifiedRepositoryInsights.HighRiskFile.builder()
-                            .fileName(getJsonText(fileNode, "fileName"))
-                            .riskScore(fileNode.get("riskScore") != null ? fileNode.get("riskScore").asDouble() : 0.0)
-                            .reason(getJsonText(fileNode, "reason"))
-                            .build());
-                }
-            }
-
-            SimplifiedRepositoryInsights.CriticalFindings findings = SimplifiedRepositoryInsights.CriticalFindings.builder()
-                    .highestRiskFiles(highRiskFiles)
-                    .coverageGaps(parseStringArray(findingsNode.get("coverageGaps")))
-                    .architecturalIssues(parseStringArray(findingsNode.get("architecturalIssues")))
-                    .build();
-
-            // Parse recommendations
-            List<SimplifiedRepositoryInsights.Recommendation> recommendations = new ArrayList<>();
-            JsonNode recArray = jsonResponse.get("recommendations");
-            if (recArray != null && recArray.isArray()) {
-                for (JsonNode recNode : recArray) {
-                    recommendations.add(SimplifiedRepositoryInsights.Recommendation.builder()
-                            .priority(getJsonText(recNode, "priority"))
-                            .title(getJsonText(recNode, "title"))
-                            .description(getJsonText(recNode, "description"))
-                            .impact(getJsonText(recNode, "impact"))
-                            .effort(getJsonText(recNode, "effort"))
-                            .build());
-                }
-            }
-
-            return SimplifiedRepositoryInsights.builder()
-                    .repositorySummary(summary)
-                    .criticalFindings(findings)
-                    .recommendations(recommendations)
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Failed to parse simplified repository insights", e);
-            return createDefaultSimplifiedInsights();
-        }
-    }
-    
-    /**
-     * Create default insights when AI analysis fails
-     */
-    private RepositoryInsights createDefaultInsights() {
-        return RepositoryInsights.builder()
-                .repositoryComplexity("MEDIUM")
-                .dominantPatterns(List.of("Spring Boot", "Layered Architecture"))
-                .testingGaps(List.of())
-                .architecturalInsights(List.of("Standard Java application structure"))
-                .coverageStrategy(CoverageStrategy.builder()
-                        .recommendedApproach("Incremental improvement starting with service layer")
-                        .priorityAreas(List.of("Business logic", "Error handling"))
-                        .estimatedTimeToImprove("2-3 days")
-                        .build())
-                .riskAssessment(RiskAssessment.builder()
-                        .level("MEDIUM")
-                        .factors(List.of("Unknown project complexity"))
-                        .build())
-                .build();
-    }
-
     /**
      * Create default simplified insights when AI analysis fails
      */
@@ -1091,90 +940,6 @@ public class RepositoryAnalysisService {
     /**
      * Convert simplified insights to legacy format for compatibility
      */
-    private RepositoryInsights convertToLegacyInsights(SimplifiedRepositoryInsights simplified) {
-        // Extract high-priority recommendation as critical actions
-        List<String> criticalActions = simplified.getRecommendations().stream()
-                .filter(rec -> "HIGH".equals(rec.getPriority()))
-                .map(rec -> rec.getTitle() + ": " + rec.getDescription())
-                .limit(3)
-                .collect(Collectors.toList());
-
-        // Convert high-risk files to testing gaps
-        List<TestingGap> testingGaps = simplified.getCriticalFindings().getHighestRiskFiles().stream()
-                .map(file -> TestingGap.builder()
-                        .category("High-Risk File")
-                        .description("Critical file requiring test coverage: " + file.getReason())
-                        .priority("HIGH")
-                        .estimatedEffort("2-4 hours")
-                        .build())
-                .collect(Collectors.toList());
-
-        return RepositoryInsights.builder()
-                .executiveSummary("Repository risk level: " + simplified.getRepositorySummary().getOverallRiskLevel() + 
-                                ", Complexity: " + simplified.getRepositorySummary().getComplexityScore() + "/10")
-                .repositoryComplexity(mapComplexityScoreToLevel(simplified.getRepositorySummary().getComplexityScore()))
-                .dominantPatterns(List.of("Spring Boot Application", "Layered Architecture"))
-                .keyFindings(simplified.getRepositorySummary().getPrimaryConcerns())
-                .criticalActions(criticalActions)
-                .testingGaps(testingGaps)
-                .architecturalInsights(simplified.getCriticalFindings().getArchitecturalIssues())
-                .codeQualityAssessment(RepositoryInsights.CodeQualityAssessment.builder()
-                        .overallGrade(simplified.getRepositorySummary().getCoverageGrade())
-                        .complexityLevel(mapComplexityScoreToLevel(simplified.getRepositorySummary().getComplexityScore()))
-                        .maintainabilityScore("75%") // Default estimation
-                        .qualityIssues(simplified.getCriticalFindings().getCoverageGaps())
-                        .strengthAreas(List.of("Structured codebase", "Modern Java version"))
-                        .build())
-                .businessImpactAnalysis(RepositoryInsights.BusinessImpactAnalysis.builder()
-                        .riskLevel(simplified.getRepositorySummary().getOverallRiskLevel())
-                        .businessCriticalityLevel("Medium impact on business operations")
-                        .highRiskComponents(simplified.getCriticalFindings().getHighestRiskFiles().stream()
-                                .map(SimplifiedRepositoryInsights.HighRiskFile::getFileName)
-                                .collect(Collectors.toList()))
-                        .estimatedBusinessImpact("Moderate risk to business continuity")
-                        .complianceConsiderations(List.of("Code quality standards", "Testing requirements"))
-                        .build())
-                .technicalDebtAssessment(RepositoryInsights.TechnicalDebtAssessment.builder()
-                        .debtLevel(mapRiskToDebtLevel(simplified.getRepositorySummary().getOverallRiskLevel()))
-                        .estimatedRefactoringEffort("2-4 weeks for major improvements")
-                        .debtHotspots(simplified.getCriticalFindings().getHighestRiskFiles().stream()
-                                .map(SimplifiedRepositoryInsights.HighRiskFile::getFileName)
-                                .collect(Collectors.toList()))
-                        .refactoringPriorities(simplified.getRecommendations().stream()
-                                .map(SimplifiedRepositoryInsights.Recommendation::getTitle)
-                                .collect(Collectors.toList()))
-                        .maintainabilityTrend("STABLE")
-                        .build())
-                .coverageStrategy(CoverageStrategy.builder()
-                        .recommendedApproach("Focus on high-risk files first, then expand systematically")
-                        .priorityAreas(simplified.getCriticalFindings().getHighestRiskFiles().stream()
-                                .map(SimplifiedRepositoryInsights.HighRiskFile::getFileName)
-                                .collect(Collectors.toList()))
-                        .estimatedTimeToImprove("1-2 weeks for significant improvement")
-                        .build())
-                .riskAssessment(RiskAssessment.builder()
-                        .level(simplified.getRepositorySummary().getOverallRiskLevel())
-                        .factors(simplified.getRepositorySummary().getPrimaryConcerns())
-                        .build())
-                .build();
-    }
-
-    private String mapComplexityScoreToLevel(Integer score) {
-        if (score == null) return "MEDIUM";
-        if (score <= 3) return "LOW";
-        if (score <= 7) return "MEDIUM";
-        return "HIGH";
-    }
-
-    private String mapRiskToDebtLevel(String riskLevel) {
-        switch (riskLevel.toUpperCase()) {
-            case "LOW": return "LOW";
-            case "HIGH": 
-            case "CRITICAL": return "HIGH";
-            default: return "MEDIUM";
-        }
-    }
-
     /**
      * Get simplified repository insights (new focused format)
      */
@@ -1262,48 +1027,69 @@ public class RepositoryAnalysisService {
                 .build();
     }
 
-    /**
-     * Parse code quality assessment from JSON node
-     */
-    private RepositoryInsights.CodeQualityAssessment parseCodeQualityAssessment(JsonNode node) {
-        if (node == null) return null;
-        
-        return RepositoryInsights.CodeQualityAssessment.builder()
-                .overallGrade(getJsonText(node, "overallGrade"))
-                .complexityLevel(getJsonText(node, "complexityLevel"))
-                .maintainabilityScore(getJsonText(node, "maintainabilityScore"))
-                .qualityIssues(parseStringArray(node.get("qualityIssues")))
-                .strengthAreas(parseStringArray(node.get("strengthAreas")))
-                .build();
-    }
+
 
     /**
-     * Parse business impact analysis from JSON node
+     * Parse simplified repository insights from AI response
      */
-    private RepositoryInsights.BusinessImpactAnalysis parseBusinessImpactAnalysis(JsonNode node) {
-        if (node == null) return null;
-        
-        return RepositoryInsights.BusinessImpactAnalysis.builder()
-                .riskLevel(getJsonText(node, "riskLevel"))
-                .businessCriticalityLevel(getJsonText(node, "businessCriticalityLevel"))
-                .highRiskComponents(parseStringArray(node.get("highRiskComponents")))
-                .estimatedBusinessImpact(getJsonText(node, "estimatedBusinessImpact"))
-                .complianceConsiderations(parseStringArray(node.get("complianceConsiderations")))
-                .build();
-    }
+    private SimplifiedRepositoryInsights parseSimplifiedRepositoryInsights(String aiResponse) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonResponse = mapper.readTree(extractJsonFromResponse(aiResponse));
 
-    /**
-     * Parse technical debt assessment from JSON node
-     */
-    private RepositoryInsights.TechnicalDebtAssessment parseTechnicalDebtAssessment(JsonNode node) {
-        if (node == null) return null;
-        
-        return RepositoryInsights.TechnicalDebtAssessment.builder()
-                .debtLevel(getJsonText(node, "debtLevel"))
-                .estimatedRefactoringEffort(getJsonText(node, "estimatedRefactoringEffort"))
-                .debtHotspots(parseStringArray(node.get("debtHotspots")))
-                .refactoringPriorities(parseStringArray(node.get("refactoringPriorities")))
-                .maintainabilityTrend(getJsonText(node, "maintainabilityTrend"))
-                .build();
+            // Parse repository summary
+            JsonNode summaryNode = jsonResponse.get("repositorySummary");
+            SimplifiedRepositoryInsights.RepositorySummary summary = SimplifiedRepositoryInsights.RepositorySummary.builder()
+                    .overallRiskLevel(getJsonText(summaryNode, "overallRiskLevel"))
+                    .complexityScore(summaryNode.get("complexityScore") != null ? summaryNode.get("complexityScore").asInt() : 5)
+                    .coverageGrade(getJsonText(summaryNode, "coverageGrade"))
+                    .primaryConcerns(parseStringArray(summaryNode.get("primaryConcerns")))
+                    .build();
+
+            // Parse critical findings
+            JsonNode findingsNode = jsonResponse.get("criticalFindings");
+            List<SimplifiedRepositoryInsights.HighRiskFile> highRiskFiles = new ArrayList<>();
+            JsonNode riskFilesArray = findingsNode.get("highestRiskFiles");
+            if (riskFilesArray != null && riskFilesArray.isArray()) {
+                for (JsonNode fileNode : riskFilesArray) {
+                    highRiskFiles.add(SimplifiedRepositoryInsights.HighRiskFile.builder()
+                            .fileName(getJsonText(fileNode, "fileName"))
+                            .riskScore(fileNode.get("riskScore") != null ? fileNode.get("riskScore").asDouble() : 0.0)
+                            .reason(getJsonText(fileNode, "reason"))
+                            .build());
+                }
+            }
+
+            SimplifiedRepositoryInsights.CriticalFindings findings = SimplifiedRepositoryInsights.CriticalFindings.builder()
+                    .highestRiskFiles(highRiskFiles)
+                    .coverageGaps(parseStringArray(findingsNode.get("coverageGaps")))
+                    .architecturalIssues(parseStringArray(findingsNode.get("architecturalIssues")))
+                    .build();
+
+            // Parse recommendations
+            List<SimplifiedRepositoryInsights.Recommendation> recommendations = new ArrayList<>();
+            JsonNode recArray = jsonResponse.get("recommendations");
+            if (recArray != null && recArray.isArray()) {
+                for (JsonNode recNode : recArray) {
+                    recommendations.add(SimplifiedRepositoryInsights.Recommendation.builder()
+                            .priority(getJsonText(recNode, "priority"))
+                            .title(getJsonText(recNode, "title"))
+                            .description(getJsonText(recNode, "description"))
+                            .impact(getJsonText(recNode, "impact"))
+                            .effort(getJsonText(recNode, "effort"))
+                            .build());
+                }
+            }
+
+            return SimplifiedRepositoryInsights.builder()
+                    .repositorySummary(summary)
+                    .criticalFindings(findings)
+                    .recommendations(recommendations)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Failed to parse simplified repository insights", e);
+            return createDefaultSimplifiedInsights();
+        }
     }
 }

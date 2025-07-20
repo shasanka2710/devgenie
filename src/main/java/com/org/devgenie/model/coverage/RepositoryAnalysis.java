@@ -23,7 +23,7 @@ public class RepositoryAnalysis {
     private String workspaceId;
     private ProjectConfiguration projectConfiguration;
     private int totalJavaFiles;
-    private RepositoryInsights insights;
+    private SimplifiedRepositoryInsights insights;
     private List<CoverageRecommendation> recommendations;
     private LocalDateTime analysisTimestamp;
 
