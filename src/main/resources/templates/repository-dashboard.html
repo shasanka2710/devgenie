@@ -356,7 +356,50 @@
                     -->
                     <div id="fileTree" class="file-tree">
                         <div class="p-3" th:if="${fileTree != null and fileTree.hasChildren()}">
-                            <div th:each="child : ${fileTree.children}" th:insert="~{fragments/file-tree :: file-tree-node(${child})}"></div>
+                            <!-- FILTERED APPROACH: Only show main directory, not test -->
+                            <div th:each="child : ${fileTree.children}" th:if="${child.name == 'main'}">
+                                <!-- Main Directory -->
+                                <div class="file-tree-directory mb-2">
+                                    <div class="d-flex align-items-center file-item" style="cursor: pointer;" onclick="toggleFolder(this)">
+                                        <i class="bi bi-folder-fill text-warning me-2"></i>
+                                        <span class="fw-medium" th:text="${'src/' + child.name}"></span>
+                                        <span class="badge bg-secondary ms-2" th:text="${child.children.size() + ' items'}"></span>
+                                    </div>
+                                    
+                                    <!-- Show subdirectories and files inside main -->
+                                    <div class="ms-3" th:if="${child.hasChildren()}">
+                                        <!-- Show subdirectories (like java/) -->
+                                        <div th:each="subdir : ${child.children}" th:if="${subdir.isDirectory()}" class="file-tree-directory mb-2">
+                                            <div class="d-flex align-items-center file-item" style="cursor: pointer;" onclick="toggleFolder(this)">
+                                                <i class="bi bi-folder text-info me-2"></i>
+                                                <span class="fw-medium" th:text="${subdir.name}"></span>
+                                                <span class="badge bg-info ms-2" th:text="${subdir.children.size() + ' items'}"></span>
+                                            </div>
+                                            
+                                            <!-- Recursively show nested directories and files -->
+                                            <div class="ms-3" th:if="${subdir.hasChildren()}">
+                                                <div th:replace="~{repository-dashboard :: renderFileTreeNode(${subdir}, 0)}"></div>
+                                            </div>
+                                        </div>
+                                                         <!-- Show direct files in main (if any) -->
+                        <div th:each="file : ${child.children}" th:if="${!file.isDirectory()}" class="file-tree-file mb-1">
+                            <div class="d-flex align-items-center file-item" style="cursor: pointer;"
+                                 th:data-file-path="${file.data?.path}"
+                                 th:data-file-name="${file.name}">
+                                                <i class="bi bi-file-earmark-code text-primary me-2"></i>
+                                                <span th:text="${file.name}"></span>
+                                                <div class="coverage-bar ms-auto" style="width: 60px; height: 4px; background-color: #e0e0e0; border-radius: 2px;" th:if="${file.data?.lineCoverage != null}">
+                                                    <div class="coverage-fill"
+                                                         th:classappend="${file.data.lineCoverage > 80} ? 'bg-success' : (${file.data.lineCoverage > 50} ? 'bg-warning' : 'bg-danger')"
+                                                         th:style="|width: ${file.data.lineCoverage}%; height: 100%; border-radius: 2px;|"></div>
+                                                </div>
+                                                <span class="text-muted ms-2" th:if="${file.data?.lineCoverage != null}" th:text="${#numbers.formatDecimal(file.data.lineCoverage, 1, 1) + '%'}"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
                         </div>
                         <div class="p-3 text-center text-muted" th:unless="${fileTree != null and fileTree.hasChildren()}">
                             <i class="bi bi-folder-x" style="font-size: 2rem; opacity: 0.5;"></i>
@@ -570,6 +613,15 @@
             `;
         }
 
+        function selectFileFromElement(element) {
+            const filePath = element.getAttribute('data-file-path');
+            const fileName = element.getAttribute('data-file-name');
+            
+            if (filePath && fileName) {
+                selectFile(element, filePath, fileName);
+            }
+        }
+
         function toggleFolder(element) {
             const icon = element.querySelector('i');
             const nextSibling = element.nextElementSibling;
@@ -594,7 +646,57 @@
             const fileName = document.getElementById('selectedFileName').textContent;
             alert(`File-specific coverage improvement for ${fileName} will be implemented here!`);
         }
+
+        // Add event listeners when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add click event listeners to file items
+            document.addEventListener('click', function(event) {
+                const fileItem = event.target.closest('.file-item');
+                if (fileItem) {
+                    selectFileFromElement(fileItem);
+                }
+            });
+        });
     </script>
 </th:block>
+
+<!-- Recursive template fragment for rendering nested file tree -->
+<th:block th:fragment="renderFileTreeNode(node, depth)">
+    <div th:each="child : ${node.children}">
+        <!-- If it's a directory, render as collapsible folder -->
+        <div th:if="${child.isDirectory()}" class="file-tree-directory mb-1">
+            <div class="d-flex align-items-center file-item" style="cursor: pointer;" onclick="toggleFolder(this)"
+                 th:style="|margin-left: ${depth * 20}px;|">
+                <i class="bi bi-folder text-info me-2"></i>
+                <span class="fw-medium" th:text="${child.name}"></span>
+                <span class="badge bg-info ms-2" th:text="${child.children.size() + ' items'}" th:if="${child.hasChildren()}"></span>
+            </div>
+            <!-- Recursively render children if they exist -->
+            <div th:if="${child.hasChildren()}">
+                <div th:replace="~{repository-dashboard :: renderFileTreeNode(${child}, ${depth + 1})}"></div>
+            </div>
+        </div>
+        
+        <!-- If it's a file, render as file -->
+        <div th:unless="${child.isDirectory()}" class="file-tree-file mb-1">
+            <div class="d-flex align-items-center file-item" style="cursor: pointer;"
+                 th:style="|margin-left: ${depth * 20}px;|"
+                 th:data-file-path="${child.data?.path}"
+                 th:data-file-name="${child.name}">
+                <i class="bi bi-file-earmark-code text-primary me-2"></i>
+                <span th:text="${child.name}"></span>
+                <div class="coverage-bar ms-auto" style="width: 60px; height: 4px; background-color: #e0e0e0; border-radius: 2px;" 
+                     th:if="${child.data?.lineCoverage != null}">
+                    <div class="coverage-fill"
+                         th:classappend="${child.data.lineCoverage > 80} ? 'bg-success' : (${child.data.lineCoverage > 50} ? 'bg-warning' : 'bg-danger')"
+                         th:style="|width: ${child.data.lineCoverage}%; height: 100%; border-radius: 2px;|"></div>
+                </div>
+                <span class="text-muted ms-2" th:if="${child.data?.lineCoverage != null}" 
+                      th:text="${#numbers.formatDecimal(child.data.lineCoverage, 1, 1) + '%'}"></span>
+            </div>
+        </div>
+    </div>
+</th:block>
+
 </body>
 </html>

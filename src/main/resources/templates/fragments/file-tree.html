@@ -13,7 +13,7 @@
                 <span class="fw-medium" th:text="${node.name}"></span>
             </div>
             <div class="ms-3" th:if="${node.hasChildren()}">
-                <div th:each="child : ${node.children}" th:insert="~{fragments/file-tree :: file-tree-node(${child})}"></div>
+                <div th:each="child : ${node.children}" th:replace="~{fragments/file-tree :: file-tree-node(${child})}"></div>
             </div>
         </div>
         

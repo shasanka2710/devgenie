@@ -9,8 +9,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/dashboard")
 @Slf4j
