@@ -34,21 +34,27 @@ public class RepositoryService {
     private GitService gitService;
 
     /**
-     * Clone or update repository in user's workspace
+     * Clone or update repository in persistent workspace based on repo URL and branch
+     * PERFORMANCE OPTIMIZATION: Use repo URL + branch instead of workspaceId to avoid re-cloning
      */
     public String setupRepository(String repositoryUrl, String branch, String workspaceId, String githubToken) {
-        String workspaceDir = workspaceRootDir + "/" + workspaceId;
-        String repoDir = workspaceDir + "/" + extractRepoName(repositoryUrl);
+        // Create persistent directory structure: repo-url-hash/branch
+        String repoUrlHash = generateRepoUrlHash(repositoryUrl);
+        String branchName = branch != null ? branch : "main";
+        String persistentDir = workspaceRootDir + "/" + repoUrlHash + "/" + branchName;
+        String repoDir = persistentDir + "/" + extractRepoName(repositoryUrl);
 
         try {
-            // Create workspace directory
-            Files.createDirectories(Paths.get(workspaceDir));
+            // Create persistent directory structure
+            Files.createDirectories(Paths.get(persistentDir));
 
             if (Files.exists(Paths.get(repoDir))) {
-                // Update existing repository
+                // Update existing repository (much faster than re-cloning)
+                log.info("Repository already exists, updating: {}", repoDir);
                 updateRepository(repoDir, branch);
             } else {
-                // Clone repository
+                // Clone repository (only happens once per repo/branch combination)
+                log.info("Cloning repository for first time: {}", repositoryUrl);
                 cloneRepository(repositoryUrl, repoDir, branch, githubToken);
             }
 
@@ -101,6 +107,7 @@ public class RepositoryService {
 
     /**
      * Get workspace status including repository info and cached data
+     * BACKWARD COMPATIBILITY: Maintained for existing API calls
      */
     public WorkspaceStatusResponse getWorkspaceStatus(String workspaceId) {
         String workspaceDir = workspaceRootDir + "/" + workspaceId;
@@ -133,7 +140,43 @@ public class RepositoryService {
     }
 
     /**
-     * Clean up workspace directory
+     * Get workspace status - updated to work with new persistent structure
+     * PERFORMANCE OPTIMIZATION: Now looks up by repository URL/branch instead of workspaceId
+     */
+    public WorkspaceStatusResponse getWorkspaceStatusByRepo(String repositoryUrl, String branch) {
+        String repoUrlHash = generateRepoUrlHash(repositoryUrl);
+        String branchName = branch != null ? branch : "main";
+        String persistentDir = workspaceRootDir + "/" + repoUrlHash + "/" + branchName;
+
+        WorkspaceStatusResponse.WorkspaceStatusResponseBuilder builder = WorkspaceStatusResponse.builder()
+                .workspaceId(repoUrlHash + "_" + branchName) // Create synthetic workspace ID
+                .workspaceDir(persistentDir);
+
+        if (Files.exists(Paths.get(persistentDir))) {
+            try {
+                // Check if repository exists
+                List<String> repositories = Files.list(Paths.get(persistentDir))
+                        .filter(Files::isDirectory)
+                        .map(path -> path.getFileName().toString())
+                        .collect(Collectors.toList());
+
+                builder.repositories(repositories)
+                        .status("ACTIVE")
+                        .lastAccessed(LocalDateTime.now());
+
+            } catch (Exception e) {
+                log.warn("Error reading persistent directory", e);
+                builder.status("ERROR").error(e.getMessage());
+            }
+        } else {
+            builder.status("NOT_FOUND");
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * Clean up workspace directory (backward compatibility)
      */
     public void cleanupWorkspace(String workspaceId) {
         String workspaceDir = workspaceRootDir + "/" + workspaceId;
@@ -146,6 +189,26 @@ public class RepositoryService {
         } catch (Exception e) {
             log.error("Failed to cleanup workspace: {}", workspaceId, e);
             throw new RepositoryException("Failed to cleanup workspace: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Clean up persistent repository cache by repository URL and branch
+     * PERFORMANCE OPTIMIZATION: Allows cleanup of specific repo/branch combinations
+     */
+    public void cleanupRepositoryCache(String repositoryUrl, String branch) {
+        String repoUrlHash = generateRepoUrlHash(repositoryUrl);
+        String branchName = branch != null ? branch : "main";
+        String persistentDir = workspaceRootDir + "/" + repoUrlHash + "/" + branchName;
+
+        try {
+            if (Files.exists(Paths.get(persistentDir))) {
+                deleteDirectory(Paths.get(persistentDir));
+                log.info("Cleaned up repository cache: {} branch: {}", repositoryUrl, branchName);
+            }
+        } catch (Exception e) {
+            log.error("Failed to cleanup repository cache: {} branch: {}", repositoryUrl, branchName, e);
+            throw new RepositoryException("Failed to cleanup repository cache: " + e.getMessage(), e);
         }
     }
 
@@ -234,5 +297,17 @@ public class RepositoryService {
                 return FileVisitResult.CONTINUE;
             }
         });
+    }
+
+    /**
+     * Generate a hash for repository URL to create persistent directory names
+     */
+    private String generateRepoUrlHash(String repositoryUrl) {
+        // Remove protocol and special characters, create a safe directory name
+        String cleaned = repositoryUrl
+                .replaceAll("https?://", "")
+                .replaceAll("[^a-zA-Z0-9.-]", "_")
+                .toLowerCase();
+        return cleaned.length() > 50 ? cleaned.substring(0, 50) : cleaned;
     }
 }

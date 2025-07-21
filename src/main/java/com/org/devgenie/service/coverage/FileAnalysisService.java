@@ -49,7 +49,7 @@ public class FileAnalysisService {
         }
     }
 
-    public List<FilePriority> prioritizeFiles(CoverageData coverageData, double targetCoverage) {
+    /*public List<FilePriority> prioritizeFiles(List<CoverageData> coverageData, double targetCoverage) {
         log.info("Prioritizing files for coverage improvement");
 
         try {
@@ -62,7 +62,7 @@ public class FileAnalysisService {
             log.error("Failed to prioritize files", e);
             throw new FileAnalysisException("Failed to prioritize files: " + e.getMessage(), e);
         }
-    }
+    }*/
 
     private String createFileAnalysisPrompt(String fileContent, FileCoverageData coverageData) {
         return String.format("""
@@ -132,7 +132,7 @@ public class FileAnalysisService {
         return files;
     }
 
-    private String createPrioritizationPrompt(CoverageData coverageData, double targetCoverage) {
+    /*private String createPrioritizationPrompt(List<CoverageData> coverageData, double targetCoverage) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("Prioritize the following files for test coverage improvement to reach ").append(targetCoverage).append("% overall coverage.\n\n");
         prompt.append("Current Overall Coverage: ").append(coverageData.getOverallCoverage()).append("%\n\n");
@@ -171,7 +171,7 @@ public class FileAnalysisService {
             """);
 
         return prompt.toString();
-    }
+    }*/
 
     private FileAnalysisResult parseFileAnalysisResponse(String aiResponse, String filePath, FileCoverageData coverageData) {
         try {

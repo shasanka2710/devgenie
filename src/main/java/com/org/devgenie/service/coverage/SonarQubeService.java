@@ -1,6 +1,9 @@
 package com.org.devgenie.service.coverage;
 
+import com.org.devgenie.model.SonarBaseComponentMetrics;
+import com.org.devgenie.model.SonarQubeMetricsResponse;
 import com.org.devgenie.model.coverage.*;
+import com.org.devgenie.service.metadata.MetadataAnalyzer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,213 +40,6 @@ public class SonarQubeService {
     @Autowired
     private RestTemplate restTemplate;
 
-    /**
-     * ENHANCED: Get coverage data from SonarQube with complete directory tree
-     */
-    public CoverageData getCoverageData(String repoDir, ProjectConfiguration projectConfig) {
-        if (!sonarQubeEnabled || sonarQubeUrl.isEmpty()) {
-            log.debug("SonarQube integration is disabled or not configured");
-            return null;
-        }
-
-        try {
-            String projectKey = extractProjectKey(repoDir, projectConfig);
-            if (projectKey == null) {
-                log.warn("Could not determine SonarQube project key");
-                return null;
-            }
-            log.info("Retrieving coverage data from SonarQube for project: {}", projectKey);
-
-            // Fetch all metrics (root, files, directories) in a single call
-            String url = String.format("%s/api/measures/component_tree?component=%s&metricKeys=coverage,line_coverage,branch_coverage,lines_to_cover,uncovered_lines,conditions_to_cover,uncovered_conditions",
-                    sonarQubeUrl, projectKey);
-
-            HttpHeaders headers = new HttpHeaders();
-            if (!sonarQubeToken.isEmpty()) {
-                String encodedAuth = Base64.getEncoder().encodeToString(sonarQubeToken.getBytes());
-                headers.set("Authorization", "Basic " + encodedAuth);
-            }
-            HttpEntity<String> entity = new HttpEntity<>(headers);
-            ResponseEntity<SonarQubeResponse> response = restTemplate.exchange(url, HttpMethod.GET, entity, SonarQubeResponse.class);
-            SonarQubeResponse sonarResponse = response.getBody();
-            if (sonarResponse == null || sonarResponse.getBaseComponent() == null) {
-                log.warn("No coverage metrics found in SonarQube for project: {}", projectKey);
-                return null;
-            }
-
-            // Parse root metrics
-            SonarQubeMetrics metrics = parseSonarQubeMetrics(sonarResponse.getBaseComponent().getMeasures());
-
-            // Build a nested directory tree from the flat list of components
-            DirectoryCoverageData rootDirectory = buildNestedDirectoryTree(sonarResponse.getComponents(), projectKey);
-
-            return CoverageData.builder()
-                    .repoPath(repoDir)
-                    .rootDirectory(rootDirectory)
-                    .overallCoverage(metrics.getLineCoverage())
-                    .lineCoverage(metrics.getLineCoverage())
-                    .branchCoverage(metrics.getBranchCoverage())
-                    .methodCoverage(metrics.getLineCoverage()) // SonarQube doesn't have method coverage
-                    .totalLines(metrics.getTotalLines())
-                    .coveredLines(metrics.getCoveredLines())
-                    .totalBranches(metrics.getTotalBranches())
-                    .coveredBranches(metrics.getCoveredBranches())
-                    .totalMethods(0) // Not available at project level
-                    .coveredMethods(0)
-                    .timestamp(LocalDateTime.now())
-                    .projectConfiguration(projectConfig)
-                    .coverageSource(CoverageData.CoverageSource.SONARQUBE)
-                    .build();
-
-        } catch (Exception e) {
-            log.error("Failed to retrieve coverage data from SonarQube", e);
-            return null;
-        }
-    }
-
-    /**
-     * Build a nested directory tree from SonarQube components (files and directories)
-     */
-    private DirectoryCoverageData buildNestedDirectoryTree(List<SonarQubeComponent> components, String projectKey) {
-        if (components == null || components.isEmpty()) return null;
-        // Map of path -> DirectoryCoverageData
-        Map<String, DirectoryCoverageData.DirectoryCoverageDataBuilder> dirMap = new HashMap<>();
-        // Map of path -> FileCoverageData
-        Map<String, FileCoverageData> fileMap = new HashMap<>();
-        // Temporary maps to collect files and subdirectories for each directory
-        Map<String, List<FileCoverageData>> dirFiles = new HashMap<>();
-        Map<String, List<DirectoryCoverageData>> dirSubdirs = new HashMap<>();
-
-        // First, create DirectoryCoverageData builders for all directories
-        for (SonarQubeComponent comp : components) {
-            if ("DIR".equals(comp.getQualifier())) {
-                dirMap.put(comp.getPath(), DirectoryCoverageData.builder()
-                        .directoryPath(comp.getPath())
-                        .lineCoverage(getMetricValue(comp, "line_coverage"))
-                        .branchCoverage(getMetricValue(comp, "branch_coverage"))
-                        .methodCoverage(getMetricValue(comp, "line_coverage"))
-                        .totalLines((int) getMetricValue(comp, "lines_to_cover"))
-                        .coveredLines((int) getMetricValue(comp, "covered_lines"))
-                        .totalBranches((int) getMetricValue(comp, "conditions_to_cover"))
-                        .coveredBranches((int) getMetricValue(comp, "covered_conditions"))
-                        .lastUpdated(LocalDateTime.now())
-                );
-                dirFiles.put(comp.getPath(), new ArrayList<>());
-                dirSubdirs.put(comp.getPath(), new ArrayList<>());
-            }
-        }
-        // Then, create FileCoverageData for all files
-        for (SonarQubeComponent comp : components) {
-            if ("FIL".equals(comp.getQualifier())) {
-                FileCoverageData file = FileCoverageData.builder()
-                        .filePath(comp.getPath())
-                        .lineCoverage(getMetricValue(comp, "line_coverage"))
-                        .branchCoverage(getMetricValue(comp, "branch_coverage"))
-                        .methodCoverage(getMetricValue(comp, "line_coverage"))
-                        .totalLines((int) getMetricValue(comp, "lines_to_cover"))
-                        .coveredLines((int) getMetricValue(comp, "covered_lines"))
-                        .totalBranches((int) getMetricValue(comp, "conditions_to_cover"))
-                        .coveredBranches((int) getMetricValue(comp, "covered_conditions"))
-                        .lastUpdated(LocalDateTime.now())
-                        .build();
-                fileMap.put(comp.getPath(), file);
-                String parentDir = getDirectoryPath(file.getFilePath());
-                if (dirFiles.containsKey(parentDir)) {
-                    dirFiles.get(parentDir).add(file);
-                }
-            }
-        }
-        // Place directories into their parent directories
-        for (String dirPath : dirMap.keySet()) {
-            String parentDir = getDirectoryPath(dirPath);
-            if (dirSubdirs.containsKey(parentDir) && !parentDir.equals(dirPath)) {
-                dirSubdirs.get(parentDir).add(dirMap.get(dirPath).files(dirFiles.get(dirPath)).subdirectories(dirSubdirs.get(dirPath)).build());
-            }
-        }
-        // Find the root directory (the one not contained by any other)
-        String rootPath = findRootDirectoryPath(dirMap.keySet());
-        DirectoryCoverageData.DirectoryCoverageDataBuilder rootBuilder = dirMap.get(rootPath);
-        if (rootBuilder != null) {
-            // Set files and subdirectories for root
-            rootBuilder.files(dirFiles.get(rootPath));
-            rootBuilder.subdirectories(dirSubdirs.get(rootPath));
-            return rootBuilder.build();
-        }
-        return null;
-    }
-
-    private double getMetricValue(SonarQubeComponent comp, String metric) {
-        if (comp.getMeasures() == null) return 0.0;
-        for (SonarQubeMeasure m : comp.getMeasures()) {
-            if (metric.equals(m.getMetric())) {
-                try {
-                    return Double.parseDouble(m.getValue());
-                } catch (Exception ignored) {}
-            }
-        }
-        return 0.0;
-    }
-
-    private String findRootDirectoryPath(Set<String> dirPaths) {
-        // The root is the shortest path (with no parent in the set)
-        return dirPaths.stream().min(Comparator.comparingInt(String::length)).orElse("");
-    }
-
-    /**
-     * NEW: Build complete directory tree from SonarQube components
-     */
-    private DirectoryCoverageData buildCompleteDirectoryTree(List<SonarQubeComponent> fileComponents,
-                                                             List<SonarQubeComponent> directoryComponents,
-                                                             String projectKey) {
-        try {
-            // Create a map of all directories for easy lookup
-            Map<String, SonarQubeComponent> directoryMap = directoryComponents.stream()
-                    .collect(Collectors.toMap(SonarQubeComponent::getPath, comp -> comp));
-
-            // Convert file components to FileCoverageData
-            Map<String, FileCoverageData> fileMap = fileComponents.stream()
-                    .collect(Collectors.toMap(
-                            SonarQubeComponent::getPath,
-                            comp -> convertToFileCoverageData(comp)));
-
-            // Find root directory (typically src/main/java or similar)
-            String rootPath = determineRootPath(fileComponents, directoryComponents);
-            log.info("Determined root path: {}", rootPath);
-
-            // Build tree recursively
-            return buildDirectoryNodeFromSonarQube(rootPath, directoryMap, fileMap, fileComponents);
-
-        } catch (Exception e) {
-            log.error("Failed to build directory tree from SonarQube data", e);
-            return null;
-        }
-    }
-
-    /**
-     * Determine the root path for the directory tree
-     */
-    private String determineRootPath(List<SonarQubeComponent> fileComponents,
-                                     List<SonarQubeComponent> directoryComponents) {
-        // Strategy 1: Find common root from file paths
-        if (!fileComponents.isEmpty()) {
-            String firstFilePath = fileComponents.get(0).getPath();
-            if (firstFilePath.contains("src/main/java")) {
-                return "src/main/java";
-            } else if (firstFilePath.contains("src/main/scala")) {
-                return "src/main/scala";
-            } else if (firstFilePath.contains("src/main/kotlin")) {
-                return "src/main/kotlin";
-            }
-        }
-
-        // Strategy 2: Find shortest directory path
-        Optional<String> shortestDir = directoryComponents.stream()
-                .map(SonarQubeComponent::getPath)
-                .filter(path -> path.contains("src"))
-                .min(Comparator.comparing(String::length));
-
-        return shortestDir.orElse("src/main/java");
-    }
 
     /**
      * Build directory node recursively from SonarQube data
@@ -283,8 +79,19 @@ public class SonarQubeService {
         SonarQubeComponent dirComponent = directoryMap.get(currentPath);
         DirectoryCoverageMetrics dirMetrics = calculateDirectoryMetrics(directFiles, subdirectories, dirComponent);
 
+        // Calculate directory statistics for UI
+        int totalFileCount = calculateTotalFileCount(directFiles, subdirectories);
+        int highRiskFileCount = calculateHighRiskFileCount(directFiles, subdirectories);
+        int lowCoverageFileCount = calculateLowCoverageFileCount(directFiles, subdirectories);
+
+        // Generate improvement summary
+        List<DirectoryCoverageData.DirectoryImprovementSummary> improvementSummary =
+                generateDirectoryImprovementSummary(directFiles, subdirectories);
+
         return DirectoryCoverageData.builder()
                 .directoryPath(currentPath)
+                .directoryName(extractDirectoryName(currentPath))
+                .parentPath(getParentDirectoryPath(currentPath))
                 .overallCoverage(dirMetrics.getLineCoverage())
                 .lineCoverage(dirMetrics.getLineCoverage())
                 .branchCoverage(dirMetrics.getBranchCoverage())
@@ -297,6 +104,10 @@ public class SonarQubeService {
                 .coveredMethods(dirMetrics.getCoveredMethods())
                 .files(directFiles)
                 .subdirectories(subdirectories)
+                .totalFileCount(totalFileCount)
+                .highRiskFileCount(highRiskFileCount)
+                .lowCoverageFileCount(lowCoverageFileCount)
+                .improvementSummary(improvementSummary)
                 .lastUpdated(LocalDateTime.now())
                 .build();
     }
@@ -379,8 +190,15 @@ public class SonarQubeService {
      */
     private FileCoverageData convertToFileCoverageData(SonarQubeComponent component) {
         FileCoverageData.FileCoverageDataBuilder builder = FileCoverageData.builder();
-        builder.filePath(component.getPath());
+
+        // Basic file information
+        String filePath = component.getPath();
+        builder.filePath(filePath);
+        builder.fileName(extractFileName(filePath));
+        builder.className(extractClassName(filePath));
+        builder.packageName(extractPackageName(filePath));
         builder.lastUpdated(LocalDateTime.now());
+        builder.coverageSource("SONARQUBE");
 
         // Set defaults
         builder.lineCoverage(0.0)
@@ -393,7 +211,8 @@ public class SonarQubeService {
                 .totalMethods(0)
                 .coveredMethods(0)
                 .uncoveredLines(new ArrayList<>())
-                .uncoveredBranches(new ArrayList<>());
+                .uncoveredBranches(new ArrayList<>())
+                .uncoveredMethods(new ArrayList<>());
 
         // Parse measures if available
         if (component.getMeasures() != null) {
@@ -422,9 +241,12 @@ public class SonarQubeService {
             }
         }
 
-        // Set method coverage as proxy of line coverage
+        // Set method coverage as proxy of line coverage (SonarQube doesn't have method coverage)
         FileCoverageData temp = builder.build();
         builder.methodCoverage(temp.getLineCoverage());
+
+        // Add improvement opportunities placeholder
+        builder.improvementOpportunities(new ArrayList<>());
 
         return builder.build();
     }
@@ -432,6 +254,225 @@ public class SonarQubeService {
     private String getDirectoryPath(String filePath) {
         int lastSlash = filePath.lastIndexOf('/');
         return lastSlash > 0 ? filePath.substring(0, lastSlash) : "";
+    }
+
+    private String extractDirectoryName(String directoryPath) {
+        if (directoryPath == null || directoryPath.isEmpty()) return "";
+        int lastSlash = directoryPath.lastIndexOf('/');
+        return lastSlash >= 0 ? directoryPath.substring(lastSlash + 1) : directoryPath;
+    }
+
+    private String getParentDirectoryPath(String directoryPath) {
+        if (directoryPath == null || directoryPath.isEmpty()) return "";
+        int lastSlash = directoryPath.lastIndexOf('/');
+        return lastSlash > 0 ? directoryPath.substring(0, lastSlash) : "";
+    }
+
+    private int calculateTotalFileCount(List<FileCoverageData> directFiles, List<DirectoryCoverageData> subdirectories) {
+        int count = directFiles.size();
+        for (DirectoryCoverageData subdir : subdirectories) {
+            count += subdir.getTotalFileCount();
+        }
+        return count;
+    }
+
+    private int calculateHighRiskFileCount(List<FileCoverageData> directFiles, List<DirectoryCoverageData> subdirectories) {
+        int count = (int) directFiles.stream()
+                .filter(file -> file.getLineCoverage() < 30.0)
+                .count();
+
+        for (DirectoryCoverageData subdir : subdirectories) {
+            count += subdir.getHighRiskFileCount();
+        }
+        return count;
+    }
+
+    private int calculateLowCoverageFileCount(List<FileCoverageData> directFiles, List<DirectoryCoverageData> subdirectories) {
+        int count = (int) directFiles.stream()
+                .filter(file -> file.getLineCoverage() < 50.0)
+                .count();
+
+        for (DirectoryCoverageData subdir : subdirectories) {
+            count += subdir.getLowCoverageFileCount();
+        }
+        return count;
+    }
+
+    private List<DirectoryCoverageData.DirectoryImprovementSummary> generateDirectoryImprovementSummary(
+            List<FileCoverageData> directFiles, List<DirectoryCoverageData> subdirectories) {
+
+        List<DirectoryCoverageData.DirectoryImprovementSummary> summaries = new ArrayList<>();
+
+        int highRiskCount = calculateHighRiskFileCount(directFiles, subdirectories);
+        if (highRiskCount > 0) {
+            summaries.add(DirectoryCoverageData.DirectoryImprovementSummary.builder()
+                    .category("High Risk Files")
+                    .count(highRiskCount)
+                    .description("Files with coverage below 30%")
+                    .priority("HIGH")
+                    .estimatedImpact(highRiskCount * 15.0)
+                    .build());
+        }
+
+        int lowCoverageCount = calculateLowCoverageFileCount(directFiles, subdirectories);
+        if (lowCoverageCount > 0) {
+            summaries.add(DirectoryCoverageData.DirectoryImprovementSummary.builder()
+                    .category("Low Coverage Files")
+                    .count(lowCoverageCount)
+                    .description("Files with coverage below 50%")
+                    .priority("MEDIUM")
+                    .estimatedImpact(lowCoverageCount * 10.0)
+                    .build());
+        }
+
+        return summaries;
+    }
+
+    /**
+     * ENHANCED: Get coverage data from SonarQube as a flat, normalized list
+     * Returns a list of CoverageData objects for both files and directories
+     */
+    public SonarQubeMetricsResponse getFlatCoverageData(String repoDir, String branch, ProjectConfiguration projectConfig) {
+        if (!sonarQubeEnabled || sonarQubeUrl.isEmpty()) {
+            log.debug("SonarQube integration is disabled or not configured");
+            return SonarQubeMetricsResponse.builder().build();
+        }
+
+        try {
+            String projectKey = extractProjectKey(repoDir, projectConfig);
+            if (projectKey == null) {
+                log.warn("Could not determine SonarQube project key");
+                return SonarQubeMetricsResponse.builder().build();
+            }
+            log.info("Retrieving flat coverage data from SonarQube for project: {}", projectKey);
+
+            String url = String.format("%s/api/measures/component_tree?component=%s&metricKeys=coverage,line_coverage,branch_coverage,lines_to_cover,uncovered_lines,conditions_to_cover,uncovered_conditions",
+                    sonarQubeUrl, projectKey);
+
+            HttpHeaders headers = new HttpHeaders();
+            if (!sonarQubeToken.isEmpty()) {
+                String encodedAuth = Base64.getEncoder().encodeToString(sonarQubeToken.getBytes());
+                headers.set("Authorization", "Basic " + encodedAuth);
+            }
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            ResponseEntity<SonarQubeResponse> response = restTemplate.exchange(url, HttpMethod.GET, entity, SonarQubeResponse.class);
+            // Parse root metrics
+            SonarQubeMetrics metrics = parseSonarQubeMetrics(response.getBody().getBaseComponent().getMeasures());
+
+
+            SonarQubeResponse sonarResponse = response.getBody();
+            if (sonarResponse == null || sonarResponse.getBaseComponent() == null) {
+                log.warn("No coverage metrics found in SonarQube for project: {}", projectKey);
+                return SonarQubeMetricsResponse.builder().build();
+            }
+
+            List<CoverageData> flatCoverageList = new ArrayList<>();
+            List<SonarQubeComponent> components = sonarResponse.getComponents();
+            if (components == null) return SonarQubeMetricsResponse.builder().build();;
+
+            for (SonarQubeComponent comp : components) {
+                CoverageData.CoverageDataBuilder builder = CoverageData.builder()
+                        .repoPath(repoDir)
+                        .branch(branch)
+                        .timestamp(LocalDateTime.now())
+                        .projectConfiguration(projectConfig)
+                        .coverageSource(CoverageData.CoverageSource.SONARQUBE)
+                        .path(comp.getPath())
+                        .parentPath(getParentDirectoryPath(comp.getPath()))
+                        .name(comp.getName());
+
+                if ("FIL".equals(comp.getQualifier())) {
+                    builder.type("FILE")
+                        .fileName(extractFileName(comp.getPath()))
+                        .className(extractClassName(comp.getPath()))
+                        .packageName(extractPackageName(comp.getPath()));
+                    // Coverage metrics
+                    double lineCoverage = getMeasureValue(comp, "line_coverage");
+                    double branchCoverage = getMeasureValue(comp, "branch_coverage");
+                    int totalLines = (int) getMeasureValue(comp, "lines_to_cover");
+                    int coveredLines = (int) getMeasureValue(comp, "covered_lines");
+                    int totalBranches = (int) getMeasureValue(comp, "conditions_to_cover");
+                    int coveredBranches = (int) getMeasureValue(comp, "covered_conditions");
+                    builder.lineCoverage(lineCoverage)
+                        .branchCoverage(branchCoverage)
+                        .methodCoverage(lineCoverage)
+                        .overallCoverage(lineCoverage)
+                        .totalLines(totalLines)
+                        .coveredLines(coveredLines)
+                        .totalBranches(totalBranches)
+                        .coveredBranches(coveredBranches)
+                        .totalMethods(0)
+                        .coveredMethods(0);
+                } else if ("DIR".equals(comp.getQualifier())) {
+                    builder.type("DIRECTORY")
+                        .directoryName(comp.getName());
+                    double lineCoverage = getMeasureValue(comp, "line_coverage");
+                    double branchCoverage = getMeasureValue(comp, "branch_coverage");
+                    int totalLines = (int) getMeasureValue(comp, "lines_to_cover");
+                    int coveredLines = (int) getMeasureValue(comp, "covered_lines");
+                    int totalBranches = (int) getMeasureValue(comp, "conditions_to_cover");
+                    int coveredBranches = (int) getMeasureValue(comp, "covered_conditions");
+                    builder.lineCoverage(lineCoverage)
+                        .branchCoverage(branchCoverage)
+                        .methodCoverage(lineCoverage)
+                        .overallCoverage(lineCoverage)
+                        .totalLines(totalLines)
+                        .coveredLines(coveredLines)
+                        .totalBranches(totalBranches)
+                        .coveredBranches(coveredBranches)
+                        .totalMethods(0)
+                        .coveredMethods(0);
+                    // Optionally, set children (paths of files/subdirs)
+                    List<String> children = getChildrenPaths(comp.getPath(), components);
+                    builder.children(children);
+                }
+                flatCoverageList.add(builder.build());
+            }
+            SonarBaseComponentMetrics sonarBaseComponentMetrics = SonarBaseComponentMetrics.builder()
+                    .repositoryUrl(repoDir)
+                    .branch(branch)
+                    .overallCoverage(metrics.getOverallCoverage())
+                    .lineCoverage(metrics.getLineCoverage())
+                    .branchCoverage(metrics.getBranchCoverage())
+                    .totalLines(metrics.getTotalLines())
+                    .coveredLines(metrics.getCoveredLines())
+                    .totalBranches(metrics.getTotalBranches())
+                    .coveredBranches(metrics.getCoveredBranches())
+                    .build();
+
+            return SonarQubeMetricsResponse.builder()
+                    .sonarBaseComponentMetrics(sonarBaseComponentMetrics)
+                    .coverageDataList(flatCoverageList)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Failed to retrieve flat coverage data from SonarQube", e);
+            return SonarQubeMetricsResponse.builder().build();
+        }
+    }
+
+    // Helper to get children paths for a directory
+    private List<String> getChildrenPaths(String dirPath, List<SonarQubeComponent> components) {
+        List<String> children = new ArrayList<>();
+        for (SonarQubeComponent comp : components) {
+            String parent = getParentDirectoryPath(comp.getPath());
+            if (dirPath.equals(parent)) {
+                children.add(comp.getPath());
+            }
+        }
+        return children;
+    }
+
+    // Helper to get double value from measures
+    private double getMeasureValue(SonarQubeComponent comp, String metric) {
+        if (comp.getMeasures() == null) return 0.0;
+        return comp.getMeasures().stream()
+            .filter(m -> metric.equals(m.getMetric()))
+            .findFirst()
+            .map(m -> {
+                try { return Double.parseDouble(m.getValue()); } catch (Exception e) { return 0.0; }
+            })
+            .orElse(0.0);
     }
 
     // Keep existing methods for backward compatibility...
@@ -515,6 +556,7 @@ public class SonarQubeService {
         for (SonarQubeMeasure measure : measures) {
             switch (measure.getMetric()) {
                 case "coverage":
+                    builder.overallCoverage(Double.parseDouble(measure.getValue()));
                 case "line_coverage":
                     builder.lineCoverage(Double.parseDouble(measure.getValue()));
                     break;
@@ -539,8 +581,108 @@ public class SonarQubeService {
         return builder.build();
     }
 
-    private FileCoverageData parseSonarQubeFileCoverage(SonarQubeComponent component, ProjectConfiguration projectConfig) {
-        return convertToFileCoverageData(component);
+    /**
+     * Helper methods for file path parsing
+     */
+    private String extractFileName(String filePath) {
+        if (filePath == null) return "";
+        int lastSlash = filePath.lastIndexOf('/');
+        return lastSlash >= 0 ? filePath.substring(lastSlash + 1) : filePath;
+    }
+
+    private String extractClassName(String filePath) {
+        String fileName = extractFileName(filePath);
+        if (fileName.endsWith(".java")) {
+            return fileName.substring(0, fileName.length() - 5);
+        }
+        return fileName;
+    }
+
+    private String extractPackageName(String filePath) {
+        if (filePath == null || !filePath.contains("/")) return "";
+
+        // Look for common Java source patterns
+        String[] patterns = {"src/main/java/", "src/test/java/", "src/"};
+
+        for (String pattern : patterns) {
+            int index = filePath.indexOf(pattern);
+            if (index >= 0) {
+                String packagePath = filePath.substring(index + pattern.length());
+                int lastSlash = packagePath.lastIndexOf('/');
+                if (lastSlash > 0) {
+                    return packagePath.substring(0, lastSlash).replace('/', '.');
+                }
+            }
+        }
+
+        // Fallback: use directory structure
+        int lastSlash = filePath.lastIndexOf('/');
+        if (lastSlash > 0) {
+            String dirPath = filePath.substring(0, lastSlash);
+            return dirPath.replace('/', '.');
+        }
+
+        return "";
+    }
+
+    /**
+     * Enrich file coverage data with metadata analysis and improvement opportunities
+     */
+    public FileCoverageData enrichFileWithMetadata(FileCoverageData fileCoverageData,
+            MetadataAnalyzer.FileMetadata fileMetadata,
+            FileImprovementOpportunityService improvementService) {
+
+        if (fileMetadata == null) {
+            return fileCoverageData;
+        }
+
+        // Update file with metadata-derived complexity metrics
+        FileCoverageData.FileComplexityMetrics complexityMetrics =
+                FileCoverageData.FileComplexityMetrics.builder()
+                        .cyclomaticComplexity(fileMetadata.getCodeComplexity() != null ?
+                                fileMetadata.getCodeComplexity().getCyclomaticComplexity() : 0)
+                        .cognitiveComplexity(fileMetadata.getCodeComplexity() != null ?
+                                fileMetadata.getCodeComplexity().getCognitiveComplexity() : 0)
+                        .businessCriticality(fileMetadata.getBusinessComplexity() != null ?
+                                fileMetadata.getBusinessComplexity().getBusinessCriticality() : 0.0)
+                        .riskScore(fileMetadata.getRiskScore())
+                        .methodCount(fileMetadata.getCodeComplexity() != null ?
+                                fileMetadata.getCodeComplexity().getTotalMethods() : 0)
+                        .averageMethodLength(fileMetadata.getCodeComplexity() != null ?
+                                fileMetadata.getCodeComplexity().getAverageMethodLength() : 0.0)
+                        .maxNestingDepth(fileMetadata.getCodeComplexity() != null ?
+                                fileMetadata.getCodeComplexity().getMaxNestingDepth() : 0)
+                        .build();
+
+        // Generate improvement opportunities
+        List<FileImprovementOpportunity> opportunities =
+                improvementService.generateImprovementOpportunities(fileCoverageData, fileMetadata);
+
+        // Create enriched file coverage data
+        return FileCoverageData.builder()
+                .filePath(fileCoverageData.getFilePath())
+                .fileName(fileCoverageData.getFileName())
+                .className(fileMetadata.getClassName())
+                .packageName(fileMetadata.getPackageName())
+                .lineCoverage(fileCoverageData.getLineCoverage())
+                .branchCoverage(fileCoverageData.getBranchCoverage())
+                .methodCoverage(fileCoverageData.getMethodCoverage())
+                .totalLines(fileCoverageData.getTotalLines())
+                .coveredLines(fileCoverageData.getCoveredLines())
+                .totalBranches(fileCoverageData.getTotalBranches())
+                .coveredBranches(fileCoverageData.getCoveredBranches())
+                .totalMethods(fileCoverageData.getTotalMethods())
+                .coveredMethods(fileCoverageData.getCoveredMethods())
+                .uncoveredLines(fileCoverageData.getUncoveredLines())
+                .uncoveredBranches(fileCoverageData.getUncoveredBranches())
+                .uncoveredMethods(fileCoverageData.getUncoveredMethods())
+                .complexityMetrics(complexityMetrics)
+                .improvementOpportunities(opportunities)
+                .lastUpdated(fileCoverageData.getLastUpdated())
+                .buildTool(fileCoverageData.getBuildTool())
+                .testFramework(fileCoverageData.getTestFramework())
+                .coverageSource(fileCoverageData.getCoverageSource())
+                .build();
     }
 
     // Helper classes
@@ -559,7 +701,9 @@ public class SonarQubeService {
     }
 }
 
-// Additional DTO classes for SonarQube API responses
+/**
+ * Additional DTO classes for SonarQube API responses
+ */
 
 @lombok.Data
 class SonarQubeComponentTreeResponse {
@@ -611,6 +755,7 @@ class SonarQubeMeasure {
 @lombok.Data
 @lombok.Builder
 class SonarQubeMetrics {
+    private double overallCoverage;
     private double lineCoverage;
     private double branchCoverage;
     private int totalLines;

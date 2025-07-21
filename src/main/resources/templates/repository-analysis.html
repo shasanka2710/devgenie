@@ -251,67 +251,155 @@
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-group list-group-flush">
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-tools me-2"></i>Build Tool</span>
-                                                <span class="badge bg-info" th:text="${analysis.projectConfiguration.buildTool}"></span>
-                                            </li>
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-bezier2 me-2"></i>Test Framework</span>
-                                                <span class="badge bg-success" th:text="${analysis.projectConfiguration.testFramework}"></span>
-                                            </li>
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-cup-hot me-2"></i>Java Version</span>
-                                                <span class="badge bg-warning text-dark" th:text="${analysis.projectConfiguration.javaVersion}"></span>
-                                            </li>
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-lightning-charge me-2"></i>Spring Boot</span>
-                                                <span class="badge bg-primary" th:text="${analysis.projectConfiguration.isSpringBoot ? 'Yes' : 'No'}"></span>
-                                            </li>
+                                            <li class="list-group-item"><strong>Build Tool:</strong> <span th:text="${analysis.repositoryAnalysis.projectConfiguration.buildTool}"></span></li>
+                                            <li class="list-group-item"><strong>Test Framework:</strong> <span th:text="${analysis.repositoryAnalysis.projectConfiguration.testFramework}"></span></li>
+                                            <li class="list-group-item"><strong>Java Version:</strong> <span th:text="${analysis.repositoryAnalysis.projectConfiguration.javaVersion}"></span></li>
+                                            <li class="list-group-item"><strong>Total Java Files:</strong> <span th:text="${analysis.repositoryAnalysis.totalJavaFiles}"></span></li>
                                         </ul>
                                     </div>
                                 </div>
                             </div>
-                            <!-- Repository Insights Card -->
+                            <!-- Repository Summary Card -->
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-header bg-primary text-white">
+                                        <i class="bi bi-dashboard me-2"></i> Repository Summary
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <div class="text-center">
+                                                    <h4 class="mb-1" th:text="${analysis.repositoryAnalysis.insights.repositorySummary.overallRiskLevel}"
+                                                        th:class="'badge ' + (${analysis.repositoryAnalysis.insights.repositorySummary.overallRiskLevel} == 'CRITICAL' ? 'bg-danger' : 
+                                                                               (${analysis.repositoryAnalysis.insights.repositorySummary.overallRiskLevel} == 'HIGH' ? 'bg-warning' : 
+                                                                               (${analysis.repositoryAnalysis.insights.repositorySummary.overallRiskLevel} == 'MEDIUM' ? 'bg-info' : 'bg-success')))">MEDIUM</h4>
+                                                    <small class="text-muted">Risk Level</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="text-center">
+                                                    <h4 class="mb-1" th:text="${analysis.repositoryAnalysis.insights.repositorySummary.complexityScore + '/10'}">5/10</h4>
+                                                    <small class="text-muted">Complexity Score</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="text-center">
+                                            <h4 class="mb-1" th:text="${analysis.repositoryAnalysis.insights.repositorySummary.coverageGrade}"
+                                                th:class="'badge ' + (${analysis.repositoryAnalysis.insights.repositorySummary.coverageGrade} == 'A' ? 'bg-success' : 
+                                                                      (${analysis.repositoryAnalysis.insights.repositorySummary.coverageGrade} == 'B' ? 'bg-info' : 
+                                                                      (${analysis.repositoryAnalysis.insights.repositorySummary.coverageGrade} == 'C' ? 'bg-warning' : 'bg-danger')))">C</h4>
+                                            <small class="text-muted">Coverage Grade</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Primary Concerns Card -->
                             <div class="col-md-6 mb-3">
                                 <div class="card h-100">
                                     <div class="card-header bg-warning text-dark">
-                                        <i class="bi bi-bar-chart-steps me-2"></i> Repository Insights
+                                        <i class="bi bi-exclamation-triangle me-2"></i> Primary Concerns
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-group list-group-flush">
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-diagram-3 me-2"></i>Complexity</span>
-                                                <span class="badge bg-warning text-dark" th:text="${analysis.insights.repositoryComplexity}"></span>
-                                            </li>
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-file-earmark-code me-2"></i>Total Java Files</span>
-                                                <span class="badge bg-info" th:text="${analysis.totalJavaFiles}"></span>
-                                            </li>
-                                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                <span><i class="bi bi-diagram-2 me-2"></i>Architecture</span>
-                                                <span class="badge bg-secondary" th:text="${#lists.isEmpty(analysis.insights.architecturalInsights) ? 'N/A' : analysis.insights.architecturalInsights[0]}"></span>
+                                            <li class="list-group-item" th:each="concern : ${analysis.repositoryAnalysis.insights.repositorySummary.primaryConcerns}">
+                                                <i class="bi bi-arrow-right-circle me-2 text-warning"></i>
+                                                <span th:text="${concern}">High complexity in business logic</span>
                                             </li>
                                         </ul>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
+                        
+                        <!-- Critical Findings Row -->
+                        <div class="row mb-4">
+                            <!-- High Risk Files Card -->
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-header bg-danger text-white">
+                                        <i class="bi bi-file-earmark-text me-2"></i> Highest Risk Files
+                                    </div>
+                                    <div class="card-body">
+                                        <div th:if="${#lists.isEmpty(analysis.repositoryAnalysis.insights.criticalFindings.highestRiskFiles)}">
+                                            <p class="text-muted">No high-risk files identified.</p>
+                                        </div>
+                                        <div th:each="file : ${analysis.repositoryAnalysis.insights.criticalFindings.highestRiskFiles}" class="mb-3">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-1" th:text="${file.fileName}">PaymentProcessor.java</h6>
+                                                <span class="badge bg-danger" th:text="${#numbers.formatDecimal(file.riskScore, 0, 0)}">95</span>
+                                            </div>
+                                            <p class="mb-0 text-muted small" th:text="${file.reason}">Complex financial logic with no tests</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Coverage Gaps & Architecture Issues Card -->
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-header bg-info text-white">
+                                        <i class="bi bi-bug me-2"></i> Critical Findings
+                                    </div>
+                                    <div class="card-body">
+                                        <h6 class="fw-bold mb-2">Coverage Gaps:</h6>
+                                        <ul class="list-unstyled mb-3">
+                                            <li th:each="gap : ${analysis.repositoryAnalysis.insights.criticalFindings.coverageGaps}" class="mb-1">
+                                                <i class="bi bi-dash-circle me-2 text-warning"></i>
+                                                <small th:text="${gap}">Business logic layer has minimal coverage</small>
+                                            </li>
+                                        </ul>
+                                        
+                                        <h6 class="fw-bold mb-2">Architectural Issues:</h6>
+                                        <ul class="list-unstyled">
+                                            <li th:each="issue : ${analysis.repositoryAnalysis.insights.criticalFindings.architecturalIssues}" class="mb-1">
+                                                <i class="bi bi-dash-circle me-2 text-info"></i>
+                                                <small th:text="${issue}">Tight coupling between service layers</small>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Recommendations -->
                         <div class="mt-4">
-                            <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Recommendations</h6>
+                            <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">
+                                <i class="bi bi-lightbulb me-2"></i>Top Recommendations
+                            </h6>
                             <div id="recommendations">
-                                <div th:if="${#lists.isEmpty(analysis.recommendations)}">
+                                <div th:if="${#lists.isEmpty(analysis.repositoryAnalysis.insights.recommendations)}">
                                     <div class="alert alert-info">
                                         <i class="bi bi-info-circle me-2"></i>
                                         No recommendations available.
                                     </div>
                                 </div>
-                                <div th:each="rec : ${analysis.recommendations}">
-                                    <div th:class="'alert ' + (${rec.priority} == 'HIGH' ? 'alert-info' : (${rec.priority} == 'MEDIUM' ? 'alert-warning' : 'alert-secondary'))">
-                                        <i th:class="${rec.priority} == 'HIGH' ? 'bi bi-info-circle me-2' : (${rec.priority} == 'MEDIUM' ? 'bi bi-exclamation-triangle me-2' : 'bi bi-lightbulb me-2')"></i>
-                                        <strong th:text="${rec.priority + ' Priority:'}"></strong>
-                                        <span th:text="${rec.title}"></span>
-                                        <div th:text="${rec.description}" class="mt-1"></div>
+                                <div th:each="rec, iterStat : ${analysis.repositoryAnalysis.insights.recommendations}" 
+                                     th:class="'alert mb-3 ' + (rec.priority == 'HIGH' ? 'alert-danger' : (rec.priority == 'MEDIUM' ? 'alert-warning' : 'alert-info'))">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <span th:class="'badge me-2 ' + (rec.priority == 'HIGH' ? 'bg-danger' : (rec.priority == 'MEDIUM' ? 'bg-warning' : 'bg-info'))" 
+                                                      th:text="${rec.priority}">HIGH</span>
+                                                <h6 class="mb-0" th:text="${rec.title}">Add Unit Tests for Payment Processing</h6>
+                                            </div>
+                                            <p class="mb-2" th:text="${rec.description}">Create comprehensive unit tests for PaymentProcessor.java focusing on edge cases and error scenarios</p>
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <small class="text-muted">
+                                                        <i class="bi bi-bullseye me-1"></i>
+                                                        <strong>Impact:</strong> <span th:text="${rec.impact}">Reduce financial risk by 60%</span>
+                                                    </small>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <small class="text-muted">
+                                                        <i class="bi bi-clock me-1"></i>
+                                                        <strong>Effort:</strong> <span th:text="${rec.effort}">2-3 days</span>
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

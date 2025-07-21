@@ -57,12 +57,12 @@ public class CoverageAgentService {
         }
     }
 
-    public CoverageResponse increaseRepoCoverage(RepoCoverageRequest request) {
+    public CoverageResponse increaseRepoCoverage(RepoCoverageRequest request) {/*
         log.info("Starting repository coverage increase for target: {}%", request.getTargetCoverageIncrease());
 
         try {
             // Initialize coverage analysis
-            CoverageData currentCoverage = coverageDataService.getCurrentCoverage(request.getRepoPath(),request.getBranch());
+            List<CoverageData> currentCoverage = coverageDataService.getCurrentCoverage(request.getRepoPath(),request.getBranch());
 
             // Calculate target coverage
             double targetCoverage = currentCoverage.getOverallCoverage() +
@@ -82,7 +82,8 @@ public class CoverageAgentService {
         } catch (Exception e) {
             log.error("Failed to increase repo coverage", e);
             throw new CoverageException("Failed to process repository: " + e.getMessage(), e);
-        }
+        }*/
+        return null;
     }
 
     public ApplyChangesResponse applyChanges(ApplyChangesRequest request) {
@@ -90,21 +91,26 @@ public class CoverageAgentService {
 
         try {
             // Get workspace directory
-            String workspaceDir = config.getWorkspaceRootDir() + "/" + request.getWorkspaceId();
-            String repoDir = workspaceDir + "/" + extractRepoName(request.getRepositoryUrl());
+            String workspaceDir = config.getWorkspaceRootDir();
+
+            String repoUrlHash = generateRepoUrlHash(request.getRepositoryUrl());
+            String branchName = request.getBranch() != null ? request.getBranch() : "main";
+            String persistentDir = workspaceDir + "/" + repoUrlHash + "/" + branchName;
+            String repoDir = persistentDir + "/" + extractRepoName(request.getRepositoryUrl());
+
 
             // Apply all generated test files
             gitService.applyChanges(request.getChanges(), workspaceDir);
 
             // Get original coverage for comparison
-            CoverageData originalCoverage = coverageDataService.getCurrentCoverage(repoDir,request.getBranch());
+            CoverageData originalCoverage = coverageDataService.getCurrentCoverage(repoDir, request.getRepositoryUrl(), request.getBranch()).getCoverageDataList().get(0);
 
             // Detect project configuration
             ProjectConfiguration projectConfig = projectConfigService.detectProjectConfiguration(repoDir);
 
             // ENHANCED: Use new validation method with multiple strategies
             CoverageComparisonResult comparisonResult = jacocoService.validateCoverageImprovement(
-                    repoDir, projectConfig, originalCoverage);
+                    repoDir, request.getBranch(),projectConfig, originalCoverage);
 
             CoverageData finalCoverage = comparisonResult.getNewCoverage();
 
@@ -221,5 +227,16 @@ public class CoverageAgentService {
         String[] parts = repositoryUrl.split("/");
         String repoName = parts[parts.length - 1];
         return repoName.endsWith(".git") ? repoName.substring(0, repoName.length() - 4) : repoName;
+    }
+    /**
+     * Generate a hash for repository URL to create persistent directory names
+     */
+    private String generateRepoUrlHash(String repositoryUrl) {
+        // Remove protocol and special characters, create a safe directory name
+        String cleaned = repositoryUrl
+                .replaceAll("https?://", "")
+                .replaceAll("[^a-zA-Z0-9.-]", "_")
+                .toLowerCase();
+        return cleaned.length() > 50 ? cleaned.substring(0, 50) : cleaned;
     }
 }

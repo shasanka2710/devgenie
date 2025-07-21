@@ -136,17 +136,23 @@
         }
 
         .file-tree {
-            max-height: 500px;
+            max-height: 400px;
             overflow-y: auto;
             border-radius: 6px;
         }
 
+        .file-tree-container {
+            height: 400px;
+            overflow-y: auto;
+        }
+
         .file-item {
-            padding: 0.5rem;
-            border-radius: 6px;
+            padding: 0.4rem 0.6rem;
+            border-radius: 4px;
             cursor: pointer;
             transition: all 0.2s ease;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.1rem;
+            font-size: 0.9rem;
         }
 
         .file-item:hover {
@@ -156,6 +162,30 @@
         .file-item.selected {
             background-color: var(--wf-red-light);
             border-left: 3px solid var(--wf-red);
+        }
+
+        .folder-toggle {
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 4px;
+            transition: transform 0.2s ease;
+        }
+
+        .folder-toggle.expanded {
+            transform: rotate(90deg);
+        }
+
+        .folder-children {
+            margin-left: 16px;
+            border-left: 1px solid #e9ecef;
+            padding-left: 8px;
+        }
+
+        .folder-children.collapsed {
+            display: none;
         }
 
         .coverage-bar {
@@ -180,6 +210,38 @@
 
         .coverage-low {
             background: linear-gradient(90deg, var(--wf-red), #e53935);
+        }
+
+        /* Package-style file tree enhancements */
+        .file-item.package-node {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            margin-bottom: 0.25rem;
+        }
+
+        .file-item.package-node:hover {
+            background-color: var(--wf-red-light);
+            border-color: var(--wf-red);
+        }
+
+        .package-name {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: var(--wf-blue);
+        }
+
+        .package-icon {
+            color: var(--wf-blue);
+        }
+
+        .java-folder-icon {
+            color: #f89820; /* Java orange color */
+        }
+
+        .file-item.java-folder {
+            font-style: italic;
+            color: #666;
         }
 
         .timeline {
@@ -304,7 +366,7 @@
             <div class="card stats-card stats-card-red">
                 <div class="card-body text-center py-4">
                     <i class="bi bi-graph-up"></i>
-                    <h3>73.5%</h3>
+                    <h3 th:text="${overallMetrics.overallCoverage} + '%'">0%</h3>
                     <p>Overall Coverage</p>
                 </div>
             </div>
@@ -313,7 +375,7 @@
             <div class="card stats-card stats-card-blue">
                 <div class="card-body text-center py-4">
                     <i class="bi bi-code-slash"></i>
-                    <h3>76.2%</h3>
+                    <h3 th:text="${overallMetrics.lineCoverage} + '%'">0%</h3>
                     <p>Line Coverage</p>
                 </div>
             </div>
@@ -322,7 +384,7 @@
             <div class="card stats-card stats-card-green">
                 <div class="card-body text-center py-4">
                     <i class="bi bi-diagram-3"></i>
-                    <h3>68.1%</h3>
+                    <h3 th:text="${overallMetrics.branchCoverage} + '%'">0%</h3>
                     <p>Branch Coverage</p>
                 </div>
             </div>
@@ -331,7 +393,7 @@
             <div class="card stats-card stats-card-yellow">
                 <div class="card-body text-center py-4">
                     <i class="bi bi-braces"></i>
-                    <h3>82.4%</h3>
+                    <h3 th:text="${overallMetrics.methodCoverage} + '%'">0%</h3>
                     <p>Method Coverage</p>
                 </div>
             </div>
@@ -350,48 +412,26 @@
                     </h5>
                 </div>
                 <div class="card-body p-0">
-                    <div id="fileTree" class="file-tree">
-                        <div class="p-3">
-                            <div class="d-flex align-items-center mb-2 file-item" onclick="toggleFolder(this)">
-                                <i class="bi bi-folder-fill text-warning me-2"></i>
-                                <span class="fw-medium">src</span>
-                            </div>
-                            <div class="ms-3">
-                                <div class="d-flex align-items-center mb-2 file-item" onclick="toggleFolder(this)">
+                    <div class="file-tree-container p-3" th:if="${fileTree != null and fileTree.hasChildren()}">
+                        <!-- Start with collapsed main directory -->
+                        <div th:each="child : ${fileTree.children}" th:if="${child.name == 'main'}">
+                            <div class="file-tree-folder">
+                                <div class="d-flex align-items-center file-item" onclick="toggleFolder(this)">
+                                    <i class="bi bi-chevron-right folder-toggle me-1"></i>
                                     <i class="bi bi-folder-fill text-warning me-2"></i>
-                                    <span class="fw-medium">main</span>
+                                    <span class="fw-medium" th:text="${'src/' + child.name}"></span>
+                                    <span class="badge bg-secondary ms-auto" th:text="${child.children.size()}"></span>
                                 </div>
-                                <div class="ms-3">
-                                    <div class="d-flex align-items-center mb-2 file-item" onclick="toggleFolder(this)">
-                                        <i class="bi bi-folder-fill text-warning me-2"></i>
-                                        <span class="fw-medium">java</span>
-                                    </div>
-                                    <div class="ms-3">
-                                        <div class="d-flex align-items-center mb-1 file-item" onclick="selectFile(this, 'com/example/service/UserService.java')">
-                                            <i class="bi bi-file-earmark-code text-primary me-2"></i>
-                                            <span>UserService.java</span>
-                                            <div class="coverage-bar ms-auto" style="width: 60px;">
-                                                <div class="coverage-fill coverage-medium" style="width: 65%;"></div>
-                                            </div>
-                                        </div>
-                                        <div class="d-flex align-items-center mb-1 file-item" onclick="selectFile(this, 'com/example/controller/UserController.java')">
-                                            <i class="bi bi-file-earmark-code text-primary me-2"></i>
-                                            <span>UserController.java</span>
-                                            <div class="coverage-bar ms-auto" style="width: 60px;">
-                                                <div class="coverage-fill coverage-high" style="width: 85%;"></div>
-                                            </div>
-                                        </div>
-                                        <div class="d-flex align-items-center mb-1 file-item" onclick="selectFile(this, 'com/example/model/User.java')">
-                                            <i class="bi bi-file-earmark-code text-primary me-2"></i>
-                                            <span>User.java</span>
-                                            <div class="coverage-bar ms-auto" style="width: 60px;">
-                                                <div class="coverage-fill coverage-low" style="width: 30%;"></div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                <!-- Children initially collapsed -->
+                                <div class="folder-children collapsed">
+                                    <div th:replace="~{repository-dashboard :: renderFileTreeNode(${child}, 1)}"></div>
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    <div class="p-3 text-center text-muted" th:unless="${fileTree != null and fileTree.hasChildren()}">
+                        <i class="bi bi-folder-x" style="font-size: 2rem; opacity: 0.5;"></i>
+                        <p class="mt-2">No files found</p>
                     </div>
                 </div>
             </div>
@@ -461,8 +501,50 @@
 </div>
 
 <th:block layout:fragment="scripts">
-    <script>
-        function selectFile(element, filePath) {
+    <script th:inline="javascript">
+        // Store file details data for JavaScript access
+        const fileDetailsMap = new Map();
+        
+        /*<![CDATA[*/
+        // Safe file details processing
+        var fileDetails = /*[[${fileDetails != null ? fileDetails : {}}]]*/ {};
+        
+        if (fileDetails && Array.isArray(fileDetails)) {
+            fileDetails.forEach(function(file) {
+                if (file && file.filePath) {
+                    var improvementOpportunities = [];
+                    if (file.improvementOpportunities && Array.isArray(file.improvementOpportunities)) {
+                        improvementOpportunities = file.improvementOpportunities.filter(function(opp) {
+                            return opp != null;
+                        }).map(function(opp) {
+                            return {
+                                type: opp.type || 'UNKNOWN',
+                                description: opp.description || 'No description',
+                                priority: opp.priority || 'LOW',
+                                estimatedImpact: opp.estimatedImpact || 'Unknown'
+                            };
+                        });
+                    }
+                    
+                    fileDetailsMap.set(file.filePath, {
+                        fileName: file.fileName || 'Unknown',
+                        lineCoverage: file.lineCoverage || 0,
+                        branchCoverage: file.branchCoverage || 0,
+                        methodCoverage: file.methodCoverage || 0,
+                        totalLines: file.totalLines || 0,
+                        coveredLines: file.coveredLines || 0,
+                        totalBranches: file.totalBranches || 0,
+                        coveredBranches: file.coveredBranches || 0,
+                        totalMethods: file.totalMethods || 0,
+                        coveredMethods: file.coveredMethods || 0,
+                        improvementOpportunities: improvementOpportunities
+                    });
+                }
+            });
+        }
+        /*]]>*/
+
+        function selectFile(element) {
             // Remove previous selection
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('selected');
@@ -471,79 +553,124 @@
             // Add selection to clicked item
             element.classList.add('selected');
 
-            // Update file details
-            document.getElementById('selectedFileName').textContent = filePath.split('/').pop();
+            // Get file path and name from element attributes
+            const filePath = element.getAttribute('data-file-path');
+            const fileName = element.getAttribute('data-file-name');
+            
+            if (!filePath || !fileName) {
+                console.warn('Missing file path or name attributes');
+                return;
+            }
+
+            // Get file details
+            const fileDetails = fileDetailsMap.get(filePath);
+            if (!fileDetails) {
+                console.warn('No details found for file:', filePath);
+                return;
+            }
+
+            // Update file name in header
+            document.getElementById('selectedFileName').textContent = fileName || fileDetails.fileName;
             document.getElementById('improveFileBtn').style.display = 'block';
 
+            // Generate coverage class
+            function getCoverageClass(coverage) {
+                if (coverage > 80) return 'coverage-high';
+                if (coverage > 50) return 'coverage-medium';
+                return 'coverage-low';
+            }
+
+            // Generate improvement opportunities HTML
+            let opportunitiesHtml = '';
+            if (fileDetails.improvementOpportunities && Array.isArray(fileDetails.improvementOpportunities)) {
+                fileDetails.improvementOpportunities.forEach(opp => {
+                    let alertClass = 'alert-info';
+                    let icon = 'bi-info-circle';
+                    
+                    if (opp.priority === 'HIGH') {
+                        alertClass = 'alert-warning';
+                        icon = 'bi-exclamation-triangle';
+                    } else if (opp.priority === 'INFO') {
+                        alertClass = 'alert-success';
+                        icon = 'bi-lightbulb';
+                }
+                
+                opportunitiesHtml += `
+                    <div class="alert ${alertClass}">
+                        <i class="bi ${icon} me-2"></i>
+                        <strong>${opp.description}</strong>
+                    </div>
+                `;
+            });
+            }
+
             // Show file details
-            const fileDetails = document.getElementById('fileDetails');
-            fileDetails.innerHTML = `
+            const fileDetailsContainer = document.getElementById('fileDetails');
+            fileDetailsContainer.innerHTML = `
                 <div class="row">
                     <div class="col-md-6">
                         <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Coverage Metrics</h6>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span>Line Coverage</span>
-                                <span class="fw-bold">65.2%</span>
+                                <span class="fw-bold">${fileDetails.lineCoverage.toFixed(1)}%</span>
                             </div>
                             <div class="coverage-bar">
-                                <div class="coverage-fill coverage-medium" style="width: 65.2%;"></div>
+                                <div class="coverage-fill ${getCoverageClass(fileDetails.lineCoverage)}" style="width: ${fileDetails.lineCoverage}%;"></div>
                             </div>
+                            <small class="text-muted">${fileDetails.coveredLines}/${fileDetails.totalLines} lines covered</small>
                         </div>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span>Branch Coverage</span>
-                                <span class="fw-bold">58.7%</span>
+                                <span class="fw-bold">${fileDetails.branchCoverage.toFixed(1)}%</span>
                             </div>
                             <div class="coverage-bar">
-                                <div class="coverage-fill coverage-medium" style="width: 58.7%;"></div>
+                                <div class="coverage-fill ${getCoverageClass(fileDetails.branchCoverage)}" style="width: ${fileDetails.branchCoverage}%;"></div>
                             </div>
+                            <small class="text-muted">${fileDetails.coveredBranches}/${fileDetails.totalBranches} branches covered</small>
                         </div>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span>Method Coverage</span>
-                                <span class="fw-bold">72.1%</span>
+                                <span class="fw-bold">${fileDetails.methodCoverage.toFixed(1)}%</span>
                             </div>
                             <div class="coverage-bar">
-                                <div class="coverage-fill coverage-high" style="width: 72.1%;"></div>
+                                <div class="coverage-fill ${getCoverageClass(fileDetails.methodCoverage)}" style="width: ${fileDetails.methodCoverage}%;"></div>
                             </div>
+                            <small class="text-muted">${fileDetails.coveredMethods}/${fileDetails.totalMethods} methods covered</small>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Improvement Opportunities</h6>
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            <strong>5 uncovered methods</strong> detected
-                        </div>
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            <strong>Edge cases</strong> need test coverage
-                        </div>
-                        <div class="alert alert-success">
-                            <i class="bi bi-lightbulb me-2"></i>
-                            Estimated <strong>+15%</strong> coverage possible
-                        </div>
+                        ${opportunitiesHtml || '<p class="text-muted">No specific improvement opportunities identified.</p>'}
                     </div>
                 </div>
             `;
         }
 
         function toggleFolder(element) {
-            const icon = element.querySelector('i');
-            const nextSibling = element.nextElementSibling;
-
-            if (nextSibling && nextSibling.classList.contains('ms-3')) {
-                if (nextSibling.style.display === 'none') {
-                    nextSibling.style.display = 'block';
-                    icon.className = 'bi bi-folder-fill text-warning me-2';
+            // Find the folder toggle icon and children container
+            const toggle = element.querySelector('.folder-toggle');
+            const children = element.parentElement.querySelector('.folder-children');
+            
+            if (toggle && children) {
+                if (children.classList.contains('collapsed')) {
+                    // Expand
+                    children.classList.remove('collapsed');
+                    toggle.classList.add('expanded');
+                    toggle.className = toggle.className.replace('bi-chevron-right', 'bi-chevron-down');
                 } else {
-                    nextSibling.style.display = 'none';
-                    icon.className = 'bi bi-folder text-warning me-2';
+                    // Collapse
+                    children.classList.add('collapsed');
+                    toggle.classList.remove('expanded');
+                    toggle.className = toggle.className.replace('bi-chevron-down', 'bi-chevron-right');
                 }
             }
         }
 
         function improveCoverage() {
+            // You can implement repository-wide coverage improvement here
             alert('Repository-wide coverage improvement will be implemented here!');
         }
 
@@ -551,7 +678,77 @@
             const fileName = document.getElementById('selectedFileName').textContent;
             alert(`File-specific coverage improvement for ${fileName} will be implemented here!`);
         }
+
+        // Add event listeners when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // File tree functionality is handled by inline onclick events
+            console.log('File tree initialized');
+        });
     </script>
 </th:block>
+
+<!-- Recursive template fragment for rendering nested file tree -->
+<th:block th:fragment="renderFileTreeNode(node, depth)">
+    <div th:each="child : ${node.children}">
+        <!-- If it's a package node, render with package styling -->
+        <div th:if="${child.nodeType == 'PACKAGE'}" class="file-tree-folder">
+            <div class="d-flex align-items-center file-item package-node" onclick="toggleFolder(this)">
+                <i class="bi bi-chevron-right folder-toggle me-1"></i>
+                <i class="bi bi-box-seam package-icon me-2"></i>
+                <span class="package-name" th:text="${child.packageName}"></span>
+                <span class="badge bg-info ms-auto" th:text="${child.children.size()}" th:if="${child.hasChildren()}"></span>
+                <div class="coverage-bar ms-2" style="width: 40px; height: 4px; background-color: #e9ecef; border-radius: 2px;" 
+                     th:if="${child.lineCoverage > 0}">
+                    <div class="coverage-fill"
+                         th:classappend="${child.lineCoverage > 80} ? 'bg-success' : (${child.lineCoverage > 50} ? 'bg-warning' : 'bg-danger')"
+                         th:style="|width: ${child.lineCoverage}%; height: 100%; border-radius: 2px;|"></div>
+                </div>
+                <small class="text-muted ms-1" th:if="${child.lineCoverage > 0}" 
+                       th:text="${#numbers.formatDecimal(child.lineCoverage, 1, 1) + '%'}"></small>
+            </div>
+            <!-- Children initially collapsed -->
+            <div class="folder-children collapsed" th:if="${child.hasChildren()}">
+                <div th:replace="~{repository-dashboard :: renderFileTreeNode(${child}, ${depth + 1})}"></div>
+            </div>
+        </div>
+        
+        <!-- If it's a regular directory, render as collapsible folder -->
+        <div th:if="${child.isDirectory() and child.nodeType != 'PACKAGE'}" class="file-tree-folder">
+            <div class="d-flex align-items-center file-item" 
+                 th:classappend="${child.flattened} ? 'java-folder' : ''"
+                 onclick="toggleFolder(this)">
+                <i class="bi bi-chevron-right folder-toggle me-1"></i>
+                <i th:class="${'bi bi-folder me-2 ' + (child.name == 'java' ? 'java-folder-icon' : 'text-info')}"></i>
+                <span class="fw-medium" th:text="${child.name}"></span>
+                <span class="badge bg-info ms-auto" th:text="${child.children.size()}" th:if="${child.hasChildren()}"></span>
+            </div>
+            <!-- Children initially collapsed -->
+            <div class="folder-children collapsed" th:if="${child.hasChildren()}">
+                <div th:replace="~{repository-dashboard :: renderFileTreeNode(${child}, ${depth + 1})}"></div>
+            </div>
+        </div>
+        
+        <!-- If it's a file, render as file -->
+        <div th:unless="${child.isDirectory()}" class="file-tree-file">
+            <div class="d-flex align-items-center file-item" 
+                 th:data-file-path="${child.data?.path}"
+                 th:data-file-name="${child.name}"
+                 onclick="selectFile(this)">
+                <div style="width: 17px;"></div> <!-- Spacer for alignment -->
+                <i class="bi bi-file-earmark-code text-primary me-2"></i>
+                <span th:text="${child.name}"></span>
+                <div class="coverage-bar ms-auto" style="width: 40px; height: 4px; background-color: #e9ecef; border-radius: 2px;" 
+                     th:if="${child.data?.lineCoverage != null}">
+                    <div class="coverage-fill"
+                         th:classappend="${child.data.lineCoverage > 80} ? 'bg-success' : (${child.data.lineCoverage > 50} ? 'bg-warning' : 'bg-danger')"
+                         th:style="|width: ${child.data.lineCoverage}%; height: 100%; border-radius: 2px;|"></div>
+                </div>
+                <small class="text-muted ms-1" th:if="${child.data?.lineCoverage != null}" 
+                       th:text="${#numbers.formatDecimal(child.data.lineCoverage, 1, 1) + '%'}"></small>
+            </div>
+        </div>
+    </div>
+</th:block>
+
 </body>
 </html>

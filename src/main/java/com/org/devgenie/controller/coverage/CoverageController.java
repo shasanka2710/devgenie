@@ -138,4 +138,37 @@ public class CoverageController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    /**
+     * Get workspace status by repository URL and branch (optimized)
+     */
+    @GetMapping("/repository/status")
+    public ResponseEntity<WorkspaceStatusResponse> getRepositoryStatus(
+            @RequestParam String repositoryUrl,
+            @RequestParam(required = false, defaultValue = "main") String branch) {
+        try {
+            WorkspaceStatusResponse response = repositoryService.getWorkspaceStatusByRepo(repositoryUrl, branch);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error getting repository status", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(WorkspaceStatusResponse.error(e.getMessage()));
+        }
+    }
+
+    /**
+     * Clean up repository cache by URL and branch (optimized)
+     */
+    @DeleteMapping("/repository/cache")
+    public ResponseEntity<Void> cleanupRepositoryCache(
+            @RequestParam String repositoryUrl,
+            @RequestParam(required = false, defaultValue = "main") String branch) {
+        try {
+            repositoryService.cleanupRepositoryCache(repositoryUrl, branch);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("Error cleaning up repository cache", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }
