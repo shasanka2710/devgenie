@@ -136,17 +136,23 @@
         }
 
         .file-tree {
-            max-height: 500px;
+            max-height: 400px;
             overflow-y: auto;
             border-radius: 6px;
         }
 
+        .file-tree-container {
+            height: 400px;
+            overflow-y: auto;
+        }
+
         .file-item {
-            padding: 0.5rem;
-            border-radius: 6px;
+            padding: 0.4rem 0.6rem;
+            border-radius: 4px;
             cursor: pointer;
             transition: all 0.2s ease;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.1rem;
+            font-size: 0.9rem;
         }
 
         .file-item:hover {
@@ -156,6 +162,30 @@
         .file-item.selected {
             background-color: var(--wf-red-light);
             border-left: 3px solid var(--wf-red);
+        }
+
+        .folder-toggle {
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 4px;
+            transition: transform 0.2s ease;
+        }
+
+        .folder-toggle.expanded {
+            transform: rotate(90deg);
+        }
+
+        .folder-children {
+            margin-left: 16px;
+            border-left: 1px solid #e9ecef;
+            padding-left: 8px;
+        }
+
+        .folder-children.collapsed {
+            display: none;
         }
 
         .coverage-bar {
@@ -180,6 +210,38 @@
 
         .coverage-low {
             background: linear-gradient(90deg, var(--wf-red), #e53935);
+        }
+
+        /* Package-style file tree enhancements */
+        .file-item.package-node {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            margin-bottom: 0.25rem;
+        }
+
+        .file-item.package-node:hover {
+            background-color: var(--wf-red-light);
+            border-color: var(--wf-red);
+        }
+
+        .package-name {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: var(--wf-blue);
+        }
+
+        .package-icon {
+            color: var(--wf-blue);
+        }
+
+        .java-folder-icon {
+            color: #f89820; /* Java orange color */
+        }
+
+        .file-item.java-folder {
+            font-style: italic;
+            color: #666;
         }
 
         .timeline {
@@ -350,61 +412,26 @@
                     </h5>
                 </div>
                 <div class="card-body p-0">
-                    <!--
-                        Dynamically render the file tree and coverage metrics from flat coverage node documents.
-                        Replace hardcoded file tree with Thymeleaf iteration over coverage nodes.
-                    -->
-                    <div id="fileTree" class="file-tree">
-                        <div class="p-3" th:if="${fileTree != null and fileTree.hasChildren()}">
-                            <!-- FILTERED APPROACH: Only show main directory, not test -->
-                            <div th:each="child : ${fileTree.children}" th:if="${child.name == 'main'}">
-                                <!-- Main Directory -->
-                                <div class="file-tree-directory mb-2">
-                                    <div class="d-flex align-items-center file-item" style="cursor: pointer;" onclick="toggleFolder(this)">
-                                        <i class="bi bi-folder-fill text-warning me-2"></i>
-                                        <span class="fw-medium" th:text="${'src/' + child.name}"></span>
-                                        <span class="badge bg-secondary ms-2" th:text="${child.children.size() + ' items'}"></span>
-                                    </div>
-                                    
-                                    <!-- Show subdirectories and files inside main -->
-                                    <div class="ms-3" th:if="${child.hasChildren()}">
-                                        <!-- Show subdirectories (like java/) -->
-                                        <div th:each="subdir : ${child.children}" th:if="${subdir.isDirectory()}" class="file-tree-directory mb-2">
-                                            <div class="d-flex align-items-center file-item" style="cursor: pointer;" onclick="toggleFolder(this)">
-                                                <i class="bi bi-folder text-info me-2"></i>
-                                                <span class="fw-medium" th:text="${subdir.name}"></span>
-                                                <span class="badge bg-info ms-2" th:text="${subdir.children.size() + ' items'}"></span>
-                                            </div>
-                                            
-                                            <!-- Recursively show nested directories and files -->
-                                            <div class="ms-3" th:if="${subdir.hasChildren()}">
-                                                <div th:replace="~{repository-dashboard :: renderFileTreeNode(${subdir}, 0)}"></div>
-                                            </div>
-                                        </div>
-                                                         <!-- Show direct files in main (if any) -->
-                        <div th:each="file : ${child.children}" th:if="${!file.isDirectory()}" class="file-tree-file mb-1">
-                            <div class="d-flex align-items-center file-item" style="cursor: pointer;"
-                                 th:data-file-path="${file.data?.path}"
-                                 th:data-file-name="${file.name}">
-                                                <i class="bi bi-file-earmark-code text-primary me-2"></i>
-                                                <span th:text="${file.name}"></span>
-                                                <div class="coverage-bar ms-auto" style="width: 60px; height: 4px; background-color: #e0e0e0; border-radius: 2px;" th:if="${file.data?.lineCoverage != null}">
-                                                    <div class="coverage-fill"
-                                                         th:classappend="${file.data.lineCoverage > 80} ? 'bg-success' : (${file.data.lineCoverage > 50} ? 'bg-warning' : 'bg-danger')"
-                                                         th:style="|width: ${file.data.lineCoverage}%; height: 100%; border-radius: 2px;|"></div>
-                                                </div>
-                                                <span class="text-muted ms-2" th:if="${file.data?.lineCoverage != null}" th:text="${#numbers.formatDecimal(file.data.lineCoverage, 1, 1) + '%'}"></span>
-                                            </div>
-                                        </div>
-                                    </div>
+                    <div class="file-tree-container p-3" th:if="${fileTree != null and fileTree.hasChildren()}">
+                        <!-- Start with collapsed main directory -->
+                        <div th:each="child : ${fileTree.children}" th:if="${child.name == 'main'}">
+                            <div class="file-tree-folder">
+                                <div class="d-flex align-items-center file-item" onclick="toggleFolder(this)">
+                                    <i class="bi bi-chevron-right folder-toggle me-1"></i>
+                                    <i class="bi bi-folder-fill text-warning me-2"></i>
+                                    <span class="fw-medium" th:text="${'src/' + child.name}"></span>
+                                    <span class="badge bg-secondary ms-auto" th:text="${child.children.size()}"></span>
+                                </div>
+                                <!-- Children initially collapsed -->
+                                <div class="folder-children collapsed">
+                                    <div th:replace="~{repository-dashboard :: renderFileTreeNode(${child}, 1)}"></div>
                                 </div>
                             </div>
-                            </div>
                         </div>
-                        <div class="p-3 text-center text-muted" th:unless="${fileTree != null and fileTree.hasChildren()}">
-                            <i class="bi bi-folder-x" style="font-size: 2rem; opacity: 0.5;"></i>
-                            <p class="mt-2">No files found</p>
-                        </div>
+                    </div>
+                    <div class="p-3 text-center text-muted" th:unless="${fileTree != null and fileTree.hasChildren()}">
+                        <i class="bi bi-folder-x" style="font-size: 2rem; opacity: 0.5;"></i>
+                        <p class="mt-2">No files found</p>
                     </div>
                 </div>
             </div>
@@ -517,7 +544,7 @@
         }
         /*]]>*/
 
-        function selectFile(element, filePath, fileName) {
+        function selectFile(element) {
             // Remove previous selection
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('selected');
@@ -525,6 +552,15 @@
 
             // Add selection to clicked item
             element.classList.add('selected');
+
+            // Get file path and name from element attributes
+            const filePath = element.getAttribute('data-file-path');
+            const fileName = element.getAttribute('data-file-name');
+            
+            if (!filePath || !fileName) {
+                console.warn('Missing file path or name attributes');
+                return;
+            }
 
             // Get file details
             const fileDetails = fileDetailsMap.get(filePath);
@@ -613,26 +649,22 @@
             `;
         }
 
-        function selectFileFromElement(element) {
-            const filePath = element.getAttribute('data-file-path');
-            const fileName = element.getAttribute('data-file-name');
-            
-            if (filePath && fileName) {
-                selectFile(element, filePath, fileName);
-            }
-        }
-
         function toggleFolder(element) {
-            const icon = element.querySelector('i');
-            const nextSibling = element.nextElementSibling;
-
-            if (nextSibling && nextSibling.classList.contains('ms-3')) {
-                if (nextSibling.style.display === 'none') {
-                    nextSibling.style.display = 'block';
-                    icon.className = 'bi bi-folder-fill text-warning me-2';
+            // Find the folder toggle icon and children container
+            const toggle = element.querySelector('.folder-toggle');
+            const children = element.parentElement.querySelector('.folder-children');
+            
+            if (toggle && children) {
+                if (children.classList.contains('collapsed')) {
+                    // Expand
+                    children.classList.remove('collapsed');
+                    toggle.classList.add('expanded');
+                    toggle.className = toggle.className.replace('bi-chevron-right', 'bi-chevron-down');
                 } else {
-                    nextSibling.style.display = 'none';
-                    icon.className = 'bi bi-folder text-warning me-2';
+                    // Collapse
+                    children.classList.add('collapsed');
+                    toggle.classList.remove('expanded');
+                    toggle.className = toggle.className.replace('bi-chevron-down', 'bi-chevron-right');
                 }
             }
         }
@@ -649,13 +681,8 @@
 
         // Add event listeners when the page loads
         document.addEventListener('DOMContentLoaded', function() {
-            // Add click event listeners to file items
-            document.addEventListener('click', function(event) {
-                const fileItem = event.target.closest('.file-item');
-                if (fileItem) {
-                    selectFileFromElement(fileItem);
-                }
-            });
+            // File tree functionality is handled by inline onclick events
+            console.log('File tree initialized');
         });
     </script>
 </th:block>
@@ -663,36 +690,61 @@
 <!-- Recursive template fragment for rendering nested file tree -->
 <th:block th:fragment="renderFileTreeNode(node, depth)">
     <div th:each="child : ${node.children}">
-        <!-- If it's a directory, render as collapsible folder -->
-        <div th:if="${child.isDirectory()}" class="file-tree-directory mb-1">
-            <div class="d-flex align-items-center file-item" style="cursor: pointer;" onclick="toggleFolder(this)"
-                 th:style="|margin-left: ${depth * 20}px;|">
-                <i class="bi bi-folder text-info me-2"></i>
-                <span class="fw-medium" th:text="${child.name}"></span>
-                <span class="badge bg-info ms-2" th:text="${child.children.size() + ' items'}" th:if="${child.hasChildren()}"></span>
+        <!-- If it's a package node, render with package styling -->
+        <div th:if="${child.nodeType == 'PACKAGE'}" class="file-tree-folder">
+            <div class="d-flex align-items-center file-item package-node" onclick="toggleFolder(this)">
+                <i class="bi bi-chevron-right folder-toggle me-1"></i>
+                <i class="bi bi-box-seam package-icon me-2"></i>
+                <span class="package-name" th:text="${child.packageName}"></span>
+                <span class="badge bg-info ms-auto" th:text="${child.children.size()}" th:if="${child.hasChildren()}"></span>
+                <div class="coverage-bar ms-2" style="width: 40px; height: 4px; background-color: #e9ecef; border-radius: 2px;" 
+                     th:if="${child.lineCoverage > 0}">
+                    <div class="coverage-fill"
+                         th:classappend="${child.lineCoverage > 80} ? 'bg-success' : (${child.lineCoverage > 50} ? 'bg-warning' : 'bg-danger')"
+                         th:style="|width: ${child.lineCoverage}%; height: 100%; border-radius: 2px;|"></div>
+                </div>
+                <small class="text-muted ms-1" th:if="${child.lineCoverage > 0}" 
+                       th:text="${#numbers.formatDecimal(child.lineCoverage, 1, 1) + '%'}"></small>
             </div>
-            <!-- Recursively render children if they exist -->
-            <div th:if="${child.hasChildren()}">
+            <!-- Children initially collapsed -->
+            <div class="folder-children collapsed" th:if="${child.hasChildren()}">
+                <div th:replace="~{repository-dashboard :: renderFileTreeNode(${child}, ${depth + 1})}"></div>
+            </div>
+        </div>
+        
+        <!-- If it's a regular directory, render as collapsible folder -->
+        <div th:if="${child.isDirectory() and child.nodeType != 'PACKAGE'}" class="file-tree-folder">
+            <div class="d-flex align-items-center file-item" 
+                 th:classappend="${child.flattened} ? 'java-folder' : ''"
+                 onclick="toggleFolder(this)">
+                <i class="bi bi-chevron-right folder-toggle me-1"></i>
+                <i th:class="${'bi bi-folder me-2 ' + (child.name == 'java' ? 'java-folder-icon' : 'text-info')}"></i>
+                <span class="fw-medium" th:text="${child.name}"></span>
+                <span class="badge bg-info ms-auto" th:text="${child.children.size()}" th:if="${child.hasChildren()}"></span>
+            </div>
+            <!-- Children initially collapsed -->
+            <div class="folder-children collapsed" th:if="${child.hasChildren()}">
                 <div th:replace="~{repository-dashboard :: renderFileTreeNode(${child}, ${depth + 1})}"></div>
             </div>
         </div>
         
         <!-- If it's a file, render as file -->
-        <div th:unless="${child.isDirectory()}" class="file-tree-file mb-1">
-            <div class="d-flex align-items-center file-item" style="cursor: pointer;"
-                 th:style="|margin-left: ${depth * 20}px;|"
+        <div th:unless="${child.isDirectory()}" class="file-tree-file">
+            <div class="d-flex align-items-center file-item" 
                  th:data-file-path="${child.data?.path}"
-                 th:data-file-name="${child.name}">
+                 th:data-file-name="${child.name}"
+                 onclick="selectFile(this)">
+                <div style="width: 17px;"></div> <!-- Spacer for alignment -->
                 <i class="bi bi-file-earmark-code text-primary me-2"></i>
                 <span th:text="${child.name}"></span>
-                <div class="coverage-bar ms-auto" style="width: 60px; height: 4px; background-color: #e0e0e0; border-radius: 2px;" 
+                <div class="coverage-bar ms-auto" style="width: 40px; height: 4px; background-color: #e9ecef; border-radius: 2px;" 
                      th:if="${child.data?.lineCoverage != null}">
                     <div class="coverage-fill"
                          th:classappend="${child.data.lineCoverage > 80} ? 'bg-success' : (${child.data.lineCoverage > 50} ? 'bg-warning' : 'bg-danger')"
                          th:style="|width: ${child.data.lineCoverage}%; height: 100%; border-radius: 2px;|"></div>
                 </div>
-                <span class="text-muted ms-2" th:if="${child.data?.lineCoverage != null}" 
-                      th:text="${#numbers.formatDecimal(child.data.lineCoverage, 1, 1) + '%'}"></span>
+                <small class="text-muted ms-1" th:if="${child.data?.lineCoverage != null}" 
+                       th:text="${#numbers.formatDecimal(child.data.lineCoverage, 1, 1) + '%'}"></small>
             </div>
         </div>
     </div>

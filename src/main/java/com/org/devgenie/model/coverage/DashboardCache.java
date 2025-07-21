@@ -62,7 +62,14 @@ public class DashboardCache {
         private String type;
         private String path;
         private Double lineCoverage;
+        private Double branchCoverage;
+        private Double methodCoverage;
         private List<FileTreeData> children;
+        
+        // Package-style tree support
+        private String nodeType;        // PACKAGE, DIRECTORY, FILE
+        private String packageName;     // For package nodes (e.g., com.example.service)
+        private Boolean flattened;      // Whether this node was flattened
     }
     
     @Data

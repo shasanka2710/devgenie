@@ -90,21 +90,95 @@ public class RepositoryDashboardService {
     }
 
     private FileTreeNode buildFileTree(List<CoverageData> coverageData) {
-        Map<String, FileTreeNode> nodeMap = new HashMap<>();
-        FileTreeNode root = new FileTreeNode("src", "DIRECTORY", null);
-        nodeMap.put("src", root);
+        // Use package-style tree for better UI
+        return buildPackageStyleFileTree(coverageData);
+    }
 
+    public FileTreeNode buildPackageStyleFileTree(List<CoverageData> coverageData) {
+        log.info("=== BUILDING PACKAGE-STYLE FILE TREE ===");
+        log.info("Processing {} coverage data items", coverageData.size());
+        
+        FileTreeNode root = new FileTreeNode("src", "DIRECTORY", null);
+        root.setNodeType("DIRECTORY");
+        
+        // Separate Java files (with package names) from other files
+        Map<String, List<CoverageData>> javaFilesByPackage = new HashMap<>();
+        List<CoverageData> nonJavaFiles = new ArrayList<>();
+        
+        for (CoverageData data : coverageData) {
+            log.debug("Processing file: {} (package: {}, type: {})", data.getPath(), data.getPackageName(), data.getType());
+            if (data.getPackageName() != null && !data.getPackageName().isEmpty() && 
+                "FILE".equals(data.getType()) && data.getPath().endsWith(".java")) {
+                javaFilesByPackage.computeIfAbsent(data.getPackageName(), k -> new ArrayList<>()).add(data);
+                log.debug("Added to package: {}", data.getPackageName());
+            } else {
+                nonJavaFiles.add(data);
+            }
+        }
+        
+        log.info("Found {} Java packages: {}", javaFilesByPackage.size(), javaFilesByPackage.keySet());
+        
+        // Create main directory node
+        FileTreeNode mainNode = new FileTreeNode("main", "DIRECTORY", null);
+        mainNode.setNodeType("DIRECTORY");
+        root.addChild(mainNode);
+        
+        // Add Java package nodes
+        if (!javaFilesByPackage.isEmpty()) {
+            FileTreeNode javaNode = new FileTreeNode("java", "DIRECTORY", null);
+            javaNode.setNodeType("DIRECTORY");
+            javaNode.setFlattened(true);
+            mainNode.addChild(javaNode);
+            
+            // Create package nodes
+            for (Map.Entry<String, List<CoverageData>> packageEntry : javaFilesByPackage.entrySet()) {
+                String packageName = packageEntry.getKey();
+                List<CoverageData> packageFiles = packageEntry.getValue();
+                
+                log.info("Creating PACKAGE node: {} with {} files", packageName, packageFiles.size());
+                FileTreeNode packageNode = new FileTreeNode(packageName, "DIRECTORY", null, "PACKAGE", packageName);
+                log.info("Package node created - nodeType: {}, packageName: {}", packageNode.getNodeType(), packageNode.getPackageName());
+                javaNode.addChild(packageNode);
+                
+                // Add files to package
+                for (CoverageData fileData : packageFiles) {
+                    FileTreeNode fileNode = new FileTreeNode(fileData.getFileName(), "FILE", fileData);
+                    fileNode.setNodeType("FILE");
+                    packageNode.addChild(fileNode);
+                }
+            }
+        }
+        
+        // Add non-Java files using traditional hierarchy (but skip empty intermediate directories)
+        buildTraditionalFileTree(nonJavaFiles, mainNode);
+        
+        return root;
+    }
+
+    private void buildTraditionalFileTree(List<CoverageData> coverageData, FileTreeNode parentNode) {
+        if (coverageData.isEmpty()) {
+            return;
+        }
+        
+        Map<String, FileTreeNode> nodeMap = new HashMap<>();
+        
         // Sort by path to ensure proper hierarchy
         coverageData.sort(Comparator.comparing(CoverageData::getPath));
 
         for (CoverageData data : coverageData) {
             String[] pathParts = data.getPath().split("/");
-            FileTreeNode currentNode = root;
+            FileTreeNode currentNode = parentNode;
+            
+            // Skip 'src/main' parts since we already have them
+            int startIndex = 0;
+            if (pathParts.length > 2 && "src".equals(pathParts[0]) && "main".equals(pathParts[1])) {
+                startIndex = 2;
+            }
 
             // Build the path hierarchy
             StringBuilder currentPath = new StringBuilder();
-            for (int i = 0; i < pathParts.length; i++) {
-                if (i > 0) currentPath.append("/");
+            for (int i = startIndex; i < pathParts.length; i++) {
+                if (currentPath.length() > 0) currentPath.append("/");
                 currentPath.append(pathParts[i]);
                 
                 String fullPath = currentPath.toString();
@@ -115,6 +189,7 @@ public class RepositoryDashboardService {
                             i == pathParts.length - 1 ? data.getType() : "DIRECTORY",
                             data
                     );
+                    newNode.setNodeType(i == pathParts.length - 1 ? "FILE" : "DIRECTORY");
                     nodeMap.put(fullPath, newNode);
                     currentNode.addChild(newNode);
                     currentNode = newNode;
@@ -123,8 +198,6 @@ public class RepositoryDashboardService {
                 }
             }
         }
-
-        return root;
     }
 
     private List<FileDetails> buildFileDetails(List<CoverageData> coverageData) {
@@ -239,12 +312,25 @@ public class RepositoryDashboardService {
         private String type;
         private CoverageData data;
         private List<FileTreeNode> children;
+        private String nodeType; // "PACKAGE", "DIRECTORY", "FILE"
+        private String packageName; // For package nodes
+        private boolean isFlattened; // Indicates if this is a flattened package structure
 
         public FileTreeNode(String name, String type, CoverageData data) {
             this.name = name;
             this.type = type;
             this.data = data;
             this.children = new ArrayList<>();
+            this.nodeType = "DIRECTORY"; // Default
+            this.isFlattened = false;
+        }
+
+        // New constructor for package nodes
+        public FileTreeNode(String name, String type, CoverageData data, String nodeType, String packageName) {
+            this(name, type, data);
+            this.nodeType = nodeType;
+            this.packageName = packageName;
+            this.isFlattened = "PACKAGE".equals(nodeType);
         }
 
         public void addChild(FileTreeNode child) {
@@ -256,11 +342,30 @@ public class RepositoryDashboardService {
         public String getType() { return type; }
         public CoverageData getData() { return data; }
         public List<FileTreeNode> getChildren() { return children; }
+        public String getNodeType() { return nodeType; }
+        public String getPackageName() { return packageName; }
+        public boolean isFlattened() { return isFlattened; }
         public boolean isDirectory() { return "DIRECTORY".equals(type); }
+        public boolean isPackage() { return "PACKAGE".equals(nodeType); }
         public boolean hasChildren() { return !children.isEmpty(); }
         
+        public void setNodeType(String nodeType) { this.nodeType = nodeType; }
+        public void setPackageName(String packageName) { this.packageName = packageName; }
+        public void setFlattened(boolean flattened) { this.isFlattened = flattened; }
+        
         public double getLineCoverage() {
-            return data != null ? data.getLineCoverage() : 0.0;
+            if (data != null) {
+                return data.getLineCoverage();
+            }
+            // For package nodes, calculate average coverage of children
+            if (isPackage() && hasChildren()) {
+                return children.stream()
+                    .filter(child -> child.getData() != null)
+                    .mapToDouble(FileTreeNode::getLineCoverage)
+                    .average()
+                    .orElse(0.0);
+            }
+            return 0.0;
         }
         
         public String getCoverageClass() {

@@ -27,7 +27,7 @@ public class FastDashboardService {
     private CoverageDataFlatMongoRepository coverageRepository;
     
     @Autowired
-    private AiImprovementService aiImprovementService;
+    private RepositoryDashboardService repositoryDashboardService;
 
     /**
      * Fast dashboard retrieval - loads from cache instantly
@@ -139,8 +139,12 @@ public class FastDashboardService {
     }
 
     private DashboardCache.FileTreeData buildFileTree(List<CoverageData> coverageData) {
-        // This method is kept for compatibility with async methods
-        return buildOptimizedFileTree(coverageData);
+        // Use the new package-style file tree from RepositoryDashboardService
+        RepositoryDashboardService.FileTreeNode packageStyleTree = 
+            repositoryDashboardService.buildPackageStyleFileTree(coverageData);
+        
+        // Convert to cache format
+        return convertPackageTreeToCacheTree(packageStyleTree);
     }
 
     private List<DashboardCache.FileDetailsData> buildFileDetails(List<CoverageData> coverageData) {
@@ -618,6 +622,44 @@ public class FastDashboardService {
             result.add(fileDetail);
         }
         return result;
+    }
+
+    /**
+     * Convert package-style FileTreeNode to DashboardCache.FileTreeData format
+     */
+    private DashboardCache.FileTreeData convertPackageTreeToCacheTree(RepositoryDashboardService.FileTreeNode node) {
+        if (node == null) {
+            return null;
+        }
+        
+        // Build the cache tree data
+        DashboardCache.FileTreeData.FileTreeDataBuilder builder = DashboardCache.FileTreeData.builder()
+                .name(node.getName())
+                .type(node.getType())
+                .nodeType(node.getNodeType())
+                .packageName(node.getPackageName())
+                .flattened(node.isFlattened());
+        
+        // Add coverage data if available
+        if (node.getData() != null) {
+            CoverageData data = node.getData();
+            builder
+                .path(data.getPath())
+                .lineCoverage(data.getLineCoverage())
+                .branchCoverage(data.getBranchCoverage())
+                .methodCoverage(data.getMethodCoverage());
+        }
+        
+        // Convert children recursively
+        if (node.getChildren() != null && !node.getChildren().isEmpty()) {
+            List<DashboardCache.FileTreeData> children = node.getChildren().stream()
+                    .map(this::convertPackageTreeToCacheTree)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            builder.children(children);
+        }
+        
+        return builder.build();
     }
 
     /**
