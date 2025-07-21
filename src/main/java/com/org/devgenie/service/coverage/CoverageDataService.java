@@ -33,7 +33,7 @@ public class CoverageDataService {
     @Autowired
     private RepositoryAnalysisMongoUtil analysisMongoUtil;
 
-    public SonarQubeMetricsResponse getCurrentCoverage(String repoPath, String branch) {
+    public SonarQubeMetricsResponse getCurrentCoverage(String repoDir, String repoPath, String branch) {
         log.info("Getting current coverage data for repo: {}", repoPath);
 
         if (useMongoData) {
@@ -41,10 +41,10 @@ public class CoverageDataService {
                 return getCoverageFromMongo(repoPath,branch);
             } catch (Exception e) {
                 log.warn("Failed to get coverage from MongoDB, falling back to Jacoco", e);
-                return jacocoService.runAnalysis(repoPath,branch);
+                return jacocoService.runAnalysis(repoDir,repoPath,branch);
             }
         } else {
-            return jacocoService.runAnalysis(repoPath,branch);
+            return jacocoService.runAnalysis(repoDir,repoPath,branch);
         }
     }
 

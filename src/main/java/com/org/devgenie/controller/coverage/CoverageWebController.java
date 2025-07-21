@@ -5,7 +5,9 @@ import com.org.devgenie.model.coverage.RepositoryAnalysisRequest;
 import com.org.devgenie.model.coverage.RepositoryAnalysisResponse;
 import com.org.devgenie.model.login.GitHubRepository;
 import com.org.devgenie.service.coverage.CoverageAgentService;
+import com.org.devgenie.service.coverage.FastDashboardService;
 import com.org.devgenie.service.coverage.RepositoryAnalysisService;
+import com.org.devgenie.service.coverage.RepositoryDashboardService;
 import com.org.devgenie.service.login.GitHubService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +41,12 @@ public class CoverageWebController {
 
     @Autowired
     private RepositoryAnalysisService repositoryAnalysisService;
+
+    @Autowired
+    private RepositoryDashboardService repositoryDashboardService;
+
+    @Autowired
+    private FastDashboardService fastDashboardService;
 
     @Autowired
     private OAuth2AuthorizedClientService authorizedClientService;
@@ -79,8 +87,13 @@ public class CoverageWebController {
                         analysisRequest.setRepositoryUrl(repository.getHtmlUrl());
                         analysisRequest.setGithubToken(accessToken);
                         analysisRequest.setBranch("main");
+                        
+                        // Perform repository analysis
                         RepositoryAnalysisResponse result = repositoryAnalysisService.analyzeRepository(analysisRequest);
                         analysisCache.put(cacheKey, result);
+                        
+                        // Dashboard cache generation is now automatically triggered in RepositoryAnalysisService
+                        log.info("Repository analysis completed, dashboard cache generation triggered automatically");
                     });
                 }
             }
@@ -138,12 +151,28 @@ public class CoverageWebController {
             }
 
             GitHubRepository repository = repoOpt.get();
-            // Try to fetch from Mongo first
-            RepositoryAnalysisResponse analysis = repositoryAnalysisService.getAnalysisFromMongo(repository.getHtmlUrl(), "main");
+            
+            // FAST DASHBOARD LOADING - Load from pre-computed cache
+            log.info("Loading dashboard from cache for fast response: {}", repository.getHtmlUrl());
+            RepositoryDashboardService.DashboardData dashboardData = 
+                fastDashboardService.getFastDashboardData(repository.getHtmlUrl(), "main");
+            
+            // Try to fetch from Mongo first (for backward compatibility)
+            RepositoryAnalysisResponse analysis = null;
+            try {
+                analysis = repositoryAnalysisService.getAnalysisFromMongo(repository.getHtmlUrl(), "main");
+            } catch (Exception e) {
+                log.warn("No analysis found in Mongo for {}", repository.getHtmlUrl());
+            }
+            
             model.addAttribute("repository", repository);
             model.addAttribute("owner", owner);
             model.addAttribute("repoName", repo);
             model.addAttribute("analysis", analysis);
+            model.addAttribute("dashboardData", dashboardData);
+            model.addAttribute("overallMetrics", dashboardData.getOverallMetrics());
+            model.addAttribute("fileTree", dashboardData.getFileTree());
+            model.addAttribute("fileDetails", dashboardData.getFileDetails());
 
             return "repository-dashboard";
 

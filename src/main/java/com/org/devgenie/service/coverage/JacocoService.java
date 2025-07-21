@@ -87,14 +87,14 @@ public class JacocoService {
     /**
      * ENHANCED: Auto-detection with fallback strategies
      */
-    public SonarQubeMetricsResponse runAnalysis(String repoDir, String branch) {
+    public SonarQubeMetricsResponse runAnalysis(String repoDir, String repoPath, String branch) {
         log.info("Running coverage analysis with auto-detection for: {}", repoDir);
 
         try {
             ProjectConfiguration projectConfig = projectConfigService.detectProjectConfiguration(repoDir);
             log.info("Auto-detected build tool: {}", projectConfig.getBuildTool());
 
-            return runAnalysisWithConfig(repoDir, branch,projectConfig);
+            return runAnalysisWithConfig(repoPath, branch,projectConfig);
 
         } catch (Exception e) {
             log.error("Failed to run coverage analysis with auto-detection", e);

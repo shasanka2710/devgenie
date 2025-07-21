@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+    <!-- File Tree Node Fragment -->
+    <th:block th:fragment="file-tree-node(node)">
+        <!-- Add null check to prevent template errors -->
+        <div th:if="${node != null and node.isDirectory()}" class="file-tree-directory">
+            <div class="d-flex align-items-center mb-2 file-item" 
+                 th:onclick="|toggleFolder(this)|"
+                 style="cursor: pointer;">
+                <i class="bi bi-folder-fill text-warning me-2"></i>
+                <span class="fw-medium" th:text="${node.name}"></span>
+            </div>
+            <div class="ms-3" th:if="${node.hasChildren()}">
+                <div th:each="child : ${node.children}" th:insert="~{fragments/file-tree :: file-tree-node(${child})}"></div>
+            </div>
+        </div>
+        
+        <div th:if="${node != null and !node.isDirectory()}" class="file-tree-file">
+            <div class="d-flex align-items-center mb-1 file-item"
+                 th:onclick="|selectFile(this, '${node.data?.path}', '${node.data?.fileName}')|"
+                 style="cursor: pointer;">
+                <i class="bi bi-file-earmark-code text-primary me-2"></i>
+                <span th:text="${node.name}"></span>
+                <div class="coverage-bar ms-auto" style="width: 60px; height: 4px; background-color: #e0e0e0; border-radius: 2px;">
+                    <div class="coverage-fill"
+                         th:classappend="${node.data?.lineCoverage} &gt; 80 ? 'coverage-high' : (${node.data?.lineCoverage} &gt; 50 ? 'coverage-medium' : 'coverage-low')"
+                         th:style="|width: ${node.data?.lineCoverage}%; height: 100%; border-radius: 2px;|"></div>
+                </div>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

@@ -73,6 +73,8 @@ sonar:
   severities: BLOCKER,CRITICAL,MAJOR,MINOR,INFO
   pageSize: 100
   enabled: true
+  username: ${SONAR_USERNAME:admin}
+  password: ${SONAR_PASSWORD:Wellsfargo@9908970700}
 
 LOG_PATH: logs/application.log
 

@@ -304,7 +304,7 @@
             <div class="card stats-card stats-card-red">
                 <div class="card-body text-center py-4">
                     <i class="bi bi-graph-up"></i>
-                    <h3>73.5%</h3>
+                    <h3 th:text="${overallMetrics.overallCoverage} + '%'">0%</h3>
                     <p>Overall Coverage</p>
                 </div>
             </div>
@@ -313,7 +313,7 @@
             <div class="card stats-card stats-card-blue">
                 <div class="card-body text-center py-4">
                     <i class="bi bi-code-slash"></i>
-                    <h3>76.2%</h3>
+                    <h3 th:text="${overallMetrics.lineCoverage} + '%'">0%</h3>
                     <p>Line Coverage</p>
                 </div>
             </div>
@@ -322,7 +322,7 @@
             <div class="card stats-card stats-card-green">
                 <div class="card-body text-center py-4">
                     <i class="bi bi-diagram-3"></i>
-                    <h3>68.1%</h3>
+                    <h3 th:text="${overallMetrics.branchCoverage} + '%'">0%</h3>
                     <p>Branch Coverage</p>
                 </div>
             </div>
@@ -331,7 +331,7 @@
             <div class="card stats-card stats-card-yellow">
                 <div class="card-body text-center py-4">
                     <i class="bi bi-braces"></i>
-                    <h3>82.4%</h3>
+                    <h3 th:text="${overallMetrics.methodCoverage} + '%'">0%</h3>
                     <p>Method Coverage</p>
                 </div>
             </div>
@@ -355,27 +355,12 @@
                         Replace hardcoded file tree with Thymeleaf iteration over coverage nodes.
                     -->
                     <div id="fileTree" class="file-tree">
-                        <div class="p-3">
-                            <th:block th:each="dir : ${directories}">
-                                <div class="d-flex align-items-center mb-2 file-item" th:onclick="|toggleFolder(this)|">
-                                    <i class="bi bi-folder-fill text-warning me-2"></i>
-                                    <span class="fw-medium" th:text="${dir.directoryName}"></span>
-                                </div>
-                                <div class="ms-3">
-                                    <th:block th:each="file : ${dir.files}">
-                                        <div class="d-flex align-items-center mb-1 file-item"
-                                             th:onclick="|selectFile(this, '${file.filePath}')|">
-                                            <i class="bi bi-file-earmark-code text-primary me-2"></i>
-                                            <span th:text="${file.fileName}"></span>
-                                            <div class="coverage-bar ms-auto" style="width: 60px;">
-                                                <div class="coverage-fill"
-                                                     th:classappend="${file.lineCoverage} &gt; 80 ? 'coverage-high' : (${file.lineCoverage} &gt; 50 ? 'coverage-medium' : 'coverage-low')"
-                                                     th:style="|width: ${file.lineCoverage}%;|"></div>
-                                            </div>
-                                        </div>
-                                    </th:block>
-                                </div>
-                            </th:block>
+                        <div class="p-3" th:if="${fileTree != null and fileTree.hasChildren()}">
+                            <div th:each="child : ${fileTree.children}" th:insert="~{fragments/file-tree :: file-tree-node(${child})}"></div>
+                        </div>
+                        <div class="p-3 text-center text-muted" th:unless="${fileTree != null and fileTree.hasChildren()}">
+                            <i class="bi bi-folder-x" style="font-size: 2rem; opacity: 0.5;"></i>
+                            <p class="mt-2">No files found</p>
                         </div>
                     </div>
                 </div>
@@ -446,8 +431,50 @@
 </div>
 
 <th:block layout:fragment="scripts">
-    <script>
-        function selectFile(element, filePath) {
+    <script th:inline="javascript">
+        // Store file details data for JavaScript access
+        const fileDetailsMap = new Map();
+        
+        /*<![CDATA[*/
+        // Safe file details processing
+        var fileDetails = /*[[${fileDetails != null ? fileDetails : {}}]]*/ {};
+        
+        if (fileDetails && Array.isArray(fileDetails)) {
+            fileDetails.forEach(function(file) {
+                if (file && file.filePath) {
+                    var improvementOpportunities = [];
+                    if (file.improvementOpportunities && Array.isArray(file.improvementOpportunities)) {
+                        improvementOpportunities = file.improvementOpportunities.filter(function(opp) {
+                            return opp != null;
+                        }).map(function(opp) {
+                            return {
+                                type: opp.type || 'UNKNOWN',
+                                description: opp.description || 'No description',
+                                priority: opp.priority || 'LOW',
+                                estimatedImpact: opp.estimatedImpact || 'Unknown'
+                            };
+                        });
+                    }
+                    
+                    fileDetailsMap.set(file.filePath, {
+                        fileName: file.fileName || 'Unknown',
+                        lineCoverage: file.lineCoverage || 0,
+                        branchCoverage: file.branchCoverage || 0,
+                        methodCoverage: file.methodCoverage || 0,
+                        totalLines: file.totalLines || 0,
+                        coveredLines: file.coveredLines || 0,
+                        totalBranches: file.totalBranches || 0,
+                        coveredBranches: file.coveredBranches || 0,
+                        totalMethods: file.totalMethods || 0,
+                        coveredMethods: file.coveredMethods || 0,
+                        improvementOpportunities: improvementOpportunities
+                    });
+                }
+            });
+        }
+        /*]]>*/
+
+        function selectFile(element, filePath, fileName) {
             // Remove previous selection
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('selected');
@@ -456,58 +483,88 @@
             // Add selection to clicked item
             element.classList.add('selected');
 
-            // Update file details
-            document.getElementById('selectedFileName').textContent = filePath.split('/').pop();
+            // Get file details
+            const fileDetails = fileDetailsMap.get(filePath);
+            if (!fileDetails) {
+                console.warn('No details found for file:', filePath);
+                return;
+            }
+
+            // Update file name in header
+            document.getElementById('selectedFileName').textContent = fileName || fileDetails.fileName;
             document.getElementById('improveFileBtn').style.display = 'block';
 
+            // Generate coverage class
+            function getCoverageClass(coverage) {
+                if (coverage > 80) return 'coverage-high';
+                if (coverage > 50) return 'coverage-medium';
+                return 'coverage-low';
+            }
+
+            // Generate improvement opportunities HTML
+            let opportunitiesHtml = '';
+            if (fileDetails.improvementOpportunities && Array.isArray(fileDetails.improvementOpportunities)) {
+                fileDetails.improvementOpportunities.forEach(opp => {
+                    let alertClass = 'alert-info';
+                    let icon = 'bi-info-circle';
+                    
+                    if (opp.priority === 'HIGH') {
+                        alertClass = 'alert-warning';
+                        icon = 'bi-exclamation-triangle';
+                    } else if (opp.priority === 'INFO') {
+                        alertClass = 'alert-success';
+                        icon = 'bi-lightbulb';
+                }
+                
+                opportunitiesHtml += `
+                    <div class="alert ${alertClass}">
+                        <i class="bi ${icon} me-2"></i>
+                        <strong>${opp.description}</strong>
+                    </div>
+                `;
+            });
+            }
+
             // Show file details
-            const fileDetails = document.getElementById('fileDetails');
-            fileDetails.innerHTML = `
+            const fileDetailsContainer = document.getElementById('fileDetails');
+            fileDetailsContainer.innerHTML = `
                 <div class="row">
                     <div class="col-md-6">
                         <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Coverage Metrics</h6>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span>Line Coverage</span>
-                                <span class="fw-bold">65.2%</span>
+                                <span class="fw-bold">${fileDetails.lineCoverage.toFixed(1)}%</span>
                             </div>
                             <div class="coverage-bar">
-                                <div class="coverage-fill coverage-medium" style="width: 65.2%;"></div>
+                                <div class="coverage-fill ${getCoverageClass(fileDetails.lineCoverage)}" style="width: ${fileDetails.lineCoverage}%;"></div>
                             </div>
+                            <small class="text-muted">${fileDetails.coveredLines}/${fileDetails.totalLines} lines covered</small>
                         </div>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span>Branch Coverage</span>
-                                <span class="fw-bold">58.7%</span>
+                                <span class="fw-bold">${fileDetails.branchCoverage.toFixed(1)}%</span>
                             </div>
                             <div class="coverage-bar">
-                                <div class="coverage-fill coverage-medium" style="width: 58.7%;"></div>
+                                <div class="coverage-fill ${getCoverageClass(fileDetails.branchCoverage)}" style="width: ${fileDetails.branchCoverage}%;"></div>
                             </div>
+                            <small class="text-muted">${fileDetails.coveredBranches}/${fileDetails.totalBranches} branches covered</small>
                         </div>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span>Method Coverage</span>
-                                <span class="fw-bold">72.1%</span>
+                                <span class="fw-bold">${fileDetails.methodCoverage.toFixed(1)}%</span>
                             </div>
                             <div class="coverage-bar">
-                                <div class="coverage-fill coverage-high" style="width: 72.1%;"></div>
+                                <div class="coverage-fill ${getCoverageClass(fileDetails.methodCoverage)}" style="width: ${fileDetails.methodCoverage}%;"></div>
                             </div>
+                            <small class="text-muted">${fileDetails.coveredMethods}/${fileDetails.totalMethods} methods covered</small>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Improvement Opportunities</h6>
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            <strong>5 uncovered methods</strong> detected
-                        </div>
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            <strong>Edge cases</strong> need test coverage
-                        </div>
-                        <div class="alert alert-success">
-                            <i class="bi bi-lightbulb me-2"></i>
-                            Estimated <strong>+15%</strong> coverage possible
-                        </div>
+                        ${opportunitiesHtml || '<p class="text-muted">No specific improvement opportunities identified.</p>'}
                     </div>
                 </div>
             `;
@@ -529,6 +586,7 @@
         }
 
         function improveCoverage() {
+            // You can implement repository-wide coverage improvement here
             alert('Repository-wide coverage improvement will be implemented here!');
         }
 

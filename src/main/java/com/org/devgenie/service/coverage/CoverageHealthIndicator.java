@@ -19,7 +19,7 @@ public class CoverageHealthIndicator implements HealthIndicator {
     public Health health() {
         try {
             // Check MongoDB connection
-            coverageDataService.getCurrentCoverage("health-check", "main");
+            coverageDataService.getCurrentCoverage("","health-check", "main");
 
             // Check AI service
             String testResponse = chatClient.prompt("Say 'OK' if you can respond").call().content();

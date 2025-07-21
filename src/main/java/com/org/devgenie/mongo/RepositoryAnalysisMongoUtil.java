@@ -44,7 +44,7 @@ public class RepositoryAnalysisMongoUtil {
      * Persist a single coverage node (directory or file) as CoverageData
      */
     @Async
-    public void persistCoverageDataBatchAsync(List<CoverageData> coverageDataList, String repoDir, String branch) {
+    public void persistCoverageDataBatchAsync(List<CoverageData> coverageDataList, String repositoryUrl,String repoDir, String branch) {
         if(coverageDataList!= null && !coverageDataList.isEmpty()) {
             coverageDataFlatMongoRepository.saveAll(coverageDataList);
             log.info("Coverage data batch persisted for repo {} branch {}: {} nodes", repoDir, branch, coverageDataList.size());

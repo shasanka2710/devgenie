@@ -47,6 +47,10 @@ public class RepositoryAnalysisService {
     @Autowired
     private FileImprovementOpportunityService fileImprovementOpportunityService;
 
+    @Autowired
+    private FastDashboardService fastDashboardService;
+
+
     public RepositoryAnalysisResponse analyzeRepository(RepositoryAnalysisRequest request) {
         log.info("Analyzing repository: {}", request.getRepositoryUrl());
         long overallStart = System.nanoTime();
@@ -97,7 +101,7 @@ public class RepositoryAnalysisService {
             SonarBaseComponentMetrics sonarBaseComponentMetrics = null;
             List<CoverageData> existingCoverage = new ArrayList<>();
             try {
-                sonarQubeMetricsResponse = coverageDataService.getCurrentCoverage(request.getRepositoryUrl(), request.getBranch());
+                sonarQubeMetricsResponse = coverageDataService.getCurrentCoverage(repoDir, request.getRepositoryUrl(), request.getBranch());
                 existingCoverage = sonarQubeMetricsResponse.getCoverageDataList();
                 sonarBaseComponentMetrics = sonarQubeMetricsResponse.getSonarBaseComponentMetrics();
             } catch (CoverageDataNotFoundException e) {
@@ -122,8 +126,7 @@ public class RepositoryAnalysisService {
             stepEnd = System.nanoTime();
             log.info("Coverage recommendations generation completed in {} ms", (stepEnd - stepStart) / 1_000_000);
 
-            long overallEnd = System.nanoTime();
-            log.info("Total analysis completed in {} ms", (overallEnd - overallStart) / 1_000_000);
+
 
             RepositoryAnalysis repositoryAnalysis = RepositoryAnalysis.builder()
                     .repositoryUrl(request.getRepositoryUrl())
@@ -149,7 +152,7 @@ public class RepositoryAnalysisService {
             // Persist repository summary
             analysisMongoUtil.persistRepositoryAnalysisAsync(repositoryAnalysis);
             // Persist coverage nodes separately
-            analysisMongoUtil.persistCoverageDataBatchAsync(existingCoverage, repoDir, request.getBranch());
+            analysisMongoUtil.persistCoverageDataBatchAsync(existingCoverage, request.getRepositoryUrl(),repoDir, request.getBranch());
             //Persist SonarBaseComponentMetrics
             analysisMongoUtil.persistSonarBaseComponentMetricsAsync(repoDir,request.getBranch(), sonarBaseComponentMetrics);
             // Persist file metadata separately
@@ -157,6 +160,22 @@ public class RepositoryAnalysisService {
                 analysisMongoUtil.persistFileMetadataBatchAsync(fileMetadata, repoDir, request.getBranch());
             }
 
+            // PERFORMANCE OPTIMIZATION: Generate dashboard cache from in-memory data 
+            // instead of re-loading from database. This eliminates unnecessary database round-trip.
+            log.info("Generating dashboard cache from in-memory data for repository: {}, branch: {}", 
+                request.getRepositoryUrl(), request.getBranch());
+            fastDashboardService.generateDashboardCacheFromMemory(
+                request.getRepositoryUrl(), 
+                request.getBranch(), 
+                existingCoverage, 
+                repositoryAnalysis, 
+                fileMetadata, 
+                sonarBaseComponentMetrics
+            );
+            log.info("Dashboard cache generation completed for repository: {}", request.getRepositoryUrl());
+
+            long overallEnd = System.nanoTime();
+            log.info("Total analysis completed in {} ms", (overallEnd - overallStart) / 1_000_000);
             return response;
 
         } catch (Exception e) {
