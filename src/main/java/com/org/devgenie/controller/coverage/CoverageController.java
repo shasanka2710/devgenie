@@ -1,17 +1,25 @@
 package com.org.devgenie.controller.coverage;
 
 import com.org.devgenie.dto.coverage.*;
+import com.org.devgenie.model.coverage.CoverageImprovementSession;
+import com.org.devgenie.model.coverage.EnhancedRepoCoverageRequest;
 import com.org.devgenie.model.coverage.RepositoryAnalysisRequest;
 import com.org.devgenie.model.coverage.RepositoryAnalysisResponse;
 import com.org.devgenie.model.coverage.WorkspaceStatusResponse;
+import com.org.devgenie.service.coverage.AsyncCoverageProcessingService;
 import com.org.devgenie.service.coverage.CoverageAgentService;
 import com.org.devgenie.service.coverage.RepositoryAnalysisService;
 import com.org.devgenie.service.coverage.RepositoryService;
+import com.org.devgenie.service.coverage.SessionManagementService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/coverage")
@@ -26,6 +34,12 @@ public class CoverageController {
 
     @Autowired
     private RepositoryService repositoryService;
+
+    @Autowired
+    private SessionManagementService sessionManagementService;
+
+    @Autowired
+    private AsyncCoverageProcessingService asyncCoverageProcessingService;
 
     /**
      * NEW: Analyze repository and provide summary before coverage improvement
@@ -169,6 +183,200 @@ public class CoverageController {
         } catch (Exception e) {
             log.error("Error cleaning up repository cache", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Enhanced file coverage improvement with session-based processing
+     * Sample Request:
+     * {
+     *   "repositoryUrl": "https://github.com/user/repo",
+     *   "branch": "main",
+     *   "filePath": "src/main/java/com/example/service/UserService.java",
+     *   "targetCoverageIncrease": 25.0,
+     *   "githubToken": "ghp_xxxx",
+     *   "workspaceId": "user-workspace-123",
+     *   "maxTestsPerBatch": 5,
+     *   "validateTests": true,
+     *   "createPullRequest": false
+     * }
+     */
+    @PostMapping("/file/improve-enhanced")
+    public ResponseEntity<?> improveFileCoverageEnhanced(@RequestBody EnhancedFileCoverageRequest request) {
+        try {
+            FileCoverageImprovementResult result = coverageAgentService.improveFileCoverageEnhanced(request);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Error in enhanced file coverage improvement", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage(), "timestamp", LocalDateTime.now()));
+        }
+    }
+
+    /**
+     * Async file coverage improvement with real-time progress tracking
+     * Returns immediately with a session ID for tracking progress via WebSocket
+     * Sample Request:
+     * {
+     *   "repositoryUrl": "https://github.com/user/repo",
+     *   "branch": "main",
+     *   "filePath": "src/main/java/com/example/service/UserService.java",
+     *   "targetCoverageIncrease": 25.0,
+     *   "githubToken": "ghp_xxxx",
+     *   "workspaceId": "user-workspace-123",
+     *   "maxTestsPerBatch": 5,
+     *   "validateTests": true,
+     *   "createPullRequest": false
+     * }
+     */
+    @PostMapping("/file/improve-async")
+    public ResponseEntity<?> improveFileCoverageAsync(@RequestBody EnhancedFileCoverageRequest request) {
+        try {
+            String sessionId = asyncCoverageProcessingService.startFileCoverageImprovement(request);
+            return ResponseEntity.ok(Map.of(
+                "sessionId", sessionId,
+                "message", "File coverage improvement started. Connect to WebSocket for real-time progress.",
+                "websocketUrl", "/ws/coverage-progress/" + sessionId,
+                "statusUrl", "/api/coverage/file/session/" + sessionId + "/status",
+                "timestamp", LocalDateTime.now()
+            ));
+        } catch (Exception e) {
+            log.error("Error starting async file coverage improvement", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage(), "timestamp", LocalDateTime.now()));
+        }
+    }
+
+    /**
+     * Async repository coverage improvement with batch processing
+     * Returns immediately with a session ID for tracking progress via WebSocket
+     * Sample Request:
+     * {
+     *   "repositoryUrl": "https://github.com/user/repo",
+     *   "branch": "main",
+     *   "targetCoverageIncrease": 20.0,
+     *   "githubToken": "ghp_xxxx",
+     *   "workspaceId": "user-workspace-123",
+     *   "excludePatterns": ["test/**", "generated/**"],
+     *   "maxFilesToProcess": 10,
+     *   "forceProjectDetection": false,
+     *   "maxTestsPerBatch": 5,
+     *   "validateTests": true,
+     *   "createPullRequest": false
+     * }
+     */
+    @PostMapping("/repo/improve-async")
+    public ResponseEntity<?> improveRepositoryCoverageAsync(@RequestBody EnhancedRepoCoverageRequest request) {
+        try {
+            String sessionId = asyncCoverageProcessingService.startRepositoryCoverageImprovement(request);
+            return ResponseEntity.ok(Map.of(
+                "sessionId", sessionId,
+                "message", "Repository coverage improvement started. Connect to WebSocket for real-time progress.",
+                "websocketUrl", "/ws/coverage-progress/" + sessionId,
+                "statusUrl", "/api/coverage/repo/session/" + sessionId + "/status",
+                "timestamp", LocalDateTime.now()
+            ));
+        } catch (Exception e) {
+            log.error("Error starting async repository coverage improvement", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage(), "timestamp", LocalDateTime.now()));
+        }
+    }
+
+    /**
+     * Cancel an ongoing async coverage improvement session
+     */
+    @PostMapping("/session/{sessionId}/cancel")
+    public ResponseEntity<?> cancelCoverageImprovementSession(@PathVariable String sessionId) {
+        try {
+            boolean cancelled = asyncCoverageProcessingService.cancelSession(sessionId);
+            if (cancelled) {
+                return ResponseEntity.ok(Map.of(
+                    "sessionId", sessionId,
+                    "message", "Session cancelled successfully",
+                    "timestamp", LocalDateTime.now()
+                ));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            log.error("Error cancelling session", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get session status for file coverage improvement
+     */
+    @GetMapping("/file/session/{sessionId}/status")
+    public ResponseEntity<?> getFileCoverageSessionStatus(@PathVariable String sessionId) {
+        try {
+            Optional<CoverageImprovementSession> sessionOpt = sessionManagementService.getSession(sessionId);
+            if (sessionOpt.isPresent()) {
+                return ResponseEntity.ok(sessionOpt.get());
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            log.error("Error getting session status", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get repository coverage session status (for async repo improvement)
+     */
+    @GetMapping("/repo/session/{sessionId}/status")
+    public ResponseEntity<?> getRepositoryCoverageSessionStatus(@PathVariable String sessionId) {
+        try {
+            Optional<CoverageImprovementSession> sessionOpt = sessionManagementService.getSession(sessionId);
+            if (sessionOpt.isPresent()) {
+                return ResponseEntity.ok(sessionOpt.get());
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            log.error("Error getting repository session status", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Apply generated test changes for a file coverage improvement session
+     */
+    @PostMapping("/file/session/{sessionId}/apply")
+    public ResponseEntity<?> applyFileCoverageChanges(
+            @PathVariable String sessionId,
+            @RequestBody ApplyChangesRequest request) {
+        try {
+            request.setSessionId(sessionId); // Ensure session ID is set
+            ApplyChangesResponse response = coverageAgentService.applyChanges(request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error applying file coverage changes", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Apply generated test changes for a repository coverage improvement session
+     */
+    @PostMapping("/repo/session/{sessionId}/apply")
+    public ResponseEntity<?> applyRepositoryCoverageChanges(
+            @PathVariable String sessionId,
+            @RequestBody ApplyChangesRequest request) {
+        try {
+            request.setSessionId(sessionId); // Ensure session ID is set
+            ApplyChangesResponse response = coverageAgentService.applyChanges(request);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error applying repository coverage changes", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 }

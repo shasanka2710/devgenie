@@ -90,6 +90,32 @@ public class GitService {
         }
     }
 
+    /**
+     * Pull latest changes from remote repository
+     * @param repoDir the repository directory
+     * @param branch the branch to pull from
+     */
+    public void pullLatestChanges(String repoDir, String branch) {
+        log.info("Pulling latest changes for branch: {} in directory: {}", branch, repoDir);
+
+        try {
+            // Change to the repository directory and pull latest changes
+            ProcessBuilder pb = new ProcessBuilder(gitCommand, "pull", "origin", branch);
+            pb.directory(new java.io.File(repoDir));
+            Process process = pb.start();
+
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                log.warn("Git pull failed with exit code: {}, continuing with existing repository", exitCode);
+            } else {
+                log.info("Successfully pulled latest changes for branch: {}", branch);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to pull latest changes, using existing repository: {}", e.getMessage());
+            // Don't throw exception - this is a best-effort operation
+        }
+    }
+
     private void applyFileChange(FileChange change) throws IOException {
         switch (change.getChangeType()) {
             case TEST_ADDED:
