@@ -13,16 +13,21 @@ class FileCoverageClient {
     /**
      * Start file coverage improvement process (async)
      */
-    async improveFileCoverage(request) {
+    async improveFileCoverage(request, sessionId = null) {
         try {
             console.log('Starting async file coverage improvement for:', request.filePath);
+            console.log('🔍 Frontend sessionId being sent:', sessionId);
+            
+            // If sessionId is provided, include it in the request
+            const requestBody = sessionId ? { ...request, sessionId } : request;
+            console.log('🔍 Request body:', requestBody);
             
             const response = await fetch('/api/coverage/file/improve-async', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(request)
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) {
@@ -33,9 +38,9 @@ class FileCoverageClient {
             this.sessionId = result.sessionId;
             
             console.log('File coverage improvement session started:', this.sessionId);
+            console.log('🔍 Backend returned sessionId:', result.sessionId);
             
-            // Connect to WebSocket for progress updates
-            this.connectToProgressWebSocket(result.sessionId);
+            // NOTE: WebSocket connection is handled by the frontend, not here
             
             return result;
 
@@ -48,16 +53,21 @@ class FileCoverageClient {
     /**
      * Start repository coverage improvement process (async)
      */
-    async improveRepositoryCoverage(request) {
+    async improveRepositoryCoverage(request, sessionId = null) {
         try {
             console.log('Starting async repository coverage improvement for:', request.repositoryUrl);
+            console.log('🔍 Frontend sessionId being sent:', sessionId);
+            
+            // If sessionId is provided, include it in the request
+            const requestBody = sessionId ? { ...request, sessionId } : request;
+            console.log('🔍 Request body:', requestBody);
             
             const response = await fetch('/api/coverage/repo/improve-async', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(request)
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) {
@@ -68,9 +78,9 @@ class FileCoverageClient {
             this.sessionId = result.sessionId;
             
             console.log('Repository coverage improvement session started:', this.sessionId);
+            console.log('🔍 Backend returned sessionId:', result.sessionId);
             
-            // Connect to WebSocket for progress updates
-            this.connectToProgressWebSocket(result.sessionId);
+            // NOTE: WebSocket connection is handled by the frontend, not here
             
             return result;
 

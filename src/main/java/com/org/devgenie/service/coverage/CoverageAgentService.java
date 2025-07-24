@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.nio.file.Paths;
 
 @Service
 @Slf4j
@@ -159,16 +158,24 @@ public class CoverageAgentService {
      */
     public FileCoverageImprovementResult improveFileCoverageEnhanced(com.org.devgenie.dto.coverage.EnhancedFileCoverageRequest request) {
         log.info("Starting enhanced file coverage improvement for: {}", request.getFilePath());
+        log.info("🔍 CoverageAgentService received sessionId: {}", request.getSessionId());
 
-        // Create session for tracking progress
-        CoverageImprovementSession session = sessionManagementService.createSession(
-                request.getRepositoryUrl(),
-                request.getBranch(),
-                request.getFilePath(),
-                CoverageImprovementSession.SessionType.FILE_IMPROVEMENT
-        );
-
-        String sessionId = session.getSessionId();
+        // Use existing session ID if provided, otherwise create a new session
+        String sessionId;
+        if (request.getSessionId() != null && !request.getSessionId().trim().isEmpty()) {
+            sessionId = request.getSessionId();
+            log.info("🔍 Using provided session ID: {}", sessionId);
+        } else {
+            // Create session for tracking progress (fallback for backward compatibility)
+            CoverageImprovementSession session = sessionManagementService.createSession(
+                    request.getRepositoryUrl(),
+                    request.getBranch(),
+                    request.getFilePath(),
+                    CoverageImprovementSession.SessionType.FILE_IMPROVEMENT
+            );
+            sessionId = session.getSessionId();
+            log.info("🔍 Created new session ID: {}", sessionId);
+        }
         LocalDateTime startTime = LocalDateTime.now();
 
         try {

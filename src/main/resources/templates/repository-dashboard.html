@@ -622,7 +622,7 @@
                 <div class="modal-header" style="background: linear-gradient(135deg, var(--wf-red) 0%, var(--wf-red-dark) 100%); color: white;">
                     <h5 class="modal-title" id="coverageProgressModalLabel">
                         <i class="bi bi-graph-up-arrow me-2"></i>
-                        Coverage Improvement in Progress
+                        Improving Code Coverage
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -634,8 +634,8 @@
                                 <span class="visually-hidden">Loading...</span>
                             </div>
                         </div>
-                        <h6 class="mt-3 mb-2" id="progressTitle">Analyzing and Improving Coverage...</h6>
-                        <small class="text-muted" id="progressSubtitle">This may take a few minutes</small>
+                        <h6 class="mt-3 mb-2" id="progressTitle">Analyzing Your Code...</h6>
+                        <small class="text-muted" id="progressSubtitle">Finding opportunities to improve test coverage</small>
                     </div>
 
                     <!-- Progress Bar -->
@@ -675,13 +675,13 @@
                         </div>
                     </div>
 
-                    <!-- Session Info -->
+                    <!-- Session Info (simplified) -->
                     <div class="session-info mt-4">
                         <div class="row">
                             <div class="col-md-6">
-                                <small class="text-muted">Session ID:</small>
+                                <small class="text-muted">Status:</small>
                                 <br>
-                                <code id="sessionId" style="font-size: 0.75rem;">-</code>
+                                <span id="sessionId" style="font-size: 0.85rem;">Processing...</span>
                             </div>
                             <div class="col-md-6 text-end">
                                 <small class="text-muted">Started:</small>
@@ -696,9 +696,88 @@
                         <i class="bi bi-eye-slash me-2"></i>
                         Hide Progress
                     </button>
+                    <button type="button" class="btn btn-outline-info btn-sm" id="debugToggleBtn" onclick="toggleDebugMode()">
+                        <i class="bi bi-bug me-1"></i>
+                        Debug: OFF
+                    </button>
                     <button type="button" class="btn btn-success" id="viewResultsBtn" style="display: none;">
                         <i class="bi bi-check-circle me-2"></i>
-                        View Results
+                        Review Improvements
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coverage Improvement Review Modal -->
+    <div class="modal fade" id="coverageReviewModal" tabindex="-1" aria-labelledby="coverageReviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="coverageReviewModalLabel">
+                        <i class="bi bi-check-circle me-2"></i>
+                        Coverage Improvement Results
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Summary Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card border-success">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>Improvement Summary</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="improvementSummary">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-info">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-file-earmark-code me-2"></i>Files Modified</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="modifiedFiles">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Generated Tests Section -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="bi bi-code-square me-2"></i>Generated Test Files</h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="generatedTestsContent">Loading test details...</div>
+                        </div>
+                    </div>
+
+                    <!-- User Feedback Section (for regeneration) -->
+                    <div class="card mb-4" id="feedbackSection" style="display: none;">
+                        <div class="card-header bg-warning text-dark">
+                            <h6 class="mb-0"><i class="bi bi-chat-text me-2"></i>Provide Feedback for Regeneration</h6>
+                        </div>
+                        <div class="card-body">
+                            <textarea class="form-control" id="regenerationFeedback" rows="4" 
+                                      placeholder="Describe what you'd like to improve or change about the generated tests..."></textarea>
+                            <small class="form-text text-muted">
+                                This feedback will be used to guide the AI in generating better tests.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-warning" id="regenerateBtn">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Regenerate Tests
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="cancelChangesBtn">
+                        <i class="bi bi-x-circle me-2"></i>Cancel Changes
+                    </button>
+                    <button type="button" class="btn btn-success" id="applyChangesBtn">
+                        <i class="bi bi-check-circle me-2"></i>Apply Changes & Create PR
                     </button>
                 </div>
             </div>
@@ -1053,14 +1132,22 @@
             try {
                 console.log('Initiating repository coverage improvement with existing workspace...');
                 
-                // Show progress modal immediately
-                showCoverageProgressModal('Repository Coverage Improvement', 'Analyzing entire repository for coverage opportunities...');
+                // Generate session ID for coordinated WebSocket and backend processing
+                const sessionId = generateSessionId();
+                console.log('Generated session ID for coordination:', sessionId);
                 
-                const result = await fileCoverageClient.improveRepositoryCoverage(request);
+                // Show progress modal immediately
+                showCoverageProgressModal('Repository Analysis', 'Scanning your entire project for coverage improvement opportunities...');
+                
+                // Connect to WebSocket FIRST with the session ID
+                connectToProgressWebSocket(sessionId);
+                
+                // Then start the backend processing with the SAME session ID
+                const result = await fileCoverageClient.improveRepositoryCoverage(request, sessionId);
                 console.log('Repository coverage improvement started:', result);
                 
-                // Update modal with session info
-                updateProgressModal(result);
+                // Update modal with session info (but don't reconnect WebSocket)
+                updateProgressModalWithoutWebSocket(result);
                 
             } catch (error) {
                 console.error('Failed to start repository coverage improvement:', error);
@@ -1073,15 +1160,23 @@
             try {
                 console.log('Initiating file coverage improvement with existing workspace...');
                 
+                // Generate session ID for coordinated WebSocket and backend processing
+                const sessionId = generateSessionId();
+                console.log('Generated session ID for coordination:', sessionId);
+                
                 // Show progress modal immediately
                 const fileName = filePath.split('/').pop();
-                showCoverageProgressModal('File Coverage Improvement', `Analyzing ${fileName} for coverage opportunities...`);
+                showCoverageProgressModal('File Analysis', `Analyzing ${fileName} for coverage improvement opportunities...`);
                 
-                const result = await fileCoverageClient.improveFileCoverage(request);
+                // Connect to WebSocket FIRST with the session ID
+                connectToProgressWebSocket(sessionId);
+                
+                // Then start the backend processing with the SAME session ID
+                const result = await fileCoverageClient.improveFileCoverage(request, sessionId);
                 console.log('File coverage improvement started:', result);
                 
-                // Update modal with session info
-                updateProgressModal(result);
+                // Update modal with session info (but don't reconnect WebSocket)
+                updateProgressModalWithoutWebSocket(result);
                 
             } catch (error) {
                 console.error('Failed to start file coverage improvement:', error);
@@ -1095,16 +1190,16 @@
             document.getElementById('progressTitle').textContent = title;
             document.getElementById('progressSubtitle').textContent = subtitle;
             document.getElementById('coverageProgressBar').style.width = '5%';
-            document.getElementById('currentStatusText').textContent = 'Initializing...';
-            document.getElementById('currentStatusDetail').textContent = 'Setting up analysis environment';
+            document.getElementById('currentStatusText').textContent = 'Starting analysis';
+            document.getElementById('currentStatusDetail').textContent = 'Scanning your code for improvement opportunities';
             document.getElementById('sessionId').textContent = '-';
             document.getElementById('startTime').textContent = new Date().toLocaleTimeString();
             
-            // Clear previous log
+            // Clear previous log and add initial task-focused message
             document.getElementById('progressLog').innerHTML = '';
             
-            // Add initial message
-            addProgressMessage('info', 'Coverage improvement process started', 'System initialized successfully');
+            // Add initial message focused on the task
+            addProgressMessage('info', 'Starting analysis', 'Preparing to scan your code for coverage opportunities');
             
             // Show modal
             const modal = new bootstrap.Modal(document.getElementById('coverageProgressModal'));
@@ -1115,25 +1210,52 @@
                 modal.hide();
             };
         }
+        
+        // Debug mode functionality
+        window.debugMode = false;
+        
+        function toggleDebugMode() {
+            window.debugMode = !window.debugMode;
+            const btn = document.getElementById('debugToggleBtn');
+            if (window.debugMode) {
+                btn.innerHTML = '<i class="bi bi-bug-fill me-1"></i>Debug: ON';
+                btn.className = 'btn btn-info btn-sm';
+                addProgressMessage('debug', '🔍 Debug Mode', 'Debug messages are now visible');
+            } else {
+                btn.innerHTML = '<i class="bi bi-bug me-1"></i>Debug: OFF';
+                btn.className = 'btn btn-outline-info btn-sm';
+                addProgressMessage('info', '🔍 Debug Mode', 'Debug messages are now hidden');
+            }
+        }
 
         function updateProgressModal(result) {
             if (result && result.sessionId) {
-                document.getElementById('sessionId').textContent = result.sessionId;
+                document.getElementById('sessionId').textContent = 'Processing...';
                 
-                if (result.websocketUrl) {
-                    addProgressMessage('info', 'WebSocket connection established', 'Real-time progress updates enabled');
-                    // Connect to WebSocket for real-time updates
+                // Connect to WebSocket for real-time updates (silently)
+                if (result.sessionId) {
                     connectToProgressWebSocket(result.sessionId);
-                }
-                
-                if (result.statusUrl) {
-                    addProgressMessage('info', 'Status monitoring active', `Monitor at: ${result.statusUrl}`);
                 }
                 
                 // Update progress
                 updateProgressBar(10);
-                updateCurrentStatus('Connected', 'WebSocket connection established for real-time updates');
+                updateCurrentStatus('Starting analysis', 'Preparing coverage improvement process');
             }
+        }
+
+        function updateProgressModalWithoutWebSocket(result) {
+            if (result && result.sessionId) {
+                document.getElementById('sessionId').textContent = 'Processing...';
+                
+                // Update progress (WebSocket is already connected)
+                updateProgressBar(10);
+                updateCurrentStatus('Starting analysis', 'Preparing coverage improvement process');
+            }
+        }
+
+        // Generate a unique session ID for coordinating WebSocket and backend processing
+        function generateSessionId() {
+            return 'session-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
         }
 
         function connectToProgressWebSocket(sessionId) {
@@ -1150,58 +1272,122 @@
                 
                 window.progressWebSocket.onopen = function(event) {
                     console.log('Progress WebSocket connected successfully');
-                    addProgressMessage('success', 'Real-time connection active', 'Receiving live progress updates');
+                    // Start the analysis silently, no need to show technical connection details
+                    addProgressMessage('info', 'Analysis starting', 'Scanning code for coverage improvement opportunities');
                 };
                 
                 window.progressWebSocket.onmessage = function(event) {
                     try {
                         const message = JSON.parse(event.data);
+                        console.log('Raw WebSocket message received:', message);
                         handleProgressMessage(message);
                     } catch (e) {
-                        console.log('Progress update:', event.data);
+                        console.log('Non-JSON progress update:', event.data);
                         addProgressMessage('info', 'Progress Update', event.data);
                     }
                 };
                 
                 window.progressWebSocket.onerror = function(error) {
                     console.error('Progress WebSocket error:', error);
-                    addProgressMessage('warning', 'Connection issue', 'WebSocket connection error - will retry...');
+                    // Only show user-friendly error message if needed
+                    addProgressMessage('warning', 'Processing continues', 'Progress updates may be delayed');
                 };
                 
                 window.progressWebSocket.onclose = function(event) {
                     console.log('Progress WebSocket closed:', event);
                     if (event.code !== 1000) {
-                        addProgressMessage('warning', 'Connection closed', 'WebSocket connection ended unexpectedly');
+                        // Only show message if there was an unexpected error
+                        addProgressMessage('warning', 'Process continues', 'Final status will be displayed shortly');
                     } else {
-                        addProgressMessage('success', 'Process completed', 'Coverage improvement finished successfully');
-                        updateCurrentStatus('Completed', 'Coverage improvement process has finished');
+                        addProgressMessage('success', 'Analysis complete', 'Coverage improvement process finished');
+                        updateCurrentStatus('Completed', 'Ready to review results');
                         showViewResultsButton();
                     }
                 };
                 
             } catch (error) {
                 console.error('Failed to create WebSocket connection:', error);
-                addProgressMessage('error', 'Connection failed', 'Unable to establish WebSocket connection');
+                addProgressMessage('info', 'Processing started', 'Analysis running in background mode');
             }
         }
 
         function handleProgressMessage(message) {
-            console.log('Received progress message:', message);
+            console.log('📨 Raw WebSocket message received:', message);
             
-            if (message.type === 'PROGRESS') {
-                updateProgressBar(message.progress || 0);
-                updateCurrentStatus(message.status || 'Processing', message.detail || '');
-                addProgressMessage('info', message.status || 'Progress Update', message.detail || message.message || '');
-            } else if (message.type === 'SUCCESS') {
+            // Skip technical connection messages
+            if (message.currentStep === 'Connected' || message.message === 'WebSocket connection established') {
+                return;
+            }
+            
+            // Universal progress handler - works with ANY message type!
+            const messageType = message.type || 'INFO';
+            const progress = message.progress || 0;
+            const currentStep = message.currentStep || 'Processing';
+            const messageText = message.message || '';
+            const severity = message.severity || 'INFO';
+            
+            // Always update progress bar for any message with progress
+            if (progress !== undefined && progress !== null) {
+                updateProgressBar(progress);
+            }
+            
+            // Always update current status
+            updateCurrentStatus(currentStep, messageText);
+            
+            // Determine UI styling based on severity (not type!)
+            let uiType = 'info'; // default
+            let title = currentStep;
+            
+            switch (severity) {
+                case 'SUCCESS':
+                    uiType = 'success';
+                    title = '✅ ' + currentStep;
+                    break;
+                case 'WARNING':
+                    uiType = 'warning';
+                    title = '⚠️ ' + currentStep;
+                    break;
+                case 'ERROR':
+                    uiType = 'error';
+                    title = '❌ ' + currentStep;
+                    break;
+                case 'DEBUG':
+                    uiType = 'info';
+                    title = '🔍 ' + currentStep;
+                    // Only show debug messages if debug mode is enabled
+                    if (!window.debugMode) return;
+                    break;
+                case 'INFO':
+                default:
+                    uiType = 'info';
+                    title = currentStep;
+            }
+            
+            // Add message to progress log
+            addProgressMessage(uiType, title, messageText);
+            
+            // Handle completion scenarios
+            if (messageType === 'COMPLETION' || severity === 'SUCCESS' || progress >= 100) {
                 updateProgressBar(100);
-                updateCurrentStatus('Completed', message.message || 'Process completed successfully');
-                addProgressMessage('success', 'Success', message.message || 'Process completed');
+                updateCurrentStatus('Completed', 'Coverage improvement process finished successfully');
                 showViewResultsButton();
-            } else if (message.type === 'ERROR') {
-                addProgressMessage('error', 'Error', message.message || 'An error occurred');
-                updateCurrentStatus('Error', message.message || 'An error occurred during processing');
-            } else {
-                addProgressMessage('info', 'Update', message.message || JSON.stringify(message));
+                
+                // Stop the spinner and update UI for completion
+                setTimeout(() => {
+                    document.getElementById('progressSubtitle').textContent = 'Analysis completed! Click "Review Improvements" to see results.';
+                }, 1000);
+            }
+            
+            // Handle any additional data if present
+            if (message.additionalData) {
+                console.log('📋 Additional message data:', message.additionalData);
+                // You can extend this to show additional data in UI
+            }
+            
+            // Category-based handling (optional)
+            if (message.category) {
+                console.log('📂 Message category:', message.category);
+                // You can add category-specific logic here
             }
         }
 

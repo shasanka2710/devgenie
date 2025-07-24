@@ -10,6 +10,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EnhancedRepoCoverageRequest {
+    private String sessionId; // Optional: if provided, use this session ID instead of generating a new one
     private String repositoryUrl;
     private String branch = "main";
     private Double targetCoverageIncrease;

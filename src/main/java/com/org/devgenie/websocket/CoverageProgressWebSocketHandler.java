@@ -1,6 +1,7 @@
 package com.org.devgenie.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.org.devgenie.dto.coverage.ProgressUpdate;
 import com.org.devgenie.service.coverage.SessionManagementService;
 import lombok.extern.slf4j.Slf4j;
@@ -17,20 +18,26 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CoverageProgressWebSocketHandler implements WebSocketHandler {
 
     private final ConcurrentHashMap<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public CoverageProgressWebSocketHandler() {
+        this.objectMapper = new ObjectMapper();
+        this.objectMapper.registerModule(new JavaTimeModule()); // ✅ FIX: Enable Java 8 time support
+        this.objectMapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String sessionId = extractSessionId(session.getUri());
         sessions.put(sessionId, session);
-        log.info("WebSocket connection established for session: {}", sessionId);
+        log.info("WebSocket connection established for session: {}, total sessions: {}", sessionId, sessions.size());
         
-        // Send initial connection confirmation
+        // Send initial connection confirmation (user-friendly)
         ProgressUpdate initialUpdate = ProgressUpdate.builder()
                 .sessionId(sessionId)
                 .progress(0.0)
-                .currentStep("Connected")
-                .message("WebSocket connection established")
+                .currentStep("Starting analysis")
+                .message("Initializing coverage analysis")
                 .type(ProgressUpdate.ProgressType.INITIALIZATION)
                 .build();
         
@@ -66,15 +73,18 @@ public class CoverageProgressWebSocketHandler implements WebSocketHandler {
      * Send progress update to specific session
      */
     public void sendProgressUpdate(String sessionId, ProgressUpdate update) {
+        log.debug("Attempting to send progress update to session: {}, update: {}", sessionId, update);
         WebSocketSession session = sessions.get(sessionId);
         if (session != null && session.isOpen()) {
             try {
                 String json = objectMapper.writeValueAsString(update);
                 session.sendMessage(new TextMessage(json));
-                log.debug("Sent progress update to session {}: {}%", sessionId, update.getProgress());
+                log.info("Successfully sent progress update to session {}: {}% - {}", sessionId, update.getProgress(), update.getMessage());
             } catch (IOException e) {
                 log.error("Failed to send progress update to session: {}", sessionId, e);
             }
+        } else {
+            log.warn("No active WebSocket session found for sessionId: {}, available sessions: {}", sessionId, sessions.keySet());
         }
     }
 
