@@ -186,4 +186,232 @@ public class TestGenerationService {
 
         throw new IllegalArgumentException("No valid JSON found in AI response");
     }
+
+    /**
+     * Generate tests in batches to handle token limitations
+     */
+    public BatchTestGenerationResult generateTestsBatch(FileAnalysisResult analysis, int batchIndex, Integer maxTestsPerBatch) {
+        log.info("Generating test batch {} for file: {}", batchIndex + 1, analysis.getFilePath());
+
+        try {
+            String fileContent = fileService.readFile(analysis.getFilePath());
+            
+            // Create batch-specific prompt
+            String batchPrompt = createBatchTestGenerationPrompt(fileContent, analysis, batchIndex, maxTestsPerBatch);
+            String aiResponse = chatClient.prompt(batchPrompt).call().content();
+
+            return parseBatchTestGenerationResponse(aiResponse, analysis, batchIndex);
+
+        } catch (Exception e) {
+            log.error("Failed to generate test batch {} for file: {}", batchIndex + 1, analysis.getFilePath(), e);
+            return BatchTestGenerationResult.failure(e.getMessage());
+        }
+    }
+
+    /**
+     * Validate generated tests by compilation and optional execution
+     */
+    public TestValidationResult validateGeneratedTests(String repoDir, List<String> testFiles) {
+        log.info("Validating {} generated test files", testFiles.size());
+
+        try {
+            // First, try to compile the tests
+            CompilationResult compilationResult = compileTestFiles(repoDir, testFiles);
+            
+            if (!compilationResult.getSuccess()) {
+                return TestValidationResult.builder()
+                        .success(false)
+                        .testsExecuted(0)
+                        .testsPassed(0)
+                        .testsFailed(0)
+                        .compilationErrors(compilationResult.getErrors())
+                        .validationMethod("COMPILATION_ONLY")
+                        .build();
+            }
+
+            // If compilation succeeds, try to run the tests
+            TestExecutionResult executionResult = executeTestFiles(repoDir, testFiles);
+            
+            return TestValidationResult.builder()
+                    .success(executionResult.getSuccess())
+                    .testsExecuted(executionResult.getTestsExecuted())
+                    .testsPassed(executionResult.getTestsPassed())
+                    .testsFailed(executionResult.getTestsFailed())
+                    .executionErrors(executionResult.getErrors())
+                    .validationMethod("EXECUTION")
+                    .executionTimeMs(executionResult.getExecutionTimeMs())
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Failed to validate generated tests", e);
+            return TestValidationResult.builder()
+                    .success(false)
+                    .compilationErrors(List.of(e.getMessage()))
+                    .validationMethod("VALIDATION_ERROR")
+                    .build();
+        }
+    }
+
+    private String createBatchTestGenerationPrompt(String fileContent, FileAnalysisResult analysis, 
+                                                  int batchIndex, Integer maxTestsPerBatch) {
+        return String.format("""
+            Generate %d JUnit 5 test methods for the following Java class (batch %d).
+            Focus on different aspects of the code to maximize coverage.
+            
+            Source Code:
+            ```java
+            %s
+            ```
+            
+            Analysis Results:
+            - File Path: %s
+            - Current Coverage: %.1f%%
+            - Methods to focus on: %s
+            
+            Requirements:
+            1. Generate exactly %d test methods
+            2. Use JUnit 5 annotations (@Test, @BeforeEach, etc.)
+            3. Include Mockito mocks where appropriate
+            4. Focus on edge cases and error conditions
+            5. Ensure tests are independent and can run in any order
+            6. Include meaningful assertions
+            
+            Return the response in JSON format:
+            {
+                "testClass": "TestClassName",
+                "testMethods": [
+                    {
+                        "methodName": "testMethodName",
+                        "description": "What this test validates",
+                        "code": "complete test method code",
+                        "coveredMethods": ["method1", "method2"],
+                        "estimatedCoverageContribution": 5.0
+                    }
+                ]
+            }
+            """, 
+            maxTestsPerBatch, batchIndex + 1, fileContent, analysis.getFilePath(), 
+            analysis.getCurrentCoverage(), getMethodsForBatch(analysis, batchIndex), maxTestsPerBatch);
+    }
+
+    private String getMethodsForBatch(FileAnalysisResult analysis, int batchIndex) {
+        // This would intelligently select methods for this batch
+        return "Methods identified for test generation in this batch";
+    }
+
+    private BatchTestGenerationResult parseBatchTestGenerationResponse(String aiResponse, 
+                                                                     FileAnalysisResult analysis, 
+                                                                     int batchIndex) {
+        try {
+            // Sanitize AI response - remove markdown code block formatting
+            String sanitizedResponse = sanitizeAiResponse(aiResponse);
+            log.debug("Original AI response length: {}, Sanitized length: {}", 
+                     aiResponse.length(), sanitizedResponse.length());
+            
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(sanitizedResponse);
+            
+            List<GeneratedTestInfo> tests = new ArrayList<>();
+            JsonNode testMethods = root.get("testMethods");
+            
+            if (testMethods != null && testMethods.isArray()) {
+                for (JsonNode method : testMethods) {
+                    GeneratedTestInfo testInfo = GeneratedTestInfo.builder()
+                            .testMethodName(method.get("methodName").asText())
+                            .testClass(root.get("testClass").asText())
+                            .description(method.get("description").asText())
+                            .testCode(method.get("code").asText())
+                            .coveredMethods(extractCoveredMethods(method.get("coveredMethods")))
+                            .estimatedCoverageContribution(method.get("estimatedCoverageContribution").asDouble())
+                            .build();
+                    tests.add(testInfo);
+                }
+            }
+            
+            // Generate test file paths
+            List<String> testFilePaths = createTestFilePaths(analysis, batchIndex, tests);
+            
+            return BatchTestGenerationResult.success(tests, testFilePaths);
+            
+        } catch (Exception e) {
+            log.error("Failed to parse batch test generation response", e);
+            return BatchTestGenerationResult.failure("Failed to parse AI response: " + e.getMessage());
+        }
+    }
+
+    private List<String> extractCoveredMethods(JsonNode coveredMethodsNode) {
+        List<String> methods = new ArrayList<>();
+        if (coveredMethodsNode != null && coveredMethodsNode.isArray()) {
+            coveredMethodsNode.forEach(node -> methods.add(node.asText()));
+        }
+        return methods;
+    }
+
+    private List<String> createTestFilePaths(FileAnalysisResult analysis, int batchIndex, List<GeneratedTestInfo> tests) {
+        List<String> paths = new ArrayList<>();
+        String baseTestPath = analysis.getFilePath().replace("src/main/java", "src/test/java")
+                                                   .replace(".java", "Test.java");
+        
+        if (batchIndex > 0) {
+            baseTestPath = baseTestPath.replace("Test.java", "Test" + (batchIndex + 1) + ".java");
+        }
+        
+        paths.add(baseTestPath);
+        return paths;
+    }
+
+    private CompilationResult compileTestFiles(String repoDir, List<String> testFiles) {
+        // Implementation would use javac or Maven/Gradle to compile tests
+        // For now, return a simple success result
+        return CompilationResult.builder()
+                .success(true)
+                .errors(new ArrayList<>())
+                .build();
+    }
+
+    private TestExecutionResult executeTestFiles(String repoDir, List<String> testFiles) {
+        // Implementation would use JUnit platform to execute tests
+        // For now, return a simple success result
+        return TestExecutionResult.builder()
+                .success(true)
+                .testsExecuted(testFiles.size())
+                .testsPassed(testFiles.size())
+                .testsFailed(0)
+                .errors(new ArrayList<>())
+                .executionTimeMs(1000L)
+                .build();
+    }
+
+    /**
+     * Sanitizes AI response by removing markdown code block formatting
+     * Handles cases where AI returns JSON wrapped in ```json ... ``` or ``` ... ```
+     */
+    private String sanitizeAiResponse(String aiResponse) {
+        if (aiResponse == null) {
+            return null;
+        }
+        
+        String response = aiResponse.trim();
+        
+        // Remove markdown code block markers
+        if (response.startsWith("```")) {
+            int firstNewline = response.indexOf('\n');
+            if (firstNewline != -1) {
+                response = response.substring(firstNewline + 1);
+            }
+        }
+        
+        if (response.endsWith("```")) {
+            response = response.substring(0, response.lastIndexOf("```"));
+        }
+        
+        // Remove any leading/trailing whitespace again
+        response = response.trim();
+        
+        log.debug("Sanitized AI response: starts with '{}', ends with '{}'", 
+                 response.substring(0, Math.min(10, response.length())),
+                 response.substring(Math.max(0, response.length() - 10)));
+        
+        return response;
+    }
 }

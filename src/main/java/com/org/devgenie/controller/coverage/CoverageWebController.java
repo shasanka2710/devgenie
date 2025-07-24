@@ -217,6 +217,11 @@ public class CoverageWebController {
             model.addAttribute("overallMetrics", dashboardData.getOverallMetrics());
             model.addAttribute("fileTree", dashboardData.getFileTree());
             model.addAttribute("fileDetails", dashboardData.getFileDetails());
+            
+            // Add repository context for coverage improvement
+            model.addAttribute("repositoryUrl", repository.getHtmlUrl());
+            model.addAttribute("defaultBranch", repository.getDefaultBranch() != null ? repository.getDefaultBranch() : "main");
+            model.addAttribute("fullName", repository.getFullName()); // owner/repo format
 
             return "repository-dashboard";
 
@@ -274,6 +279,25 @@ public class CoverageWebController {
                 "status", "error",
                 "message", "Failed to get cache status: " + e.getMessage()
             );
+        }
+    }
+
+    /**
+     * Coverage improvement page
+     */
+    @GetMapping("/improvement")
+    public String coverageImprovementPage(Model model, Authentication authentication) {
+        try {
+            // Add user context if needed
+            if (authentication != null) {
+                model.addAttribute("user", authentication.getName());
+            }
+            
+            return "coverage-improvement";
+        } catch (Exception e) {
+            log.error("Error loading coverage improvement page", e);
+            model.addAttribute("error", "Failed to load coverage improvement page");
+            return "error";
         }
     }
 

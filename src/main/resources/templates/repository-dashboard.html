@@ -322,6 +322,122 @@
             margin-bottom: 1rem;
             opacity: 0.5;
         }
+
+        /* Coverage Improvement Progress Modal */
+        .modal-content {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            border-bottom: none;
+        }
+
+        .modal-title {
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+
+        .progress-bar {
+            height: 12px;
+            border-radius: 6px;
+        }
+
+        .current-status {
+            margin-top: 1rem;
+        }
+
+        .session-info {
+            margin-top: 2rem;
+        }
+
+        /* Additional styles for progress modal */
+        .coverage-progress-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--wf-red-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+        }
+
+        .progress-log {
+            background: white;
+            border: 1px solid var(--wf-border);
+            border-radius: 6px;
+            padding: 1rem;
+        }
+
+        .progress-message {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .progress-message:last-child {
+            margin-bottom: 0;
+        }
+
+        .progress-message.info {
+            background: rgba(23, 118, 210, 0.1);
+            border-left: 3px solid var(--wf-blue);
+        }
+
+        .progress-message.success {
+            background: rgba(56, 142, 60, 0.1);
+            border-left: 3px solid var(--wf-green);
+        }
+
+        .progress-message.warning {
+            background: rgba(245, 124, 0, 0.1);
+            border-left: 3px solid var(--wf-yellow);
+        }
+
+        .progress-message.error {
+            background: rgba(215, 25, 33, 0.1);
+            border-left: 3px solid var(--wf-red);
+        }
+
+        .progress-message-icon {
+            margin-right: 0.75rem;
+            margin-top: 0.125rem;
+            font-size: 1rem;
+        }
+
+        .progress-message-content {
+            flex: 1;
+        }
+
+        .progress-message-time {
+            font-size: 0.75rem;
+            color: #6c757d;
+            margin-top: 0.25rem;
+        }
+
+        .status-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--wf-red-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .status-icon.processing {
+            animation: pulse 2s infinite;
+        }
     </style>
 </head>
 <body>
@@ -498,12 +614,210 @@
             </div>
         </div>
     </div>
+
+    <!-- Coverage Improvement Progress Modal -->
+    <div class="modal fade" id="coverageProgressModal" tabindex="-1" aria-labelledby="coverageProgressModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, var(--wf-red) 0%, var(--wf-red-dark) 100%); color: white;">
+                    <h5 class="modal-title" id="coverageProgressModalLabel">
+                        <i class="bi bi-graph-up-arrow me-2"></i>
+                        Coverage Improvement in Progress
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Progress Header -->
+                    <div class="text-center mb-4">
+                        <div class="coverage-progress-icon">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <h6 class="mt-3 mb-2" id="progressTitle">Analyzing and Improving Coverage...</h6>
+                        <small class="text-muted" id="progressSubtitle">This may take a few minutes</small>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="progress mb-4" style="height: 12px; border-radius: 6px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" 
+                             style="width: 0%; background: linear-gradient(90deg, var(--wf-red), var(--wf-blue));"
+                             id="coverageProgressBar">
+                        </div>
+                    </div>
+
+                    <!-- Current Status -->
+                    <div class="current-status mb-4">
+                        <div class="card border-0" style="background-color: var(--wf-light-gray);">
+                            <div class="card-body py-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="status-icon me-3">
+                                        <i class="bi bi-gear-fill text-primary" id="statusIcon"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1" id="currentStatusText">Initializing coverage improvement...</h6>
+                                        <small class="text-muted" id="currentStatusDetail">Setting up analysis environment</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Messages -->
+                    <div class="progress-messages">
+                        <h6 class="mb-3">
+                            <i class="bi bi-list-ul me-2"></i>
+                            Progress Log
+                        </h6>
+                        <div class="progress-log" id="progressLog" style="max-height: 250px; overflow-y: auto;">
+                            <!-- Messages will be appended here -->
+                        </div>
+                    </div>
+
+                    <!-- Session Info -->
+                    <div class="session-info mt-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">Session ID:</small>
+                                <br>
+                                <code id="sessionId" style="font-size: 0.75rem;">-</code>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <small class="text-muted">Started:</small>
+                                <br>
+                                <span id="startTime" style="font-size: 0.85rem;">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" id="hideModalBtn">
+                        <i class="bi bi-eye-slash me-2"></i>
+                        Hide Progress
+                    </button>
+                    <button type="button" class="btn btn-success" id="viewResultsBtn" style="display: none;">
+                        <i class="bi bi-check-circle me-2"></i>
+                        View Results
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Styles for Progress Modal -->
+    <style>
+        .coverage-progress-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--wf-red-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+        }
+
+        .progress-log {
+            background: white;
+            border: 1px solid var(--wf-border);
+            border-radius: 6px;
+            padding: 1rem;
+        }
+
+        .progress-message {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .progress-message:last-child {
+            margin-bottom: 0;
+        }
+
+        .progress-message.info {
+            background: rgba(23, 118, 210, 0.1);
+            border-left: 3px solid var(--wf-blue);
+        }
+
+        .progress-message.success {
+            background: rgba(56, 142, 60, 0.1);
+            border-left: 3px solid var(--wf-green);
+        }
+
+        .progress-message.warning {
+            background: rgba(245, 124, 0, 0.1);
+            border-left: 3px solid var(--wf-yellow);
+        }
+
+        .progress-message.error {
+            background: rgba(215, 25, 33, 0.1);
+            border-left: 3px solid var(--wf-red);
+        }
+
+        .progress-message-icon {
+            margin-right: 0.75rem;
+            margin-top: 0.125rem;
+            font-size: 1rem;
+        }
+
+        .progress-message-content {
+            flex: 1;
+        }
+
+        .progress-message-time {
+            font-size: 0.75rem;
+            color: #6c757d;
+            margin-top: 0.25rem;
+        }
+
+        .status-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--wf-red-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .status-icon.processing {
+            animation: pulse 2s infinite;
+        }
+    </style>
 </div>
 
 <th:block layout:fragment="scripts">
+    <!-- File Coverage Client for coverage improvement functionality -->
+    <script src="/js/file-coverage-client.js"></script>
+    
     <script th:inline="javascript">
         // Store file details data for JavaScript access
         const fileDetailsMap = new Map();
+        
+        // Repository context from server - no need to prompt user
+        const REPOSITORY_CONTEXT = {
+            repositoryUrl: /*[[${repositoryUrl}]]*/ 'https://github.com/example/repo',
+            branch: /*[[${defaultBranch}]]*/ 'main',
+            owner: /*[[${owner}]]*/ 'example',
+            repoName: /*[[${repoName}]]*/ 'repo',
+            fullName: /*[[${fullName}]]*/ 'example/repo'
+        };
+        
+        console.log('Repository context loaded:', REPOSITORY_CONTEXT);
+        
+        // FileCoverageClient is already instantiated in file-coverage-client.js
+        // Just wait for it to be available
+        console.log('File coverage client should be available globally');
         
         /*<![CDATA[*/
         // Safe file details processing
@@ -543,8 +857,17 @@
             });
         }
         /*]]>*/
+        
+        console.log('=== FILE PROCESSING COMPLETE ===');
+        console.log('fileDetailsMap size:', fileDetailsMap.size);
+        console.log('fileDetailsMap keys:', Array.from(fileDetailsMap.keys()));
 
         function selectFile(element) {
+            console.log('=== FILE SELECTION DEBUG ===');
+            console.log('Element clicked:', element);
+            console.log('data-file-path:', element.getAttribute('data-file-path'));
+            console.log('data-file-name:', element.getAttribute('data-file-name'));
+            
             // Remove previous selection
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('selected');
@@ -559,13 +882,18 @@
             
             if (!filePath || !fileName) {
                 console.warn('Missing file path or name attributes');
+                console.warn('filePath:', filePath, 'fileName:', fileName);
                 return;
             }
 
             // Get file details
             const fileDetails = fileDetailsMap.get(filePath);
+            console.log('Looking for file details for:', filePath);
+            console.log('Found file details:', fileDetails);
+            
             if (!fileDetails) {
                 console.warn('No details found for file:', filePath);
+                console.warn('Available files in map:', Array.from(fileDetailsMap.keys()));
                 return;
             }
 
@@ -593,7 +921,7 @@
                     } else if (opp.priority === 'INFO') {
                         alertClass = 'alert-success';
                         icon = 'bi-lightbulb';
-                }
+                    }
                 
                 opportunitiesHtml += `
                     <div class="alert ${alertClass}">
@@ -601,7 +929,7 @@
                         <strong>${opp.description}</strong>
                     </div>
                 `;
-            });
+                });
             }
 
             // Show file details
@@ -670,13 +998,275 @@
         }
 
         function improveCoverage() {
-            // You can implement repository-wide coverage improvement here
-            alert('Repository-wide coverage improvement will be implemented here!');
+            // Repository-wide coverage improvement using existing repository context
+            console.log('Starting repository-wide coverage improvement...');
+            
+            const request = {
+                repositoryUrl: REPOSITORY_CONTEXT.repositoryUrl,
+                branch: REPOSITORY_CONTEXT.branch,
+                targetCoverageIncrease: 25.0,
+                maxTestsPerBatch: 10,
+                validateTests: true,
+                workspaceId: REPOSITORY_CONTEXT.fullName, // Use existing workspace
+                githubToken: null // Will be handled by the backend session
+            };
+
+            console.log('Repository coverage improvement request:', request);
+            startRepositoryCoverageImprovement(request);
         }
 
         function improveFileCoverage() {
             const fileName = document.getElementById('selectedFileName').textContent;
-            alert(`File-specific coverage improvement for ${fileName} will be implemented here!`);
+            const selectedFileElement = document.querySelector('.file-item.selected');
+            
+            if (!selectedFileElement || fileName === 'Select a file') {
+                alert('Please select a Java file first');
+                return;
+            }
+            
+            const filePath = selectedFileElement.getAttribute('data-file-path');
+            
+            if (!filePath) {
+                alert('Unable to determine file path. Please ensure a valid Java file is selected.');
+                return;
+            }
+            
+            console.log('Starting file coverage improvement for:', filePath);
+            
+            const request = {
+                repositoryUrl: REPOSITORY_CONTEXT.repositoryUrl,
+                branch: REPOSITORY_CONTEXT.branch,
+                filePath: filePath,
+                targetCoverageIncrease: 25.0,
+                maxTestsPerBatch: 5,
+                validateTests: true,
+                workspaceId: REPOSITORY_CONTEXT.fullName, // Use existing workspace
+                githubToken: null // Will be handled by the backend session
+            };
+
+            console.log('File coverage improvement request:', request);
+            startFileCoverageImprovement(filePath, request);
+        }
+
+        // Repository coverage improvement function
+        async function startRepositoryCoverageImprovement(request) {
+            try {
+                console.log('Initiating repository coverage improvement with existing workspace...');
+                
+                // Show progress modal immediately
+                showCoverageProgressModal('Repository Coverage Improvement', 'Analyzing entire repository for coverage opportunities...');
+                
+                const result = await fileCoverageClient.improveRepositoryCoverage(request);
+                console.log('Repository coverage improvement started:', result);
+                
+                // Update modal with session info
+                updateProgressModal(result);
+                
+            } catch (error) {
+                console.error('Failed to start repository coverage improvement:', error);
+                showErrorInModal('Failed to start repository coverage improvement', error.message);
+            }
+        }
+
+        // File coverage improvement function  
+        async function startFileCoverageImprovement(filePath, request) {
+            try {
+                console.log('Initiating file coverage improvement with existing workspace...');
+                
+                // Show progress modal immediately
+                const fileName = filePath.split('/').pop();
+                showCoverageProgressModal('File Coverage Improvement', `Analyzing ${fileName} for coverage opportunities...`);
+                
+                const result = await fileCoverageClient.improveFileCoverage(request);
+                console.log('File coverage improvement started:', result);
+                
+                // Update modal with session info
+                updateProgressModal(result);
+                
+            } catch (error) {
+                console.error('Failed to start file coverage improvement:', error);
+                showErrorInModal('Failed to start file coverage improvement', error.message);
+            }
+        }
+
+        // Progress Modal Functions
+        function showCoverageProgressModal(title, subtitle) {
+            // Set initial state
+            document.getElementById('progressTitle').textContent = title;
+            document.getElementById('progressSubtitle').textContent = subtitle;
+            document.getElementById('coverageProgressBar').style.width = '5%';
+            document.getElementById('currentStatusText').textContent = 'Initializing...';
+            document.getElementById('currentStatusDetail').textContent = 'Setting up analysis environment';
+            document.getElementById('sessionId').textContent = '-';
+            document.getElementById('startTime').textContent = new Date().toLocaleTimeString();
+            
+            // Clear previous log
+            document.getElementById('progressLog').innerHTML = '';
+            
+            // Add initial message
+            addProgressMessage('info', 'Coverage improvement process started', 'System initialized successfully');
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('coverageProgressModal'));
+            modal.show();
+            
+            // Enable hide button functionality
+            document.getElementById('hideModalBtn').onclick = function() {
+                modal.hide();
+            };
+        }
+
+        function updateProgressModal(result) {
+            if (result && result.sessionId) {
+                document.getElementById('sessionId').textContent = result.sessionId;
+                
+                if (result.websocketUrl) {
+                    addProgressMessage('info', 'WebSocket connection established', 'Real-time progress updates enabled');
+                    // Connect to WebSocket for real-time updates
+                    connectToProgressWebSocket(result.sessionId);
+                }
+                
+                if (result.statusUrl) {
+                    addProgressMessage('info', 'Status monitoring active', `Monitor at: ${result.statusUrl}`);
+                }
+                
+                // Update progress
+                updateProgressBar(10);
+                updateCurrentStatus('Connected', 'WebSocket connection established for real-time updates');
+            }
+        }
+
+        function connectToProgressWebSocket(sessionId) {
+            if (window.progressWebSocket) {
+                window.progressWebSocket.close();
+            }
+            
+            // Use query parameter approach for session ID
+            const wsUrl = `ws://localhost:8080/ws/coverage-progress?sessionId=${sessionId}`;
+            console.log('Connecting to progress WebSocket:', wsUrl);
+            
+            try {
+                window.progressWebSocket = new WebSocket(wsUrl);
+                
+                window.progressWebSocket.onopen = function(event) {
+                    console.log('Progress WebSocket connected successfully');
+                    addProgressMessage('success', 'Real-time connection active', 'Receiving live progress updates');
+                };
+                
+                window.progressWebSocket.onmessage = function(event) {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleProgressMessage(message);
+                    } catch (e) {
+                        console.log('Progress update:', event.data);
+                        addProgressMessage('info', 'Progress Update', event.data);
+                    }
+                };
+                
+                window.progressWebSocket.onerror = function(error) {
+                    console.error('Progress WebSocket error:', error);
+                    addProgressMessage('warning', 'Connection issue', 'WebSocket connection error - will retry...');
+                };
+                
+                window.progressWebSocket.onclose = function(event) {
+                    console.log('Progress WebSocket closed:', event);
+                    if (event.code !== 1000) {
+                        addProgressMessage('warning', 'Connection closed', 'WebSocket connection ended unexpectedly');
+                    } else {
+                        addProgressMessage('success', 'Process completed', 'Coverage improvement finished successfully');
+                        updateCurrentStatus('Completed', 'Coverage improvement process has finished');
+                        showViewResultsButton();
+                    }
+                };
+                
+            } catch (error) {
+                console.error('Failed to create WebSocket connection:', error);
+                addProgressMessage('error', 'Connection failed', 'Unable to establish WebSocket connection');
+            }
+        }
+
+        function handleProgressMessage(message) {
+            console.log('Received progress message:', message);
+            
+            if (message.type === 'PROGRESS') {
+                updateProgressBar(message.progress || 0);
+                updateCurrentStatus(message.status || 'Processing', message.detail || '');
+                addProgressMessage('info', message.status || 'Progress Update', message.detail || message.message || '');
+            } else if (message.type === 'SUCCESS') {
+                updateProgressBar(100);
+                updateCurrentStatus('Completed', message.message || 'Process completed successfully');
+                addProgressMessage('success', 'Success', message.message || 'Process completed');
+                showViewResultsButton();
+            } else if (message.type === 'ERROR') {
+                addProgressMessage('error', 'Error', message.message || 'An error occurred');
+                updateCurrentStatus('Error', message.message || 'An error occurred during processing');
+            } else {
+                addProgressMessage('info', 'Update', message.message || JSON.stringify(message));
+            }
+        }
+
+        function updateProgressBar(percentage) {
+            const progressBar = document.getElementById('coverageProgressBar');
+            progressBar.style.width = Math.min(percentage, 100) + '%';
+        }
+
+        function updateCurrentStatus(status, detail) {
+            document.getElementById('currentStatusText').textContent = status;
+            document.getElementById('currentStatusDetail').textContent = detail;
+            
+            const statusIcon = document.getElementById('statusIcon');
+            statusIcon.className = 'bi bi-gear-fill text-primary';
+            
+            if (status.toLowerCase().includes('complet') || status.toLowerCase().includes('success')) {
+                statusIcon.className = 'bi bi-check-circle-fill text-success';
+            } else if (status.toLowerCase().includes('error') || status.toLowerCase().includes('fail')) {
+                statusIcon.className = 'bi bi-exclamation-triangle-fill text-danger';
+            } else {
+                statusIcon.parentElement.classList.add('processing');
+            }
+        }
+
+        function addProgressMessage(type, title, message) {
+            const progressLog = document.getElementById('progressLog');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = `progress-message ${type}`;
+            
+            const iconMap = {
+                'info': 'bi-info-circle-fill text-primary',
+                'success': 'bi-check-circle-fill text-success',
+                'warning': 'bi-exclamation-triangle-fill text-warning',
+                'error': 'bi-x-circle-fill text-danger'
+            };
+            
+            messageElement.innerHTML = `
+                <div class="progress-message-icon">
+                    <i class="${iconMap[type] || iconMap.info}"></i>
+                </div>
+                <div class="progress-message-content">
+                    <div class="fw-medium">${title}</div>
+                    <div>${message}</div>
+                    <div class="progress-message-time">${timestamp}</div>
+                </div>
+            `;
+            
+            progressLog.appendChild(messageElement);
+            progressLog.scrollTop = progressLog.scrollHeight;
+        }
+
+        function showErrorInModal(title, message) {
+            updateCurrentStatus('Error', message);
+            addProgressMessage('error', title, message);
+            updateProgressBar(0);
+        }
+
+        function showViewResultsButton() {
+            document.getElementById('viewResultsBtn').style.display = 'inline-block';
+            document.getElementById('viewResultsBtn').onclick = function() {
+                // Refresh the page to see updated results
+                window.location.reload();
+            };
         }
 
         // Add event listeners when the page loads

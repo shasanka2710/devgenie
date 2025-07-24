@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coverage Improvement - DevGenie</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .coverage-card {
+            transition: transform 0.2s;
+        }
+        .coverage-card:hover {
+            transform: translateY(-5px);
+        }
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .bg-gradient-success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+    
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2><i class="fas fa-chart-line text-primary"></i> Coverage Improvement</h2>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+                            <li class="breadcrumb-item active">Coverage Improvement</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coverage Improvement Options -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-6">
+                <div class="card coverage-card h-100 shadow-sm border-0">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon bg-gradient-primary text-white mx-auto">
+                            <i class="fas fa-file-code fa-2x"></i>
+                        </div>
+                        <h4 class="card-title mb-3">File Coverage Improvement</h4>
+                        <p class="card-text text-muted mb-4">
+                            Generate comprehensive test cases for a specific Java file to improve its code coverage.
+                            Perfect for targeting low-coverage files or critical components.
+                        </p>
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="fas fa-clock"></i> Typical time: 2-5 minutes<br>
+                                <i class="fas fa-code"></i> Supports: Java files
+                            </small>
+                        </div>
+                        <button class="btn btn-primary btn-lg" onclick="showFileImprovementModal()">
+                            <i class="fas fa-play"></i> Start File Improvement
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card coverage-card h-100 shadow-sm border-0">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon bg-gradient-success text-white mx-auto">
+                            <i class="fas fa-folder-open fa-2x"></i>
+                        </div>
+                        <h4 class="card-title mb-3">Repository Coverage Improvement</h4>
+                        <p class="card-text text-muted mb-4">
+                            Analyze and improve coverage across the entire repository. Batch process multiple files
+                            with intelligent prioritization and progress tracking.
+                        </p>
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="fas fa-clock"></i> Typical time: 10-30 minutes<br>
+                                <i class="fas fa-cogs"></i> Supports: Batch processing
+                            </small>
+                        </div>
+                        <button class="btn btn-success btn-lg" onclick="showRepositoryImprovementModal()">
+                            <i class="fas fa-rocket"></i> Start Repository Improvement
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Sessions -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-history"></i> Recent Sessions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="recent-sessions">
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-inbox fa-3x mb-3"></i>
+                                <p>No recent sessions found. Start your first coverage improvement session above!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Coverage Improvement Modal -->
+    <div class="modal fade" id="fileImprovementModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-file-code"></i> File Coverage Improvement</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="fileImprovementForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="repositoryUrl" class="form-label">Repository URL</label>
+                                    <input type="url" class="form-control" id="repositoryUrl" required 
+                                           placeholder="https://github.com/user/repo">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="branch" class="form-label">Branch</label>
+                                    <input type="text" class="form-control" id="branch" value="main" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="filePath" class="form-label">Java File Path</label>
+                            <input type="text" class="form-control" id="filePath" required 
+                                   placeholder="src/main/java/com/example/service/UserService.java">
+                            <div class="form-text">Enter the relative path to the Java file you want to improve</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="targetCoverageIncrease" class="form-label">Target Coverage Increase (%)</label>
+                                    <input type="number" class="form-control" id="targetCoverageIncrease" 
+                                           value="25" min="10" max="50" step="5">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="maxTestsPerBatch" class="form-label">Max Tests Per Batch</label>
+                                    <input type="number" class="form-control" id="maxTestsPerBatch" 
+                                           value="5" min="1" max="20">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="validateTests" checked>
+                                <label class="form-check-label" for="validateTests">
+                                    Validate generated tests (compile and run)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="githubToken" class="form-label">GitHub Token (Optional)</label>
+                            <input type="password" class="form-control" id="githubToken" 
+                                   placeholder="ghp_xxxxxxxxxxxx">
+                            <div class="form-text">Required for private repositories</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="startFileImprovement()">
+                        <i class="fas fa-play"></i> Start Improvement
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Repository Coverage Improvement Modal -->
+    <div class="modal fade" id="repositoryImprovementModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-folder-open"></i> Repository Coverage Improvement</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="repositoryImprovementForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="repoRepositoryUrl" class="form-label">Repository URL</label>
+                                    <input type="url" class="form-control" id="repoRepositoryUrl" required 
+                                           placeholder="https://github.com/user/repo">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="repoBranch" class="form-label">Branch</label>
+                                    <input type="text" class="form-control" id="repoBranch" value="main" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="repoTargetCoverageIncrease" class="form-label">Target Coverage Increase (%)</label>
+                                    <input type="number" class="form-control" id="repoTargetCoverageIncrease" 
+                                           value="20" min="10" max="40" step="5">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="maxFilesToProcess" class="form-label">Max Files to Process</label>
+                                    <input type="number" class="form-control" id="maxFilesToProcess" 
+                                           value="50" min="10" max="200" step="10">
+                                    <div class="form-text">Limit to avoid long processing times</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="excludePatterns" class="form-label">Exclude Patterns</label>
+                            <textarea class="form-control" id="excludePatterns" rows="3" 
+                                      placeholder="**/*Test.java&#10;**/test/**&#10;**/target/**">**/*Test.java
+**/test/**
+**/target/**</textarea>
+                            <div class="form-text">One pattern per line. Use glob patterns to exclude files/directories</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="forceRefresh">
+                                <label class="form-check-label" for="forceRefresh">
+                                    Force refresh (re-clone repository)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="repoGithubToken" class="form-label">GitHub Token (Optional)</label>
+                            <input type="password" class="form-control" id="repoGithubToken" 
+                                   placeholder="ghp_xxxxxxxxxxxx">
+                            <div class="form-text">Required for private repositories</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="startRepositoryImprovement()">
+                        <i class="fas fa-rocket"></i> Start Repository Improvement
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/file-coverage-client.js"></script>
+    <script>
+        function showFileImprovementModal() {
+            const modal = new bootstrap.Modal(document.getElementById('fileImprovementModal'));
+            modal.show();
+        }
+
+        function showRepositoryImprovementModal() {
+            const modal = new bootstrap.Modal(document.getElementById('repositoryImprovementModal'));
+            modal.show();
+        }
+
+        function startFileImprovement() {
+            const form = document.getElementById('fileImprovementForm');
+            const formData = new FormData(form);
+            
+            const request = {
+                repositoryUrl: document.getElementById('repositoryUrl').value,
+                branch: document.getElementById('branch').value,
+                filePath: document.getElementById('filePath').value,
+                targetCoverageIncrease: parseFloat(document.getElementById('targetCoverageIncrease').value),
+                maxTestsPerBatch: parseInt(document.getElementById('maxTestsPerBatch').value),
+                validateTests: document.getElementById('validateTests').checked,
+                githubToken: document.getElementById('githubToken').value || null
+            };
+
+            // Hide the form modal
+            const formModal = bootstrap.Modal.getInstance(document.getElementById('fileImprovementModal'));
+            formModal.hide();
+
+            // Start the improvement process
+            startFileCoverageImprovement(request.filePath, request);
+        }
+
+        function startRepositoryImprovement() {
+            const excludePatternsText = document.getElementById('excludePatterns').value;
+            const excludePatterns = excludePatternsText.split('\n').filter(p => p.trim()).map(p => p.trim());
+            
+            const request = {
+                repositoryUrl: document.getElementById('repoRepositoryUrl').value,
+                branch: document.getElementById('repoBranch').value,
+                targetCoverageIncrease: parseFloat(document.getElementById('repoTargetCoverageIncrease').value),
+                maxFilesToProcess: parseInt(document.getElementById('maxFilesToProcess').value),
+                excludePatterns: excludePatterns,
+                forceRefresh: document.getElementById('forceRefresh').checked,
+                githubToken: document.getElementById('repoGithubToken').value || null
+            };
+
+            // Hide the form modal
+            const formModal = bootstrap.Modal.getInstance(document.getElementById('repositoryImprovementModal'));
+            formModal.hide();
+
+            // Start the repository improvement process
+            startRepositoryCoverageImprovement(request);
+        }
+
+        // Override the global functions to use the request object directly
+        async function startFileCoverageImprovement(filePath, request) {
+            try {
+                const result = await fileCoverageClient.improveFileCoverage(request);
+                console.log('File coverage improvement started:', result);
+                
+                // Show progress modal
+                showProgressModal('Improving File Coverage: ' + filePath);
+                
+            } catch (error) {
+                console.error('Failed to start file coverage improvement:', error);
+                alert('Failed to start file coverage improvement: ' + error.message);
+            }
+        }
+
+        async function startRepositoryCoverageImprovement(request) {
+            try {
+                const result = await fileCoverageClient.improveRepositoryCoverage(request);
+                console.log('Repository coverage improvement started:', result);
+                
+                // Show progress modal
+                showProgressModal('Improving Repository Coverage');
+                
+            } catch (error) {
+                console.error('Failed to start repository coverage improvement:', error);
+                alert('Failed to start repository coverage improvement: ' + error.message);
+            }
+        }
+
+        // Helper functions for the form
+        function getCurrentRepositoryUrl() {
+            return document.getElementById('repositoryUrl')?.value || 
+                   document.getElementById('repoRepositoryUrl')?.value || '';
+        }
+
+        function getCurrentBranch() {
+            return document.getElementById('branch')?.value || 
+                   document.getElementById('repoBranch')?.value || 'main';
+        }
+    </script>
+</body>
+</html>

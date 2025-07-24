@@ -67,6 +67,50 @@ public class RepositoryService {
     }
 
     /**
+     * Setup workspace for coverage improvement (wrapper around setupRepository)
+     * This method is used by CoverageAgentService for enhanced file coverage improvement
+     */
+    public String setupWorkspace(String repositoryUrl, String branch, String githubToken) {
+        // Generate a workspace ID based on repository URL and branch for consistency
+        String workspaceId = generateRepoUrlHash(repositoryUrl) + "_" + (branch != null ? branch : "main");
+        return setupRepository(repositoryUrl, branch, workspaceId, githubToken);
+    }
+
+    /**
+     * Get existing workspace directory if it exists, otherwise setup new one
+     * This optimizes performance by reusing existing repository clones
+     */
+    public String getOrSetupWorkspace(String repositoryUrl, String branch, String githubToken) {
+        String repoUrlHash = generateRepoUrlHash(repositoryUrl);
+        String branchName = branch != null ? branch : "main";
+        String persistentDir = workspaceRootDir + "/" + repoUrlHash + "/" + branchName;
+        String repoDir = persistentDir + "/" + extractRepoName(repositoryUrl);
+
+        try {
+            // Check if workspace already exists and is valid
+            if (Files.exists(Paths.get(repoDir)) && isValidGitRepository(repoDir)) {
+                log.info("Reusing existing workspace: {}", repoDir);
+
+                // Optionally pull latest changes (for fresh analysis)
+                try {
+                    gitService.pullLatestChanges(repoDir, branchName);
+                    log.info("Updated existing repository with latest changes");
+                } catch (Exception e) {
+                    log.warn("Failed to pull latest changes, using existing repository: {}", e.getMessage());
+                }
+
+                return repoDir;
+            } else {
+                log.info("Existing workspace not found or invalid, setting up new workspace: {}", repoDir);
+                return setupWorkspace(repositoryUrl, branch, githubToken);
+            }
+        } catch (Exception e) {
+            log.error("Failed to get or setup workspace: {}", repositoryUrl, e);
+            throw new RepositoryException("Failed to get or setup workspace: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Read file content from cloned repository
      */
     public String readFileContent(String repoDir, String filePath) {
@@ -309,5 +353,17 @@ public class RepositoryService {
                 .replaceAll("[^a-zA-Z0-9.-]", "_")
                 .toLowerCase();
         return cleaned.length() > 50 ? cleaned.substring(0, 50) : cleaned;
+    }
+
+    /**
+     * Check if a directory contains a valid git repository
+     */
+    private boolean isValidGitRepository(String repoDir) {
+        try {
+            Path gitDir = Paths.get(repoDir, ".git");
+            return Files.exists(gitDir) && Files.isDirectory(gitDir);
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
