@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout/base}">
+<head>
+    <title th:text="${repository.name} + ' - DevGenie'">Repository - DevGenie</title>
+    <style>
+        :root {
+            --wf-red: #d71921;
+            --wf-red-dark: #b71c1c;
+            --wf-red-light: #ffebee;
+            --wf-blue: #1976d2;
+            --wf-green: #388e3c;
+            --wf-yellow: #f57c00;
+            --wf-gray: #f5f5f5;
+            --wf-dark-gray: #424242;
+            --wf-light-gray: #fafafa;
+            --wf-border: #e0e0e0;
+        }
+
+        body {
+            background-color: var(--wf-light-gray);
+            color: var(--wf-dark-gray);
+        }
+
+        .card {
+            border: 1px solid var(--wf-border);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            background: white;
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            background: white;
+            border-bottom: 1px solid var(--wf-border);
+            font-weight: 600;
+            color: var(--wf-dark-gray);
+        }
+
+        /* Tab Navigation Styles */
+        .nav-tabs {
+            border-bottom: 2px solid var(--wf-border);
+            margin-bottom: 2rem;
+        }
+
+        .nav-tabs .nav-link {
+            color: var(--wf-dark-gray);
+            border: none;
+            padding: 1rem 1.5rem;
+            margin-right: 0.5rem;
+            border-radius: 8px 8px 0 0;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .nav-tabs .nav-link:hover {
+            border-color: transparent;
+            background-color: var(--wf-gray);
+            color: var(--wf-red);
+        }
+
+        .nav-tabs .nav-link.active {
+            color: var(--wf-red);
+            background-color: white;
+            border-color: var(--wf-red) var(--wf-red) white;
+            border-width: 2px 2px 0 2px;
+            border-style: solid;
+        }
+
+        .tab-content {
+            background: white;
+            border-radius: 0 8px 8px 8px;
+            padding: 0;
+            border: 2px solid var(--wf-border);
+            border-top: none;
+        }
+
+        /* Repository Header */
+        .repo-header-icon {
+            background: var(--wf-red-light);
+            color: var(--wf-red);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--wf-red);
+        }
+
+        /* Button Styles */
+        .btn-primary {
+            background-color: var(--wf-red);
+            border-color: var(--wf-red);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--wf-red-dark);
+            border-color: var(--wf-red-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline-secondary {
+            border-color: var(--wf-border);
+            color: var(--wf-dark-gray);
+            font-weight: 500;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8rem;
+            border-radius: 6px;
+        }
+
+        .btn-outline-secondary:hover {
+            background-color: var(--wf-gray);
+            border-color: var(--wf-red);
+            color: var(--wf-red);
+        }
+
+        /* Badge Styles */
+        .badge {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+        }
+
+        .bg-info {
+            background-color: var(--wf-blue) !important;
+        }
+
+        .bg-success {
+            background-color: var(--wf-green) !important;
+        }
+
+        .bg-warning {
+            background-color: var(--wf-yellow) !important;
+        }
+
+        .bg-primary {
+            background-color: var(--wf-red) !important;
+        }
+
+        .bg-secondary {
+            background-color: var(--wf-gray) !important;
+        }
+
+        /* RBGY Stats Cards for Coverage */
+        .stats-card {
+            border: none;
+        }
+
+        .stats-card-red {
+            background: linear-gradient(135deg, var(--wf-red) 0%, var(--wf-red-dark) 100%);
+            color: white;
+        }
+
+        .stats-card-blue {
+            background: linear-gradient(135deg, var(--wf-blue) 0%, #1565c0 100%);
+            color: white;
+        }
+
+        .stats-card-green {
+            background: linear-gradient(135deg, var(--wf-green) 0%, #2e7d32 100%);
+            color: white;
+        }
+
+        .stats-card-yellow {
+            background: linear-gradient(135deg, var(--wf-yellow) 0%, #ef6c00 100%);
+            color: white;
+        }
+
+        .stats-card h3 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .stats-card p {
+            font-size: 0.9rem;
+            opacity: 0.95;
+            font-weight: 500;
+            margin-bottom: 0;
+        }
+
+        .stats-card i {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Spinner */
+        .spinner-border.text-primary {
+            color: var(--wf-red) !important;
+        }
+
+        /* Progress */
+        .progress {
+            background-color: var(--wf-gray);
+            border-radius: 6px;
+        }
+
+        .progress-bar {
+            background-color: var(--wf-red);
+            height: 12px;
+            border-radius: 6px;
+        }
+
+        /* Action Cards */
+        .action-card {
+            transition: all 0.2s ease;
+            border: 1px solid var(--wf-border);
+        }
+
+        .action-card:hover {
+            border-color: var(--wf-red);
+            box-shadow: 0 4px 16px rgba(215, 25, 33, 0.1);
+        }
+
+        .action-icon {
+            color: var(--wf-red);
+        }
+
+        .success-icon {
+            color: var(--wf-green);
+        }
+
+        /* File Tree Styles */
+        .file-tree {
+            max-height: 400px;
+            overflow-y: auto;
+            border-radius: 6px;
+        }
+
+        .file-tree-container {
+            height: 400px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            padding: 0.4rem 0.6rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 0.1rem;
+            font-size: 0.9rem;
+        }
+
+        .file-item:hover {
+            background-color: var(--wf-red-light);
+        }
+
+        .file-item.selected {
+            background-color: var(--wf-red-light);
+            border-left: 3px solid var(--wf-red);
+        }
+
+        .folder-toggle {
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 4px;
+            transition: transform 0.2s ease;
+        }
+
+        .folder-toggle.expanded {
+            transform: rotate(90deg);
+        }
+
+        .folder-children {
+            margin-left: 16px;
+            border-left: 1px solid #e9ecef;
+            padding-left: 8px;
+        }
+
+        .folder-children.collapsed {
+            display: none;
+        }
+
+        .coverage-bar {
+            height: 6px;
+            background-color: var(--wf-gray);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .coverage-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .coverage-high {
+            background: linear-gradient(90deg, var(--wf-green), #4caf50);
+        }
+
+        .coverage-medium {
+            background: linear-gradient(90deg, var(--wf-yellow), #ff9800);
+        }
+
+        .coverage-low {
+            background: linear-gradient(90deg, var(--wf-red), #e53935);
+        }
+
+        /* Package-style file tree enhancements */
+        .file-item.package-node {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            margin-bottom: 0.25rem;
+        }
+
+        .file-item.package-node:hover {
+            background-color: var(--wf-red-light);
+            border-color: var(--wf-red);
+        }
+
+        .package-name {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: var(--wf-blue);
+        }
+
+        .package-icon {
+            color: var(--wf-blue);
+        }
+
+        .java-folder-icon {
+            color: #f89820; /* Java orange color */
+        }
+
+        .file-item.java-folder {
+            font-style: italic;
+            color: #666;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.75rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--wf-border);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .timeline-marker {
+            position: absolute;
+            left: -2rem;
+            top: 0.5rem;
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 50%;
+            z-index: 1;
+        }
+
+        .timeline-marker.bg-primary {
+            background-color: var(--wf-red) !important;
+        }
+
+        .timeline-marker.bg-success {
+            background-color: var(--wf-green) !important;
+        }
+
+        .timeline-content {
+            margin-left: 1rem;
+        }
+
+        .alert {
+            border: none;
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .alert-warning {
+            background-color: #fff3e0;
+            color: var(--wf-yellow);
+            border-left: 4px solid var(--wf-yellow);
+        }
+
+        .alert-info {
+            background-color: #e3f2fd;
+            color: var(--wf-blue);
+            border-left: 4px solid var(--wf-blue);
+        }
+
+        .alert-success {
+            background-color: #e8f5e8;
+            color: var(--wf-green);
+            border-left: 4px solid var(--wf-green);
+        }
+
+        .empty-state {
+            color: #6c757d;
+            text-align: center;
+            padding: 3rem 1rem;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Coverage Improvement Progress Modal */
+        .modal-content {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            border-bottom: none;
+        }
+
+        .modal-title {
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+
+        .progress-bar {
+            height: 12px;
+            border-radius: 6px;
+        }
+
+        .current-status {
+            margin-top: 1rem;
+        }
+
+        .session-info {
+            margin-top: 2rem;
+        }
+
+        /* Additional styles for progress modal */
+        .coverage-progress-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--wf-red-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+        }
+
+        .progress-log {
+            background: white;
+            border: 1px solid var(--wf-border);
+            border-radius: 6px;
+            padding: 1rem;
+        }
+
+        .progress-message {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .progress-message:last-child {
+            margin-bottom: 0;
+        }
+
+        .progress-message.info {
+            background: rgba(23, 118, 210, 0.1);
+            border-left: 3px solid var(--wf-blue);
+        }
+
+        .progress-message.success {
+            background: rgba(56, 142, 60, 0.1);
+            border-left: 3px solid var(--wf-green);
+        }
+
+        .progress-message.warning {
+            background: rgba(245, 124, 0, 0.1);
+            border-left: 3px solid var(--wf-yellow);
+        }
+
+        .progress-message.error {
+            background: rgba(215, 25, 33, 0.1);
+            border-left: 3px solid var(--wf-red);
+        }
+
+        .progress-message-icon {
+            margin-right: 0.75rem;
+            margin-top: 0.125rem;
+            font-size: 1rem;
+        }
+
+        .progress-message-content {
+            flex: 1;
+        }
+
+        .progress-message-time {
+            font-size: 0.75rem;
+            color: #6c757d;
+            margin-top: 0.25rem;
+        }
+
+        .status-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--wf-red-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .status-icon.processing {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+<div layout:fragment="content">
+    <!-- Repository Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="repo-header-icon me-3">
+                            <i class="bi bi-folder-fill" style="font-size: 2rem;"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h2 class="mb-1" th:text="${repository.name}" style="color: var(--wf-dark-gray);">Repository Name</h2>
+                            <p class="text-muted mb-2" th:text="${repository.description}" th:if="${repository.description}">
+                                Repository description
+                            </p>
+                            <div class="d-flex align-items-center">
+                                <span th:class="'badge me-2 ' + ${repository.visibilityBadgeClass}" th:text="${repository.visibilityBadge}" th:if="${repository.visibilityBadge}">Public</span>
+                                <span class="me-3" th:if="${repository.language}">
+                                    <i class="bi bi-circle-fill me-1" style="color: #f89820;"></i>
+                                    <span th:text="${repository.language}">Java</span>
+                                </span>
+                                <a th:href="${repository.htmlUrl}" target="_blank" class="btn btn-outline-secondary">
+                                    <i class="bi bi-github me-1"></i>
+                                    View on GitHub
+                                </a>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <a th:href="@{/dashboard}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>
+                                Back to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="row">
+        <div class="col-12">
+            <ul class="nav nav-tabs" id="repositoryTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" 
+                       th:classappend="${activeTab == 'insights'} ? 'active' : ''"
+                       th:href="@{/coverage/repository/{owner}/{repo}(owner=${owner}, repo=${repoName}, tab='insights')}"
+                       role="tab">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        Insights
+                    </a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link"
+                       th:classappend="${activeTab == 'coverage'} ? 'active' : ''"
+                       th:href="@{/coverage/repository/{owner}/{repo}(owner=${owner}, repo=${repoName}, tab='coverage')}"
+                       role="tab">
+                        <i class="bi bi-speedometer2 me-2"></i>
+                        Coverage
+                    </a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link disabled" href="#" role="tab">
+                        <i class="bi bi-bug me-2"></i>
+                        Issues
+                        <span class="badge bg-secondary ms-1">Coming Soon</span>
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="repositoryTabsContent">
+                <!-- Insights Tab -->
+                <div th:if="${activeTab == 'insights'}" class="tab-pane fade show active p-4" role="tabpanel">
+                    <!-- Analysis Status -->
+                    <div th:if="${analysis == null || !analysis.success}" id="analysisStatus" class="text-center py-5">
+                        <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <h5 style="color: var(--wf-dark-gray);">Analyzing Repository</h5>
+                        <p class="text-muted">Please wait while we analyze your repository structure and configuration...</p>
+                        <div class="progress mt-4" style="height: 8px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                 role="progressbar" style="width: 100%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Analysis Results -->
+                    <div th:if="${analysis != null && analysis.success}" id="analysisResults">
+                        <!-- Include the repository analysis content here -->
+                        <div th:replace="~{fragments/insights-content :: insights-content}"></div>
+                    </div>
+                </div>
+
+                <!-- Coverage Tab -->
+                <div th:if="${activeTab == 'coverage'}" class="tab-pane fade show active p-4" role="tabpanel">
+                    <div th:if="${dashboardData == null}" class="text-center py-5">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Coverage data is not available yet. Please run the repository analysis first.
+                        </div>
+                        <a th:href="@{/coverage/repository/{owner}/{repo}(owner=${owner}, repo=${repoName}, tab='insights')}" 
+                           class="btn btn-primary">
+                            <i class="bi bi-lightbulb me-2"></i>
+                            Start Analysis
+                        </a>
+                    </div>
+
+                    <div th:if="${dashboardData != null}">
+                        <!-- Include the coverage dashboard content here -->
+                        <div th:replace="~{fragments/coverage-content :: coverage-content}"></div>
+                    </div>
+                </div>
+
+                <!-- Issues Tab (Future) -->
+                <div th:if="${activeTab == 'issues'}" class="tab-pane fade show active p-4" role="tabpanel">
+                    <div class="text-center py-5">
+                        <i class="bi bi-construction" style="font-size: 4rem; color: var(--wf-yellow);"></i>
+                        <h4 class="mt-3" style="color: var(--wf-dark-gray);">Issues Tab Coming Soon</h4>
+                        <p class="text-muted">This tab will display code quality issues, security vulnerabilities, and improvement suggestions.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<th:block layout:fragment="scripts">
+    <script>
+        // Repository context for coverage functionality
+        const REPOSITORY_CONTEXT = {
+            repositoryUrl: /*[[${repositoryUrl}]]*/ 'https://github.com/example/repo',
+            branch: /*[[${defaultBranch}]]*/ 'main',
+            fullName: /*[[${owner + '/' + repoName}]]*/ 'owner/repo'
+        };
+
+        // Poll for analysis status every 2 seconds if analysis is in progress
+        function pollAnalysis() {
+            if (document.getElementById('analysisStatus')) {
+                const url = `/coverage/analyze/${/*[[${owner}]]*/ 'owner'}/${/*[[${repoName}]]*/ 'repo'}/status`;
+                fetch(url, { cache: 'no-store' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data && data.success) {
+                            window.location.reload();
+                        } else {
+                            setTimeout(pollAnalysis, 2000);
+                        }
+                    })
+                    .catch(() => setTimeout(pollAnalysis, 2000));
+            }
+        }
+
+        // File selection and display functions for coverage tab
+        function selectFile(element) {
+            // Remove selected class from all file items
+            document.querySelectorAll('.file-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked item
+            element.classList.add('selected');
+            
+            // Get file details
+            const fileName = element.getAttribute('data-file-name');
+            const filePath = element.getAttribute('data-file-path');
+            
+            // Update selected file name
+            document.getElementById('selectedFileName').textContent = fileName;
+            
+            // Show improve button for Java files
+            const improveBtn = document.getElementById('improveFileBtn');
+            if (fileName && fileName.endsWith('.java')) {
+                improveBtn.style.display = 'inline-block';
+            } else {
+                improveBtn.style.display = 'none';
+            }
+            
+            // Fetch and display file details
+            if (filePath) {
+                fetchFileDetails(filePath);
+            }
+        }
+
+        function fetchFileDetails(filePath) {
+            const url = `/coverage/file-details?` + new URLSearchParams({
+                repositoryUrl: REPOSITORY_CONTEXT.repositoryUrl,
+                branch: REPOSITORY_CONTEXT.branch,
+                filePath: filePath
+            });
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    displayFileDetails(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching file details:', error);
+                    document.getElementById('fileDetails').innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Unable to load file details. Please try again.
+                        </div>
+                    `;
+                });
+        }
+
+        function displayFileDetails(fileDetails) {
+            function getCoverageClass(coverage) {
+                if (coverage >= 80) return 'coverage-high';
+                if (coverage >= 50) return 'coverage-medium';
+                return 'coverage-low';
+            }
+
+            // Build opportunities HTML
+            let opportunitiesHtml = '';
+            if (fileDetails.improvementOpportunities && fileDetails.improvementOpportunities.length > 0) {
+                fileDetails.improvementOpportunities.forEach(opp => {
+                    let alertClass = 'alert-info';
+                    let icon = 'bi-info-circle';
+                    
+                    if (opp.priority === 'HIGH') {
+                        alertClass = 'alert-danger';
+                        icon = 'bi-exclamation-triangle';
+                    } else if (opp.priority === 'MEDIUM') {
+                        alertClass = 'alert-warning';
+                        icon = 'bi-exclamation-circle';
+                    } else if (opp.priority === 'INFO') {
+                        alertClass = 'alert-success';
+                        icon = 'bi-lightbulb';
+                    }
+                
+                    opportunitiesHtml += `
+                        <div class="alert ${alertClass}">
+                            <i class="bi ${icon} me-2"></i>
+                            <strong>${opp.description}</strong>
+                        </div>
+                    `;
+                });
+            }
+
+            // Show file details
+            const fileDetailsContainer = document.getElementById('fileDetails');
+            fileDetailsContainer.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Coverage Metrics</h6>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span>Line Coverage</span>
+                                <span class="fw-bold">${fileDetails.lineCoverage.toFixed(1)}%</span>
+                            </div>
+                            <div class="coverage-bar">
+                                <div class="coverage-fill ${getCoverageClass(fileDetails.lineCoverage)}" style="width: ${fileDetails.lineCoverage}%;"></div>
+                            </div>
+                            <small class="text-muted">${fileDetails.coveredLines}/${fileDetails.totalLines} lines covered</small>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span>Branch Coverage</span>
+                                <span class="fw-bold">${fileDetails.branchCoverage.toFixed(1)}%</span>
+                            </div>
+                            <div class="coverage-bar">
+                                <div class="coverage-fill ${getCoverageClass(fileDetails.branchCoverage)}" style="width: ${fileDetails.branchCoverage}%;"></div>
+                            </div>
+                            <small class="text-muted">${fileDetails.coveredBranches}/${fileDetails.totalBranches} branches covered</small>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span>Method Coverage</span>
+                                <span class="fw-bold">${fileDetails.methodCoverage.toFixed(1)}%</span>
+                            </div>
+                            <div class="coverage-bar">
+                                <div class="coverage-fill ${getCoverageClass(fileDetails.methodCoverage)}" style="width: ${fileDetails.methodCoverage}%;"></div>
+                            </div>
+                            <small class="text-muted">${fileDetails.coveredMethods}/${fileDetails.totalMethods} methods covered</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold mb-3" style="color: var(--wf-dark-gray);">Improvement Opportunities</h6>
+                        ${opportunitiesHtml || '<p class="text-muted">No specific improvement opportunities identified.</p>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleFolder(element) {
+            // Find the folder toggle icon and children container
+            const toggle = element.querySelector('.folder-toggle');
+            const children = element.parentElement.querySelector('.folder-children');
+            
+            if (toggle && children) {
+                if (children.classList.contains('collapsed')) {
+                    // Expand
+                    children.classList.remove('collapsed');
+                    toggle.classList.add('expanded');
+                    toggle.className = toggle.className.replace('bi-chevron-right', 'bi-chevron-down');
+                } else {
+                    // Collapse
+                    children.classList.add('collapsed');
+                    toggle.classList.remove('expanded');
+                    toggle.className = toggle.className.replace('bi-chevron-down', 'bi-chevron-right');
+                }
+            }
+        }
+
+        // Coverage improvement functions
+        function improveCoverage() {
+            console.log('Starting repository-wide coverage improvement...');
+            
+            const request = {
+                repositoryUrl: REPOSITORY_CONTEXT.repositoryUrl,
+                branch: REPOSITORY_CONTEXT.branch,
+                targetCoverageIncrease: 25.0,
+                maxTestsPerBatch: 10,
+                validateTests: true,
+                workspaceId: REPOSITORY_CONTEXT.fullName,
+                githubToken: null
+            };
+
+            console.log('Repository coverage improvement request:', request);
+            
+            // For now, redirect to the existing coverage improvement page
+            const url = `/coverage/improve?repositoryUrl=${encodeURIComponent(request.repositoryUrl)}&branch=${request.branch}`;
+            window.location.href = url;
+        }
+
+        function improveFileCoverage() {
+            const fileName = document.getElementById('selectedFileName').textContent;
+            const selectedFileElement = document.querySelector('.file-item.selected');
+            
+            if (!selectedFileElement || fileName === 'Select a file') {
+                alert('Please select a Java file first');
+                return;
+            }
+            
+            const filePath = selectedFileElement.getAttribute('data-file-path');
+            
+            if (!filePath) {
+                alert('Unable to determine file path. Please ensure a valid Java file is selected.');
+                return;
+            }
+            
+            console.log('Starting file coverage improvement for:', filePath);
+            
+            // For now, redirect to the existing coverage improvement page with file parameter
+            const url = `/coverage/improve?repositoryUrl=${encodeURIComponent(REPOSITORY_CONTEXT.repositoryUrl)}&branch=${REPOSITORY_CONTEXT.branch}&filePath=${encodeURIComponent(filePath)}`;
+            window.location.href = url;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Start polling if analysis is in progress
+            if (document.getElementById('analysisStatus')) {
+                setTimeout(pollAnalysis, 2000);
+            }
+        });
+    </script>
+</th:block>
+</body>
+</html>

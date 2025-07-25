@@ -233,6 +233,118 @@ public class CoverageWebController {
     }
 
     /**
+     * Unified repository page with tabbed interface for Insights, Coverage, and Issues
+     */
+    @GetMapping("/repository/{owner}/{repo}")
+    public String unifiedRepositoryPage(@PathVariable String owner,
+                                       @PathVariable String repo,
+                                       @RequestParam(value = "tab", defaultValue = "insights") String activeTab,
+                                       @RequestParam(value = "forceRefresh", required = false) String forceRefresh,
+                                       Authentication authentication,
+                                       Model model,
+                                       RedirectAttributes redirectAttributes) {
+        log.info("=== UNIFIED REPOSITORY PAGE REQUEST ===");
+        log.info("Owner: {}, Repo: {}, Tab: {}, ForceRefresh: {}", owner, repo, activeTab, forceRefresh);
+        
+        try {
+            final String accessToken;
+            
+            if (authentication != null) {
+                accessToken = getAccessToken(authentication);
+                if (accessToken == null) {
+                    redirectAttributes.addFlashAttribute("error", "Unable to retrieve access token");
+                    return "redirect:/dashboard";
+                }
+            } else {
+                accessToken = null;
+            }
+
+            // Get repository details
+            Optional<GitHubRepository> repoOpt = Optional.empty();
+            if (accessToken != null) {
+                repoOpt = gitHubService.getRepository(accessToken, owner, repo);
+            }
+            
+            GitHubRepository repository;
+            if (repoOpt.isPresent()) {
+                repository = repoOpt.get();
+            } else {
+                // Create minimal repository object for public repos or testing
+                repository = new GitHubRepository();
+                repository.setName(repo);
+                repository.setFullName(owner + "/" + repo);
+                repository.setHtmlUrl("https://github.com/" + owner + "/" + repo);
+            }
+
+            // Fetch analysis data for Insights tab
+            RepositoryAnalysisResponse analysis = null;
+            String cacheKey = owner + "/" + repo;
+            try {
+                analysis = repositoryAnalysisService.getAnalysisFromMongo(repository.getHtmlUrl(), "main");
+            } catch (Exception e) {
+                log.warn("No analysis found in Mongo for {}", repository.getHtmlUrl());
+                // Check cache for ongoing analysis
+                analysis = analysisCache.get(cacheKey);
+            }
+
+            // If no analysis exists and we're on insights tab, start analysis
+            if (analysis == null && "insights".equals(activeTab)) {
+                executor.submit(() -> {
+                    RepositoryAnalysisRequest analysisRequest = new RepositoryAnalysisRequest();
+                    analysisRequest.setRepositoryUrl(repository.getHtmlUrl());
+                    analysisRequest.setGithubToken(accessToken);
+                    analysisRequest.setBranch("main");
+                    
+                    RepositoryAnalysisResponse result = repositoryAnalysisService.analyzeRepository(analysisRequest);
+                    analysisCache.put(cacheKey, result);
+                    log.info("Repository analysis completed for unified page");
+                });
+            }
+
+            // Fetch dashboard data for Coverage tab
+            RepositoryDashboardService.DashboardData dashboardData = null;
+            if ("coverage".equals(activeTab) || analysis != null) {
+                try {
+                    if ("true".equals(forceRefresh)) {
+                        log.info("FORCE REFRESH REQUESTED - clearing and rebuilding cache");
+                        fastDashboardService.forceCacheRefresh(repository.getHtmlUrl(), "main");
+                    }
+                    
+                    dashboardData = fastDashboardService.getFastDashboardDataWithValidation(repository.getHtmlUrl(), "main");
+                } catch (Exception e) {
+                    log.error("Error loading dashboard data: {}", e.getMessage());
+                }
+            }
+
+            // Set model attributes for unified page
+            model.addAttribute("repository", repository);
+            model.addAttribute("owner", owner);
+            model.addAttribute("repoName", repo);
+            model.addAttribute("activeTab", activeTab);
+            model.addAttribute("analysis", analysis);
+            
+            if (dashboardData != null) {
+                model.addAttribute("dashboardData", dashboardData);
+                model.addAttribute("overallMetrics", dashboardData.getOverallMetrics());
+                model.addAttribute("fileTree", dashboardData.getFileTree());
+                model.addAttribute("fileDetails", dashboardData.getFileDetails());
+            }
+            
+            // Repository context for all tabs
+            model.addAttribute("repositoryUrl", repository.getHtmlUrl());
+            model.addAttribute("defaultBranch", repository.getDefaultBranch() != null ? repository.getDefaultBranch() : "main");
+            model.addAttribute("fullName", repository.getFullName());
+
+            return "repository-unified";
+
+        } catch (Exception e) {
+            log.error("Error loading unified repository page {}/{}", owner, repo, e);
+            redirectAttributes.addFlashAttribute("error", "Failed to load repository page: " + e.getMessage());
+            return "redirect:/dashboard";
+        }
+    }
+
+    /**
      * Manual cache refresh endpoint
      */
     @GetMapping("/cache/refresh/{owner}/{repo}")
