@@ -25,8 +25,23 @@ public class SessionManagementService {
 
     public CoverageImprovementSession createSession(String repositoryUrl, String branch, 
                                                   String filePath, CoverageImprovementSession.SessionType type) {
+        return createSession(null, repositoryUrl, branch, filePath, type);
+    }
+
+    public CoverageImprovementSession createSession(String sessionId, String repositoryUrl, String branch, 
+                                                  String filePath, CoverageImprovementSession.SessionType type) {
+        log.info("🔍 SessionManagementService.createSession called with sessionId: {}", sessionId);
+        
+        // Use provided session ID or generate a new one
+        String finalSessionId = (sessionId != null && !sessionId.trim().isEmpty()) 
+            ? sessionId 
+            : UUID.randomUUID().toString();
+            
+        log.info("🔍 Final sessionId will be: {} (provided: {}, generated: {})", 
+            finalSessionId, sessionId, sessionId == null || sessionId.trim().isEmpty());
+            
         CoverageImprovementSession session = CoverageImprovementSession.builder()
-                .sessionId(UUID.randomUUID().toString())
+                .sessionId(finalSessionId)
                 .repositoryUrl(repositoryUrl)
                 .branch(branch)
                 .filePath(filePath)

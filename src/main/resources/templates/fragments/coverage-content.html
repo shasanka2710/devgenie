@@ -1,0 +1,222 @@
+<!-- Coverage Content Fragment -->
+<th:block xmlns:th="http://www.thymeleaf.org" th:fragment="coverage-content">
+    <!-- Coverage Overview - RBGY Colors -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-red">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-graph-up"></i>
+                    <h3 th:text="${overallMetrics.overallCoverage} + '%'">0%</h3>
+                    <p>Overall Coverage</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-blue">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-code-slash"></i>
+                    <h3 th:text="${overallMetrics.lineCoverage} + '%'">0%</h3>
+                    <p>Line Coverage</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-green">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-diagram-3"></i>
+                    <h3 th:text="${overallMetrics.branchCoverage} + '%'">0%</h3>
+                    <p>Branch Coverage</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card stats-card stats-card-yellow">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-braces"></i>
+                    <h3 th:text="${overallMetrics.methodCoverage} + '%'">0%</h3>
+                    <p>Method Coverage</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row">
+        <!-- File Tree -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-folder-tree me-2 text-primary"></i>
+                        Project Structure
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="file-tree-container p-3" th:if="${fileTree != null and fileTree.hasChildren()}">
+                        <!-- Start with collapsed main directory -->
+                        <div th:each="child : ${fileTree.children}" th:if="${child.name == 'main'}">
+                            <div class="file-tree-folder">
+                                <div class="d-flex align-items-center file-item" onclick="toggleFolder(this)">
+                                    <i class="bi bi-chevron-right folder-toggle me-1"></i>
+                                    <i class="bi bi-folder-fill text-warning me-2"></i>
+                                    <span class="fw-medium" th:text="${'src/' + child.name}"></span>
+                                    <span class="badge bg-secondary ms-auto" th:text="${child.children.size()}"></span>
+                                </div>
+                                <!-- Children initially collapsed -->
+                                <div class="folder-children collapsed">
+                                    <div th:replace="~{fragments/coverage-content :: renderFileTreeNode(${child}, 1)}"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-3 text-center text-muted" th:unless="${fileTree != null and fileTree.hasChildren()}">
+                        <i class="bi bi-folder-x" style="font-size: 2rem; opacity: 0.5;"></i>
+                        <p class="mt-2">No files found</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Details -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-file-earmark-code me-2 text-primary"></i>
+                            <span id="selectedFileName">Select a file</span>
+                        </h5>
+                        <button id="improveFileBtn" class="btn btn-primary btn-sm" style="display: none;" onclick="improveFileCoverage()">
+                            <i class="bi bi-plus-circle me-1"></i>
+                            Improve Coverage
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="fileDetails">
+                        <div class="empty-state">
+                            <i class="bi bi-cursor"></i>
+                            <h5 class="mt-3">Select a file from the tree</h5>
+                            <p>Choose a Java file to view its coverage details and improvement options.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2 text-primary"></i>
+                        Recent Activity
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1" style="color: var(--wf-dark-gray);">Repository Analyzed</h6>
+                                <p class="text-muted mb-1">Initial coverage analysis completed</p>
+                                <small class="text-muted">Just now</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coverage Improvement Actions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightning-charge me-2"></i>
+                        Coverage Improvement Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1" style="color: var(--wf-dark-gray);">Ready to improve your test coverage?</h6>
+                            <p class="text-muted mb-0">Generate comprehensive test cases to increase coverage for your repository.</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="improveCoverage()">
+                            <i class="bi bi-graph-up me-2"></i>
+                            Start Improvement
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<!-- Recursive template fragment for rendering nested file tree -->
+<th:block th:fragment="renderFileTreeNode(node, depth)">
+    <div th:each="child : ${node.children}">
+        <!-- If it's a package node, render with package styling -->
+        <div th:if="${child.nodeType == 'PACKAGE'}" class="file-tree-folder">
+            <div class="d-flex align-items-center file-item package-node" onclick="toggleFolder(this)">
+                <i class="bi bi-chevron-right folder-toggle me-1"></i>
+                <i class="bi bi-box-seam package-icon me-2"></i>
+                <span class="package-name" th:text="${child.packageName}"></span>
+                <span class="badge bg-info ms-auto" th:text="${child.children.size()}" th:if="${child.hasChildren()}"></span>
+                <div class="coverage-bar ms-2" style="width: 40px; height: 4px; background-color: #e9ecef; border-radius: 2px;" 
+                     th:if="${child.lineCoverage > 0}">
+                    <div class="coverage-fill"
+                         th:classappend="${child.lineCoverage > 80} ? 'bg-success' : (${child.lineCoverage > 50} ? 'bg-warning' : 'bg-danger')"
+                         th:style="|width: ${child.lineCoverage}%; height: 100%; border-radius: 2px;|"></div>
+                </div>
+                <small class="text-muted ms-1" th:if="${child.lineCoverage > 0}" 
+                       th:text="${#numbers.formatDecimal(child.lineCoverage, 1, 1) + '%'}"></small>
+            </div>
+            <!-- Children initially collapsed -->
+            <div class="folder-children collapsed" th:if="${child.hasChildren()}">
+                <div th:replace="~{fragments/coverage-content :: renderFileTreeNode(${child}, ${depth + 1})}"></div>
+            </div>
+        </div>
+        
+        <!-- If it's a regular directory, render as collapsible folder -->
+        <div th:if="${child.isDirectory() and child.nodeType != 'PACKAGE'}" class="file-tree-folder">
+            <div class="d-flex align-items-center file-item" 
+                 th:classappend="${child.flattened} ? 'java-folder' : ''"
+                 onclick="toggleFolder(this)">
+                <i class="bi bi-chevron-right folder-toggle me-1"></i>
+                <i th:class="${'bi bi-folder me-2 ' + (child.name == 'java' ? 'java-folder-icon' : 'text-info')}"></i>
+                <span class="fw-medium" th:text="${child.name}"></span>
+                <span class="badge bg-info ms-auto" th:text="${child.children.size()}" th:if="${child.hasChildren()}"></span>
+            </div>
+            <!-- Children initially collapsed -->
+            <div class="folder-children collapsed" th:if="${child.hasChildren()}">
+                <div th:replace="~{fragments/coverage-content :: renderFileTreeNode(${child}, ${depth + 1})}"></div>
+            </div>
+        </div>
+        
+        <!-- If it's a file, render as file -->
+        <div th:unless="${child.isDirectory()}" class="file-tree-file">
+            <div class="d-flex align-items-center file-item" 
+                 th:data-file-path="${child.data?.path}"
+                 th:data-file-name="${child.name}"
+                 onclick="selectFile(this)">
+                <div style="width: 17px;"></div> <!-- Spacer for alignment -->
+                <i class="bi bi-file-earmark-code text-primary me-2"></i>
+                <span th:text="${child.name}"></span>
+                <div class="coverage-bar ms-auto" style="width: 40px; height: 4px; background-color: #e9ecef; border-radius: 2px;" 
+                     th:if="${child.data?.lineCoverage != null}">
+                    <div class="coverage-fill"
+                         th:classappend="${child.data.lineCoverage > 80} ? 'bg-success' : (${child.data.lineCoverage > 50} ? 'bg-warning' : 'bg-danger')"
+                         th:style="|width: ${child.data.lineCoverage}%; height: 100%; border-radius: 2px;|"></div>
+                </div>
+                <small class="text-muted ms-1" th:if="${child.data?.lineCoverage != null}" 
+                       th:text="${#numbers.formatDecimal(child.data.lineCoverage, 1, 1) + '%'}"></small>
+            </div>
+        </div>
+    </div>
+</th:block>

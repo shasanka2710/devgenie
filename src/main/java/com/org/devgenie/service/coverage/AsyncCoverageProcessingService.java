@@ -29,6 +29,9 @@ public class AsyncCoverageProcessingService {
 
     @Autowired
     private CoverageProgressWebSocketHandler webSocketHandler;
+    
+    @Autowired
+    private UniversalProgressService progressService; // NEW: Universal progress service
 
     @Autowired
     private RepositoryService repositoryService;
@@ -40,8 +43,9 @@ public class AsyncCoverageProcessingService {
      * Start file coverage improvement and return session ID immediately
      */
     public String startFileCoverageImprovement(EnhancedFileCoverageRequest request) {
-        // Create session using SessionManagementService
+        // Create session using SessionManagementService (with optional provided session ID)
         CoverageImprovementSession session = sessionManagementService.createSession(
+            request.getSessionId(), // Pass the session ID from request (may be null)
             request.getRepositoryUrl(),
             request.getBranch(),
             request.getFilePath(),
@@ -64,13 +68,18 @@ public class AsyncCoverageProcessingService {
      * Start repository coverage improvement and return session ID immediately
      */
     public String startRepositoryCoverageImprovement(EnhancedRepoCoverageRequest request) {
-        // Create session using SessionManagementService
+        log.info("🔍 Starting repository coverage improvement. Frontend provided sessionId: {}", request.getSessionId());
+        
+        // Create session using SessionManagementService (with optional provided session ID)
         CoverageImprovementSession session = sessionManagementService.createSession(
+            request.getSessionId(), // Pass the session ID from request (may be null)
             request.getRepositoryUrl(),
             request.getBranch(),
             null, // No specific file for repo-wide improvement
             CoverageImprovementSession.SessionType.REPOSITORY_IMPROVEMENT
         );
+        
+        log.info("🔍 Created session with final sessionId: {}", session.getSessionId());
         
         // Start async processing
         CompletableFuture<Void> future = CompletableFuture.runAsync(() -> 
@@ -177,19 +186,23 @@ public class AsyncCoverageProcessingService {
                     CoverageImprovementSession.SessionStatus.ANALYZING_REPOSITORY);
             
             // Send initial progress update
-            sendProgressUpdate(sessionId, 5.0, "Setting up repository workspace...", ProgressUpdate.ProgressType.ANALYSIS);
+            // NEW: Using Universal Progress Service - much cleaner!
+            progressService.analysis(sessionId, 5.0, "Preparing workspace for analysis");
+            
+            // OLD way (still works but verbose):
+            // sendProgressUpdate(sessionId, 5.0, "Preparing workspace for analysis", ProgressUpdate.ProgressType.ANALYSIS);
             
             // Setup repository workspace
             String workspaceDir = repositoryService.setupWorkspace(request.getRepositoryUrl(), 
                     request.getBranch(), request.getGithubToken());
             
-            sendProgressUpdate(sessionId, 15.0, "Analyzing repository structure...", ProgressUpdate.ProgressType.ANALYSIS);
+            progressService.analysis(sessionId, 15.0, "Scanning project files");
             
             // Get list of Java files for coverage improvement
             List<String> javaFiles = repositoryService.findJavaFiles(workspaceDir, request.getExcludePatterns());
             
             if (javaFiles.isEmpty()) {
-                sendProgressUpdate(sessionId, 100.0, "No Java files found for coverage improvement", ProgressUpdate.ProgressType.COMPLETION);
+                sendProgressUpdate(sessionId, 100.0, "No Java files found that need coverage improvement", ProgressUpdate.ProgressType.COMPLETION);
                 sessionManagementService.updateSessionStatus(sessionId, 
                         CoverageImprovementSession.SessionStatus.READY_FOR_REVIEW);
                 return;
@@ -201,7 +214,7 @@ public class AsyncCoverageProcessingService {
             }
             
             log.info("Processing {} Java files for coverage improvement", javaFiles.size());
-            sendProgressUpdate(sessionId, 25.0, String.format("Found %d Java files to process", javaFiles.size()), ProgressUpdate.ProgressType.ANALYSIS);
+            sendProgressUpdate(sessionId, 25.0, String.format("Analyzing %d files for coverage opportunities", javaFiles.size()), ProgressUpdate.ProgressType.ANALYSIS);
             
             // Process files in batches
             int batchSize = 5; // Process 5 files at a time
@@ -229,11 +242,12 @@ public class AsyncCoverageProcessingService {
                         double progress = 25.0 + (processedFiles * 60.0 / totalFiles); // 25% to 85%
                         
                         sendProgressUpdate(sessionId, progress, 
-                                String.format("Processing file %d/%d: %s", processedFiles, totalFiles, extractFileName(filePath)), 
+                                String.format("Improving coverage for %s (%d/%d files)", extractFileName(filePath), processedFiles, totalFiles), 
                                 ProgressUpdate.ProgressType.TEST_GENERATION);
                         
                         // Create file coverage request
                         EnhancedFileCoverageRequest fileRequest = EnhancedFileCoverageRequest.builder()
+                                .sessionId(sessionId) // 🔑 CRITICAL FIX: Pass the current session ID
                                 .repositoryUrl(request.getRepositoryUrl())
                                 .branch(request.getBranch())
                                 .filePath(filePath)
@@ -262,7 +276,7 @@ public class AsyncCoverageProcessingService {
                 Thread.sleep(1000);
             }
             
-            sendProgressUpdate(sessionId, 90.0, "Consolidating results...", ProgressUpdate.ProgressType.VALIDATION);
+            sendProgressUpdate(sessionId, 90.0, "Preparing final results", ProgressUpdate.ProgressType.VALIDATION);
             
             // Store consolidated results in session
             RepositoryCoverageImprovementResult repoResult = RepositoryCoverageImprovementResult.builder()
@@ -277,8 +291,7 @@ public class AsyncCoverageProcessingService {
             sessionManagementService.setSessionResults(sessionId, repoResult);
             
             sendProgressUpdate(sessionId, 100.0, 
-                    String.format("Repository coverage improvement completed. Processed %d files successfully out of %d total files", 
-                            allResults.size(), processedFiles), 
+                    String.format("Analysis complete! Successfully improved coverage for %d files", allResults.size()), 
                     ProgressUpdate.ProgressType.COMPLETION);
             
             // Update session with final status
@@ -302,6 +315,7 @@ public class AsyncCoverageProcessingService {
      * Helper method to send progress updates via WebSocket
      */
     private void sendProgressUpdate(String sessionId, Double progress, String message, ProgressUpdate.ProgressType type) {
+        log.info("Sending progress update for session {}: {}% - {} (type: {})", sessionId, progress, message, type);
         ProgressUpdate update = ProgressUpdate.builder()
                 .sessionId(sessionId)
                 .progress(progress)
@@ -315,14 +329,20 @@ public class AsyncCoverageProcessingService {
     }
 
     /**
-     * Helper method to send error updates via WebSocket
+     * Helper method to send user-friendly error updates via WebSocket
      */
     private void sendErrorUpdate(String sessionId, String errorMessage) {
+        // Make error messages more user-friendly
+        String userFriendlyMessage = errorMessage;
+        if (errorMessage.contains("Exception") || errorMessage.contains("Error")) {
+            userFriendlyMessage = "An issue occurred during analysis. Please try again or contact support.";
+        }
+        
         ProgressUpdate errorUpdate = ProgressUpdate.builder()
                 .sessionId(sessionId)
                 .progress(0.0)
-                .message(errorMessage)
-                .currentStep("Error")
+                .message(userFriendlyMessage)
+                .currentStep("Analysis paused")
                 .type(ProgressUpdate.ProgressType.ERROR)
                 .timestamp(java.time.LocalDateTime.now())
                 .build();

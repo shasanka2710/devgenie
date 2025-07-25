@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.nio.file.Paths;
 
 @Service
 @Slf4j
@@ -159,16 +158,24 @@ public class CoverageAgentService {
      */
     public FileCoverageImprovementResult improveFileCoverageEnhanced(com.org.devgenie.dto.coverage.EnhancedFileCoverageRequest request) {
         log.info("Starting enhanced file coverage improvement for: {}", request.getFilePath());
+        log.info("🔍 CoverageAgentService received sessionId: {}", request.getSessionId());
 
-        // Create session for tracking progress
-        CoverageImprovementSession session = sessionManagementService.createSession(
-                request.getRepositoryUrl(),
-                request.getBranch(),
-                request.getFilePath(),
-                CoverageImprovementSession.SessionType.FILE_IMPROVEMENT
-        );
-
-        String sessionId = session.getSessionId();
+        // Use existing session ID if provided, otherwise create a new session
+        String sessionId;
+        if (request.getSessionId() != null && !request.getSessionId().trim().isEmpty()) {
+            sessionId = request.getSessionId();
+            log.info("🔍 Using provided session ID: {}", sessionId);
+        } else {
+            // Create session for tracking progress (fallback for backward compatibility)
+            CoverageImprovementSession session = sessionManagementService.createSession(
+                    request.getRepositoryUrl(),
+                    request.getBranch(),
+                    request.getFilePath(),
+                    CoverageImprovementSession.SessionType.FILE_IMPROVEMENT
+            );
+            sessionId = session.getSessionId();
+            log.info("🔍 Created new session ID: {}", sessionId);
+        }
         LocalDateTime startTime = LocalDateTime.now();
 
         try {
@@ -558,10 +565,20 @@ public class CoverageAgentService {
         
         // Add generated test methods
         for (GeneratedTestInfo testInfo : generatedTests) {
+            String testCode = testInfo.getTestCode();
+            
+            // Validate and clean the test method code
+            testCode = cleanTestMethodCode(testCode);
+            
+            // Add proper indentation if missing
+            if (!testCode.startsWith("    ")) {
+                testCode = indentCode(testCode, "    ");
+            }
+            
             testClass.append("    @Test\n");
             testClass.append("    @DisplayName(\"").append(testInfo.getDescription()).append("\")\n");
-            testClass.append("    ").append(testInfo.getTestCode());
-            if (!testInfo.getTestCode().endsWith("\n")) {
+            testClass.append("    ").append(testCode);
+            if (!testCode.endsWith("\n")) {
                 testClass.append("\n");
             }
             testClass.append("\n");
@@ -595,5 +612,65 @@ public class CoverageAgentService {
     private String extractClassNameFromTestPath(String testFilePath) {
         String fileName = Paths.get(testFilePath).getFileName().toString();
         return fileName.replace(".java", "");
+    }
+
+    /**
+     * Clean test method code to ensure it's properly formatted for inclusion in a class
+     */
+    private String cleanTestMethodCode(String testCode) {
+        if (testCode == null || testCode.trim().isEmpty()) {
+            return "void testPlaceholder() {\n        // TODO: Add test implementation\n    }";
+        }
+        
+        String cleaned = testCode.trim();
+        
+        // Remove any class-level artifacts that might have leaked through
+        cleaned = cleaned.replaceAll("package\\s+[^;]+;\\s*", "");
+        cleaned = cleaned.replaceAll("import\\s+[^;]+;\\s*", "");
+        cleaned = cleaned.replaceAll("(?s)class\\s+\\w+\\s*\\{", "");
+        cleaned = cleaned.replaceAll("(?s)public\\s+class\\s+\\w+\\s*\\{", "");
+        
+        // Remove duplicate @Test annotations (in case they're already in the code)
+        if (cleaned.startsWith("@Test")) {
+            // Find the method signature and remove the @Test annotation since we'll add it
+            cleaned = cleaned.replaceFirst("@Test\\s*", "");
+        }
+        
+        // Remove @DisplayName if present since we'll add it
+        cleaned = cleaned.replaceAll("@DisplayName\\([^)]*\\)\\s*", "");
+        
+        // Ensure the method starts with proper visibility and format
+        if (!cleaned.matches("(?s)\\s*(public\\s+|private\\s+|protected\\s+)?void\\s+\\w+\\s*\\([^)]*\\)\\s*\\{.*")) {
+            // If it doesn't look like a proper method, wrap it
+            if (!cleaned.startsWith("void ")) {
+                cleaned = "void testMethod() {\n    " + cleaned + "\n}";
+            }
+        }
+        
+        return cleaned.trim();
+    }
+
+    /**
+     * Add proper indentation to code
+     */
+    private String indentCode(String code, String indentString) {
+        if (code == null || code.trim().isEmpty()) {
+            return code;
+        }
+        
+        String[] lines = code.split("\n");
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            if (line.trim().isEmpty()) {
+                result.append(line);
+            } else {
+                result.append(indentString).append(line);
+            }
+            if (i < lines.length - 1) {
+                result.append("\n");
+            }
+        }
+        return result.toString();
     }
 }

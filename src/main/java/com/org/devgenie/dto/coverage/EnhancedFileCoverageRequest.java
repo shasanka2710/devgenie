@@ -13,6 +13,7 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EnhancedFileCoverageRequest {
+    private String sessionId; // Optional: if provided, use this session ID instead of generating a new one
     private String repositoryUrl;
     @Builder.Default
     private String branch = "main";

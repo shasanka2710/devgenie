@@ -71,6 +71,8 @@ public class TestGenerationService {
             6. Include setup and teardown methods if needed
             7. Add meaningful assertions
             8. Include both positive and negative test cases
+            9. Ensure the test class is properly structured with one complete class
+            10. Do NOT generate multiple class declarations
             
             Please provide the response in the following JSON format:
             {
@@ -91,7 +93,7 @@ public class TestGenerationService {
                 "mockDependencies": [
                     "Dependencies that need to be mocked"
                 ],
-                "testClassContent": "Complete test class content here",
+                "testClassContent": "Complete test class content as ONE cohesive class with multiple test methods",
                 "estimatedCoverageIncrease": 25.5,
                 "notes": "Any important notes about the generated tests"
             }
@@ -268,27 +270,42 @@ public class TestGenerationService {
             - Current Coverage: %.1f%%
             - Methods to focus on: %s
             
-            Requirements:
+            IMPORTANT REQUIREMENTS:
             1. Generate exactly %d test methods
-            2. Use JUnit 5 annotations (@Test, @BeforeEach, etc.)
-            3. Include Mockito mocks where appropriate
-            4. Focus on edge cases and error conditions
-            5. Ensure tests are independent and can run in any order
-            6. Include meaningful assertions
+            2. Return ONLY the test method code, NOT complete class declarations
+            3. Each method should be a standalone test method with @Test annotation
+            4. Use JUnit 5 annotations (@Test, @BeforeEach, etc.)
+            5. Include Mockito mocks where appropriate
+            6. Focus on edge cases and error conditions
+            7. Ensure tests are independent and can run in any order
+            8. Include meaningful assertions
+            9. Do NOT include package declarations, imports, or class declarations
+            10. Do NOT include setUp() methods or class-level fields
             
-            Return the response in JSON format:
+            Return the response in JSON format with ONLY method code:
             {
                 "testClass": "TestClassName",
                 "testMethods": [
                     {
                         "methodName": "testMethodName",
                         "description": "What this test validates",
-                        "code": "complete test method code",
+                        "code": "@Test\\nvoid testMethodName() {\\n    // test implementation\\n    // assertions\\n}",
                         "coveredMethods": ["method1", "method2"],
                         "estimatedCoverageContribution": 5.0
                     }
                 ]
             }
+            
+            EXAMPLE of correct method code format:
+            "@Test\\nvoid testConstructorInjection() {\\n    // Given\\n    // When\\n    // Then\\n    assertNotNull(instance);\\n}"
+            
+            DO NOT include:
+            - Package declarations
+            - Import statements
+            - Class declarations
+            - Class-level fields or mocks
+            - setUp methods
+            - Class closing braces
             """, 
             maxTestsPerBatch, batchIndex + 1, fileContent, analysis.getFilePath(), 
             analysis.getCurrentCoverage(), getMethodsForBatch(analysis, batchIndex), maxTestsPerBatch);
@@ -316,11 +333,22 @@ public class TestGenerationService {
             
             if (testMethods != null && testMethods.isArray()) {
                 for (JsonNode method : testMethods) {
+                    String rawCode = method.get("code").asText();
+                    
+                    // Check if the code contains class-level declarations (indicating LLM returned full class)
+                    String cleanedCode = rawCode;
+                    if (rawCode.contains("package ") || rawCode.contains("import ") || 
+                        rawCode.contains("class ") || rawCode.contains("public class")) {
+                        log.warn("LLM returned complete class instead of method code. Extracting method...");
+                        cleanedCode = extractMethodCodeFromClass(rawCode);
+                        log.debug("Extracted method code: {}", cleanedCode.substring(0, Math.min(100, cleanedCode.length())));
+                    }
+                    
                     GeneratedTestInfo testInfo = GeneratedTestInfo.builder()
                             .testMethodName(method.get("methodName").asText())
                             .testClass(root.get("testClass").asText())
                             .description(method.get("description").asText())
-                            .testCode(method.get("code").asText())
+                            .testCode(cleanedCode)
                             .coveredMethods(extractCoveredMethods(method.get("coveredMethods")))
                             .estimatedCoverageContribution(method.get("estimatedCoverageContribution").asDouble())
                             .build();
@@ -413,5 +441,78 @@ public class TestGenerationService {
                  response.substring(Math.max(0, response.length() - 10)));
         
         return response;
+    }
+
+    /**
+     * Extract test method code from complete class structure if the LLM returns full class
+     * This is a fallback mechanism to handle cases where LLM ignores instructions
+     */
+    private String extractMethodCodeFromClass(String fullClassCode) {
+        if (fullClassCode == null || fullClassCode.trim().isEmpty()) {
+            return "";
+        }
+        
+        // Remove package declarations
+        String code = fullClassCode.replaceAll("package\\s+[^;]+;\\s*", "");
+        
+        // Remove import statements
+        code = code.replaceAll("import\\s+[^;]+;\\s*", "");
+        
+        // Remove class declaration and opening brace
+        code = code.replaceAll("(?s)/\\*\\*.*?\\*/\\s*", ""); // Remove class-level comments
+        code = code.replaceAll("(?s)class\\s+\\w+\\s*\\{", ""); // Remove class declaration
+        code = code.replaceAll("(?s)public\\s+class\\s+\\w+\\s*\\{", ""); // Remove public class declaration
+        
+        // Remove class-level fields and mocks
+        code = code.replaceAll("(?s)@Mock\\s+private\\s+[^;]+;\\s*", "");
+        code = code.replaceAll("(?s)private\\s+[^;]+;\\s*", "");
+        
+        // Remove setUp methods
+        code = code.replaceAll("(?s)@BeforeEach\\s+void\\s+setUp\\(\\)\\s*\\{[^}]*\\}\\s*", "");
+        
+        // Remove the last closing brace (class closing)
+        code = code.trim();
+        if (code.endsWith("}")) {
+            code = code.substring(0, code.lastIndexOf("}")).trim();
+        }
+        
+        // Extract just the test method
+        if (code.contains("@Test")) {
+            // Find the start of the test method
+            int testStart = code.indexOf("@Test");
+            if (testStart >= 0) {
+                // Find the method and its body
+                String methodPart = code.substring(testStart);
+                
+                // Find the complete method by counting braces
+                int braceCount = 0;
+                int methodEnd = -1;
+                boolean inMethod = false;
+                
+                for (int i = 0; i < methodPart.length(); i++) {
+                    char c = methodPart.charAt(i);
+                    if (c == '{') {
+                        if (!inMethod) inMethod = true;
+                        braceCount++;
+                    } else if (c == '}') {
+                        braceCount--;
+                        if (inMethod && braceCount == 0) {
+                            methodEnd = i + 1;
+                            break;
+                        }
+                    }
+                }
+                
+                if (methodEnd > 0) {
+                    code = methodPart.substring(0, methodEnd).trim();
+                }
+            }
+        }
+        
+        // Clean up any remaining artifacts
+        code = code.replaceAll("^\\s*\\n+", ""); // Remove leading newlines
+        code = code.replaceAll("\\n+$", ""); // Remove trailing newlines
+        
+        return code.trim();
     }
 }
