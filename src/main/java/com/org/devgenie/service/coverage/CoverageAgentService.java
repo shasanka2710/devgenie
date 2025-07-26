@@ -210,7 +210,7 @@ public class CoverageAgentService {
 
             // Step 3: Analyze file for test generation (25% progress)
             sessionManagementService.updateProgress(sessionId, 25.0, "Analyzing file structure");
-            FileAnalysisResult analysis = fileAnalysisService.analyzeFile(request.getFilePath());
+            FileAnalysisResult analysis = fileAnalysisService.analyzeFile(repoDir+"/"+request.getFilePath());
 
             // Step 4: Generate tests in batches (25% - 80% progress)
             sessionManagementService.updateProgress(sessionId, 30.0, "Generating tests in batches");

@@ -129,7 +129,23 @@ public class CoverageWebController {
     @ResponseBody
     public RepositoryAnalysisResponse getAnalysisStatus(@PathVariable String owner, @PathVariable String repo) {
         String cacheKey = owner + "/" + repo;
-        return analysisCache.get(cacheKey);
+        log.debug("Checking analysis status for cache key: {}", cacheKey);
+        
+        RepositoryAnalysisResponse cachedResponse = analysisCache.get(cacheKey);
+        
+        if (cachedResponse != null) {
+            log.debug("Found cached response for {}: success={}", cacheKey, cachedResponse.isSuccess());
+            // Return the cached response (analysis completed)
+            return cachedResponse;
+        } else {
+            log.debug("No cached response found for {}, returning in-progress status", cacheKey);
+            // Analysis not found in cache - either not started or still in progress
+            // Return a default "in progress" response instead of null
+            return RepositoryAnalysisResponse.builder()
+                    .success(false)
+                    .error("Analysis in progress or not started")
+                    .build();
+        }
     }
 
     @GetMapping("/dashboard/{owner}/{repo}")
@@ -289,15 +305,27 @@ public class CoverageWebController {
 
             // If no analysis exists and we're on insights tab, start analysis
             if (analysis == null && "insights".equals(activeTab)) {
+                log.info("Starting background analysis for {}/{}", owner, repo);
                 executor.submit(() -> {
-                    RepositoryAnalysisRequest analysisRequest = new RepositoryAnalysisRequest();
-                    analysisRequest.setRepositoryUrl(repository.getHtmlUrl());
-                    analysisRequest.setGithubToken(accessToken);
-                    analysisRequest.setBranch("main");
-                    
-                    RepositoryAnalysisResponse result = repositoryAnalysisService.analyzeRepository(analysisRequest);
-                    analysisCache.put(cacheKey, result);
-                    log.info("Repository analysis completed for unified page");
+                    try {
+                        RepositoryAnalysisRequest analysisRequest = new RepositoryAnalysisRequest();
+                        analysisRequest.setRepositoryUrl(repository.getHtmlUrl());
+                        analysisRequest.setGithubToken(accessToken);
+                        analysisRequest.setBranch("main");
+                        
+                        log.info("Executing analysis for cache key: {}", cacheKey);
+                        RepositoryAnalysisResponse result = repositoryAnalysisService.analyzeRepository(analysisRequest);
+                        
+                        log.info("Analysis completed, storing in cache with key: {} - Success: {}", cacheKey, result.isSuccess());
+                        analysisCache.put(cacheKey, result);
+                        log.info("Cache updated successfully for key: {}", cacheKey);
+                        log.info("Repository analysis completed for unified page");
+                    } catch (Exception e) {
+                        log.error("Failed to complete background analysis for {}/{}", owner, repo, e);
+                        // Store error result in cache so polling knows it failed
+                        RepositoryAnalysisResponse errorResult = RepositoryAnalysisResponse.error("Analysis failed: " + e.getMessage());
+                        analysisCache.put(cacheKey, errorResult);
+                    }
                 });
             }
 

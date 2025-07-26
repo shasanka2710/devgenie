@@ -931,6 +931,8 @@
         // Session tracking for coverage improvement
         let currentSessionId = null;
         let currentSessionType = null;
+        let pollAttempts = 0;
+        const maxPollAttempts = 150; // 5 minutes with 2-second intervals
 
         // Store file details data for JavaScript access (for coverage tab)
         const fileDetailsMap = new Map();
@@ -977,24 +979,53 @@
         // Poll for analysis status every 2 seconds if analysis is in progress
         function pollAnalysis() {
             if (document.getElementById('analysisStatus')) {
+                // Check if we've exceeded maximum poll attempts
+                if (pollAttempts >= maxPollAttempts) {
+                    console.warn('Maximum polling attempts reached, stopping polling');
+                    const statusElement = document.getElementById('analysisStatus');
+                    if (statusElement) {
+                        statusElement.innerHTML = `
+                            <div class="text-center py-5">
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Analysis is taking longer than expected. Please refresh the page to check the status.
+                                </div>
+                                <button class="btn btn-primary" onclick="window.location.reload()">
+                                    <i class="bi bi-arrow-clockwise me-2"></i>Refresh Page
+                                </button>
+                            </div>
+                        `;
+                    }
+                    return;
+                }
+                
+                pollAttempts++;
                 const url = `/coverage/analyze/${/*[[${owner}]]*/ 'owner'}/${/*[[${repoName}]]*/ 'repo'}/status`;
                 fetch(url, { cache: 'no-store' })
                     .then(res => res.json())
                     .then(data => {
+                        console.log('Polling analysis status (attempt', pollAttempts, '):', data);
                         if (data && data.success) {
+                            // Simple reload when analysis is complete
                             window.location.reload();
                         } else {
                             setTimeout(pollAnalysis, 2000);
                         }
                     })
-                    .catch(() => setTimeout(pollAnalysis, 2000));
+                    .catch((error) => {
+                        console.error('Error polling analysis status:', error);
+                        setTimeout(pollAnalysis, 2000);
+                    });
             }
         }
 
         document.addEventListener('DOMContentLoaded', function() {
             // Start polling if analysis is in progress
             if (document.getElementById('analysisStatus')) {
-                setTimeout(pollAnalysis, 2000);
+                console.log('Analysis in progress, starting polling...');
+                pollAttempts = 0; // Reset poll attempts
+                // Start polling immediately, then continue every 2 seconds
+                pollAnalysis();
             }
             
             console.log('File details map initialized with', fileDetailsMap.size, 'files');

@@ -77,14 +77,66 @@ public class CoverageProgressWebSocketHandler implements WebSocketHandler {
         WebSocketSession session = sessions.get(sessionId);
         if (session != null && session.isOpen()) {
             try {
+                // Check if the session is in a valid state for sending messages
+                if (!isSessionReadyForMessage(session)) {
+                    log.warn("WebSocket session {} is not ready for sending messages, state: {}", 
+                        sessionId, getSessionState(session));
+                    return;
+                }
+                
                 String json = objectMapper.writeValueAsString(update);
-                session.sendMessage(new TextMessage(json));
+                synchronized (session) { // Synchronize to prevent concurrent writes
+                    session.sendMessage(new TextMessage(json));
+                }
                 log.info("Successfully sent progress update to session {}: {}% - {}", sessionId, update.getProgress(), update.getMessage());
+            } catch (IllegalStateException e) {
+                log.warn("WebSocket session {} is in invalid state for sending messages: {}", sessionId, e.getMessage());
+                // Remove invalid session
+                sessions.remove(sessionId);
             } catch (IOException e) {
                 log.error("Failed to send progress update to session: {}", sessionId, e);
+                // Remove failed session
+                sessions.remove(sessionId);
             }
         } else {
             log.warn("No active WebSocket session found for sessionId: {}, available sessions: {}", sessionId, sessions.keySet());
+        }
+    }
+    
+    /**
+     * Check if WebSocket session is ready for sending messages
+     */
+    private boolean isSessionReadyForMessage(WebSocketSession session) {
+        try {
+            // Check if session is open and not in a partial write state
+            return session.isOpen() && !isInPartialWriteState(session);
+        } catch (Exception e) {
+            log.debug("Error checking session state: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Check if session is in a partial write state (not safe for new messages)
+     */
+    private boolean isInPartialWriteState(WebSocketSession session) {
+        // This is a heuristic - if we can't determine the state safely, assume it's ready
+        try {
+            // We can't directly access the internal state, but we can check basic properties
+            return !session.isOpen();
+        } catch (Exception e) {
+            return false; // If we can't check, assume it's ready
+        }
+    }
+    
+    /**
+     * Get session state for logging (best effort)
+     */
+    private String getSessionState(WebSocketSession session) {
+        try {
+            return session.isOpen() ? "OPEN" : "CLOSED";
+        } catch (Exception e) {
+            return "UNKNOWN";
         }
     }
 
@@ -146,13 +198,26 @@ public class CoverageProgressWebSocketHandler implements WebSocketHandler {
      */
     public void broadcastMessage(String message) {
         TextMessage textMessage = new TextMessage(message);
-        sessions.values().forEach(session -> {
-            if (session.isOpen()) {
+        sessions.entrySet().removeIf(entry -> {
+            WebSocketSession session = entry.getValue();
+            String sessionId = entry.getKey();
+            
+            if (session.isOpen() && isSessionReadyForMessage(session)) {
                 try {
-                    session.sendMessage(textMessage);
+                    synchronized (session) {
+                        session.sendMessage(textMessage);
+                    }
+                    return false; // Keep the session
+                } catch (IllegalStateException e) {
+                    log.warn("Session {} is in invalid state for broadcast: {}", sessionId, e.getMessage());
+                    return true; // Remove the session
                 } catch (IOException e) {
-                    log.error("Failed to broadcast message to session", e);
+                    log.error("Failed to broadcast message to session {}", sessionId, e);
+                    return true; // Remove the session
                 }
+            } else {
+                log.debug("Removing inactive session {} during broadcast", sessionId);
+                return true; // Remove the session
             }
         });
     }

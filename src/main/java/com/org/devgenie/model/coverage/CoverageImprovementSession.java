@@ -8,6 +8,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -32,7 +33,8 @@ public class CoverageImprovementSession {
     private Integer totalFiles;
     private Integer currentBatch;
     private Integer totalBatches;
-    private List<String> errors;
+    @Builder.Default
+    private List<String> errors = new ArrayList<>(); // Initialize to prevent NPE
     private Object results; // JSON field for results
     private Map<String, Object> metadata;
     private String workspaceId;
