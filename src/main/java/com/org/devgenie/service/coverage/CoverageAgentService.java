@@ -16,6 +16,7 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -103,27 +104,41 @@ public class CoverageAgentService {
         log.info("Applying changes for session: {}", request.getSessionId());
 
         try {
+            // Retrieve session data to get repository URL and branch
+            Optional<CoverageImprovementSession> sessionOpt = sessionManagementService.getSession(request.getSessionId());
+            if (sessionOpt.isEmpty()) {
+                throw new IllegalArgumentException("Session not found: " + request.getSessionId());
+            }
+
+            CoverageImprovementSession session = sessionOpt.get();
+            String repositoryUrl = session.getRepositoryUrl();
+            String branch = session.getBranch() != null ? session.getBranch() : "main";
+
+            if (repositoryUrl == null) {
+                throw new IllegalArgumentException("Repository URL not found in session: " + request.getSessionId());
+            }
+
             // Get workspace directory
             String workspaceDir = config.getWorkspaceRootDir();
 
-            String repoUrlHash = generateRepoUrlHash(request.getRepositoryUrl());
-            String branchName = request.getBranch() != null ? request.getBranch() : "main";
+            String repoUrlHash = generateRepoUrlHash(repositoryUrl);
+            String branchName = branch;
             String persistentDir = workspaceDir + "/" + repoUrlHash + "/" + branchName;
-            String repoDir = persistentDir + "/" + extractRepoName(request.getRepositoryUrl());
+            String repoDir = persistentDir + "/" + extractRepoName(repositoryUrl);
 
 
             // Apply all generated test files
             gitService.applyChanges(request.getChanges(), workspaceDir);
 
             // Get original coverage for comparison
-            CoverageData originalCoverage = coverageDataService.getCurrentCoverage(repoDir, request.getRepositoryUrl(), request.getBranch()).getCoverageDataList().get(0);
+            CoverageData originalCoverage = coverageDataService.getCurrentCoverage(repoDir, repositoryUrl, branch).getCoverageDataList().get(0);
 
             // Detect project configuration
             ProjectConfiguration projectConfig = projectConfigService.detectProjectConfiguration(repoDir);
 
             // ENHANCED: Use new validation method with multiple strategies
             CoverageComparisonResult comparisonResult = jacocoService.validateCoverageImprovement(
-                    repoDir, request.getBranch(),projectConfig, originalCoverage);
+                    repoDir, branch, projectConfig, originalCoverage);
 
             CoverageData finalCoverage = comparisonResult.getNewCoverage();
 
@@ -475,7 +490,7 @@ public class CoverageAgentService {
         
         for (int i = 0; i < testFilePaths.size() && i < generatedTests.size(); i++) {
             String testFilePath = testFilePaths.get(i);
-            String absoluteTestPath = Paths.get(repoDir, testFilePath).toString();
+            String absoluteTestPath = Paths.get(testFilePath).toString();
             
             log.info("=== CREATING TEST FILE {} ===", i + 1);
             log.info("Relative test path: {}", testFilePath);

@@ -340,6 +340,47 @@
             color: #666;
         }
 
+        /* Optimized tree structure styles */
+        .file-item.flattened-folder {
+            background-color: #e3f2fd;
+            border-left: 3px solid var(--wf-blue);
+            padding-left: 0.8rem;
+        }
+
+        .file-item.auto-expanded {
+            opacity: 0.9;
+        }
+
+        .file-item.low-coverage {
+            border-left: 2px solid var(--wf-red);
+        }
+
+        .file-item.medium-coverage {
+            border-left: 2px solid var(--wf-yellow);
+        }
+
+        .file-item.high-coverage {
+            border-left: 2px solid var(--wf-green);
+        }
+
+        /* Smart grouping indicators */
+        .package-group {
+            background-color: #f0f7ff;
+            border-radius: 8px;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            border-left: 4px solid var(--wf-blue);
+        }
+
+        .priority-file {
+            background-color: #fff8e1;
+            border-left: 3px solid #ffa726;
+        }
+
+        .priority-file:hover {
+            background-color: #fff3c4;
+        }
+
         .timeline {
             position: relative;
             padding-left: 2rem;
@@ -662,16 +703,276 @@
             </div>
         </div>
     </div>
+
+    <!-- Coverage Improvement Progress Modal -->
+    <div class="modal fade" id="coverageProgressModal" tabindex="-1" aria-labelledby="coverageProgressModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-md">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-2" style="background: linear-gradient(135deg, var(--wf-red) 0%, var(--wf-red-dark) 100%); color: white;">
+                    <h6 class="modal-title" id="coverageProgressModalLabel">
+                        <i class="bi bi-graph-up-arrow me-2"></i>
+                        Improving Coverage
+                    </h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <!-- Compact Progress Header -->
+                    <div class="text-center mb-3">
+                        <div class="coverage-progress-icon mb-2" id="progressIconContainer">
+                            <div class="spinner-border text-primary" role="status" id="progressSpinner" style="width: 2rem; height: 2rem;">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <i class="bi bi-check-circle-fill text-success" id="progressComplete" style="font-size: 2rem; display: none;"></i>
+                        </div>
+                        <h6 class="mb-1" id="progressTitle">Analyzing Code...</h6>
+                        <small class="text-muted" id="progressSubtitle">Please wait while we improve your coverage</small>
+                    </div>
+
+                    <!-- Compact Progress Bar -->
+                    <div class="progress mb-3" style="height: 8px; border-radius: 4px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" 
+                             style="width: 10%; background: linear-gradient(90deg, var(--wf-red), var(--wf-blue));"
+                             id="coverageProgressBar">
+                        </div>
+                    </div>
+
+                    <!-- Simple Status -->
+                    <div class="text-center mb-3">
+                        <div class="d-flex align-items-center justify-content-center">
+                            <div class="status-icon me-2" style="width: 20px; height: 20px;">
+                                <i class="bi bi-gear-fill text-primary" id="statusIcon" style="font-size: 1rem;"></i>
+                            </div>
+                            <div>
+                                <span class="fw-medium" id="currentStatusText">Starting analysis...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Simplified Progress Messages (no technical details) -->
+                    <div class="progress-messages" id="progressMessagesContainer" style="display: none;">
+                        <div class="progress-log" id="progressLog" style="max-height: 120px; overflow-y: auto; font-size: 0.85rem;">
+                            <!-- Simple messages will be appended here -->
+                        </div>
+                    </div>
+
+                    <!-- Minimal Session Info (hidden by default) -->
+                    <div class="session-info mt-3" id="sessionInfoContainer" style="display: none;">
+                        <div class="text-center">
+                            <small class="text-muted">Started: <span id="progressStartTime">-</span></small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-1">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="hideModalBtn">
+                        <i class="bi bi-eye-slash me-1"></i>
+                        Hide
+                    </button>
+                    <button type="button" class="btn btn-success btn-sm" id="viewResultsBtn" style="display: none;" onclick="viewCoverageResults()">
+                        <i class="bi bi-eye me-1"></i>
+                        View Results
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coverage Improvement Results Summary Modal -->
+    <div class="modal fade" id="coverageResultsModal" tabindex="-1" aria-labelledby="coverageResultsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="coverageResultsModalLabel">
+                        <i class="bi bi-check-circle me-2"></i>
+                        Coverage Improvement Summary
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Summary Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card border-success h-100">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>Coverage Improvement</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="coverageImprovementSummary">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span>Original Coverage:</span>
+                                            <span class="fw-bold" id="originalCoverage">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span>Improved Coverage:</span>
+                                            <span class="fw-bold text-success" id="improvedCoverage">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span>Increase:</span>
+                                            <span class="fw-bold text-primary" id="coverageIncrease">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-info h-100">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-file-earmark-code me-2"></i>Tests Generated</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="testsGeneratedSummary">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span>Files Processed:</span>
+                                            <span class="fw-bold" id="filesProcessed">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span>Test Methods:</span>
+                                            <span class="fw-bold" id="testMethodsGenerated">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span>Test Files:</span>
+                                            <span class="fw-bold" id="testFilesCreated">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-primary h-100">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-clock me-2"></i>Processing Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="processingDetails">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span>Status:</span>
+                                            <span class="fw-bold text-success" id="processingStatus">Completed</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span>Started:</span>
+                                            <span class="fw-bold" id="startTime">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span>Session ID:</span>
+                                            <span class="fw-bold" id="sessionIdDisplay">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Files Modified -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-files me-2"></i>Modified Files</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="modifiedFilesList">
+                                        <!-- Will be populated dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Generated Tests Preview -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0"><i class="bi bi-code-slash me-2"></i>Generated Tests Preview</h6>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleTestPreview()">
+                                        <span id="toggleTestText">Show Details</span>
+                                        <i class="bi bi-chevron-down" id="toggleTestIcon"></i>
+                                    </button>
+                                </div>
+                                <div class="card-body" id="testPreviewBody" style="display: none;">
+                                    <div id="testPreviewContent">
+                                        <!-- Will be populated dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <div class="d-flex w-100 justify-content-between">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </button>
+                        <div>
+                            <button type="button" class="btn btn-warning me-2" onclick="modifyChanges()">
+                                <i class="bi bi-pencil me-2"></i>Modify
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="createPullRequest()">
+                                <i class="bi bi-git me-2"></i>Create PR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <th:block layout:fragment="scripts">
-    <script>
+    <script src="/js/file-coverage-client.js"></script>
+    <script th:inline="javascript">
         // Repository context for coverage functionality
         const REPOSITORY_CONTEXT = {
             repositoryUrl: /*[[${repositoryUrl}]]*/ 'https://github.com/example/repo',
             branch: /*[[${defaultBranch}]]*/ 'main',
             fullName: /*[[${owner + '/' + repoName}]]*/ 'owner/repo'
         };
+
+        // Session tracking for coverage improvement
+        let currentSessionId = null;
+        let currentSessionType = null;
+
+        // Store file details data for JavaScript access (for coverage tab)
+        const fileDetailsMap = new Map();
+        
+        /*<![CDATA[*/
+        // Safe file details processing for coverage tab
+        var fileDetails = /*[[${fileDetails != null ? fileDetails : {}}]]*/ {};
+        
+        if (fileDetails && Array.isArray(fileDetails)) {
+            fileDetails.forEach(function(file) {
+                if (file && file.filePath) {
+                    var improvementOpportunities = [];
+                    if (file.improvementOpportunities && Array.isArray(file.improvementOpportunities)) {
+                        improvementOpportunities = file.improvementOpportunities.filter(function(opp) {
+                            return opp != null;
+                        }).map(function(opp) {
+                            return {
+                                type: opp.type || 'UNKNOWN',
+                                description: opp.description || 'No description',
+                                priority: opp.priority || 'LOW',
+                                estimatedImpact: opp.estimatedImpact || 'Unknown'
+                            };
+                        });
+                    }
+                    
+                    fileDetailsMap.set(file.filePath, {
+                        fileName: file.fileName || 'Unknown',
+                        lineCoverage: file.lineCoverage || 0,
+                        branchCoverage: file.branchCoverage || 0,
+                        methodCoverage: file.methodCoverage || 0,
+                        totalLines: file.totalLines || 0,
+                        coveredLines: file.coveredLines || 0,
+                        totalBranches: file.totalBranches || 0,
+                        coveredBranches: file.coveredBranches || 0,
+                        totalMethods: file.totalMethods || 0,
+                        coveredMethods: file.coveredMethods || 0,
+                        improvementOpportunities: improvementOpportunities
+                    });
+                }
+            });
+        }
+        /*]]>*/
 
         // Poll for analysis status every 2 seconds if analysis is in progress
         function pollAnalysis() {
@@ -690,8 +991,34 @@
             }
         }
 
+        document.addEventListener('DOMContentLoaded', function() {
+            // Start polling if analysis is in progress
+            if (document.getElementById('analysisStatus')) {
+                setTimeout(pollAnalysis, 2000);
+            }
+            
+            console.log('File details map initialized with', fileDetailsMap.size, 'files');
+            console.log('Available files:', Array.from(fileDetailsMap.keys()));
+
+            // Modal button event listeners
+            const hideModalBtn = document.getElementById('hideModalBtn');
+            if (hideModalBtn) {
+                hideModalBtn.addEventListener('click', function() {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('coverageProgressModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                });
+            }
+        });
+
         // File selection and display functions for coverage tab
         function selectFile(element) {
+            console.log('=== FILE SELECTION DEBUG ===');
+            console.log('Element clicked:', element);
+            console.log('data-file-path:', element.getAttribute('data-file-path'));
+            console.log('data-file-name:', element.getAttribute('data-file-name'));
+            
             // Remove selected class from all file items
             document.querySelectorAll('.file-item').forEach(item => {
                 item.classList.remove('selected');
@@ -704,6 +1031,11 @@
             const fileName = element.getAttribute('data-file-name');
             const filePath = element.getAttribute('data-file-path');
             
+            if (!filePath || !fileName) {
+                console.warn('Missing file path or name attributes');
+                return;
+            }
+
             // Update selected file name
             document.getElementById('selectedFileName').textContent = fileName;
             
@@ -715,33 +1047,25 @@
                 improveBtn.style.display = 'none';
             }
             
-            // Fetch and display file details
-            if (filePath) {
-                fetchFileDetails(filePath);
-            }
-        }
-
-        function fetchFileDetails(filePath) {
-            const url = `/coverage/file-details?` + new URLSearchParams({
-                repositoryUrl: REPOSITORY_CONTEXT.repositoryUrl,
-                branch: REPOSITORY_CONTEXT.branch,
-                filePath: filePath
-            });
+            // Get file details from pre-loaded map
+            const fileDetails = fileDetailsMap.get(filePath);
+            console.log('Looking for file details for:', filePath);
+            console.log('Found file details:', fileDetails);
             
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    displayFileDetails(data);
-                })
-                .catch(error => {
-                    console.error('Error fetching file details:', error);
-                    document.getElementById('fileDetails').innerHTML = `
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            Unable to load file details. Please try again.
-                        </div>
-                    `;
-                });
+            if (!fileDetails) {
+                console.warn('No details found for file:', filePath);
+                console.warn('Available files in map:', Array.from(fileDetailsMap.keys()));
+                document.getElementById('fileDetails').innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        File details not available. Please ensure the coverage analysis has completed.
+                    </div>
+                `;
+                return;
+            }
+            
+            // Display the file details
+            displayFileDetails(fileDetails);
         }
 
         function displayFileDetails(fileDetails) {
@@ -828,18 +1152,29 @@
             const toggle = element.querySelector('.folder-toggle');
             const children = element.parentElement.querySelector('.folder-children');
             
+            console.log('=== TOGGLE FOLDER DEBUG ===');
+            console.log('Element:', element);
+            console.log('Toggle:', toggle);
+            console.log('Children:', children);
+            console.log('Children classes before:', children ? children.className : 'no children');
+            
             if (toggle && children) {
                 if (children.classList.contains('collapsed')) {
                     // Expand
                     children.classList.remove('collapsed');
                     toggle.classList.add('expanded');
                     toggle.className = toggle.className.replace('bi-chevron-right', 'bi-chevron-down');
+                    console.log('Expanded folder');
                 } else {
                     // Collapse
                     children.classList.add('collapsed');
                     toggle.classList.remove('expanded');
                     toggle.className = toggle.className.replace('bi-chevron-down', 'bi-chevron-right');
+                    console.log('Collapsed folder');
                 }
+                console.log('Children classes after:', children.className);
+            } else {
+                console.warn('Missing toggle or children elements');
             }
         }
 
@@ -854,14 +1189,11 @@
                 maxTestsPerBatch: 10,
                 validateTests: true,
                 workspaceId: REPOSITORY_CONTEXT.fullName,
-                githubToken: null
+                githubToken: null // Will be handled by the backend session
             };
 
             console.log('Repository coverage improvement request:', request);
-            
-            // For now, redirect to the existing coverage improvement page
-            const url = `/coverage/improve?repositoryUrl=${encodeURIComponent(request.repositoryUrl)}&branch=${request.branch}`;
-            window.location.href = url;
+            startRepositoryCoverageImprovement(request);
         }
 
         function improveFileCoverage() {
@@ -882,18 +1214,902 @@
             
             console.log('Starting file coverage improvement for:', filePath);
             
-            // For now, redirect to the existing coverage improvement page with file parameter
-            const url = `/coverage/improve?repositoryUrl=${encodeURIComponent(REPOSITORY_CONTEXT.repositoryUrl)}&branch=${REPOSITORY_CONTEXT.branch}&filePath=${encodeURIComponent(filePath)}`;
-            window.location.href = url;
+            const request = {
+                repositoryUrl: REPOSITORY_CONTEXT.repositoryUrl,
+                branch: REPOSITORY_CONTEXT.branch,
+                filePath: filePath,
+                targetCoverageIncrease: 25.0,
+                maxTestsPerBatch: 5,
+                validateTests: true,
+                workspaceId: REPOSITORY_CONTEXT.fullName,
+                githubToken: null // Will be handled by the backend session
+            };
+
+            console.log('File coverage improvement request:', request);
+            startFileCoverageImprovement(filePath, request);
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // Start polling if analysis is in progress
-            if (document.getElementById('analysisStatus')) {
-                setTimeout(pollAnalysis, 2000);
+        // Repository coverage improvement function  
+        async function startRepositoryCoverageImprovement(request) {
+            try {
+                console.log('Initiating repository coverage improvement with existing workspace...');
+                
+                // Generate session ID for coordinated WebSocket and backend processing
+                const sessionId = generateSessionId();
+                console.log('Generated session ID for coordination:', sessionId);
+                
+                // Store session info globally for results access
+                currentSessionId = sessionId;
+                currentSessionType = 'REPOSITORY_IMPROVEMENT';
+
+                // Show progress modal immediately
+                showCoverageProgressModal('Repository Analysis', 'Scanning your entire project for coverage improvement opportunities...');
+                
+                // Connect to WebSocket FIRST with the session ID
+                connectToProgressWebSocket(sessionId);
+                
+                // Then start the backend processing with the SAME session ID
+                const result = await fileCoverageClient.improveRepositoryCoverage(request, sessionId);
+                console.log('Repository coverage improvement started:', result);
+                
+                // Update modal with session info (but don't reconnect WebSocket)
+                updateProgressModalWithoutWebSocket(result);
+                
+            } catch (error) {
+                console.error('Failed to start repository coverage improvement:', error);
+                showErrorInModal('Failed to start repository coverage improvement', error.message);
             }
-        });
+        }
+
+        // File coverage improvement function  
+        async function startFileCoverageImprovement(filePath, request) {
+            try {
+                console.log('Initiating file coverage improvement with existing workspace...');
+                
+                // Generate session ID for coordinated WebSocket and backend processing
+                const sessionId = generateSessionId();
+                console.log('Generated session ID for coordination:', sessionId);
+                
+                // Store session info globally for results access
+                currentSessionId = sessionId;
+                currentSessionType = 'FILE_IMPROVEMENT';
+
+                // Show progress modal immediately
+                const fileName = filePath.split('/').pop();
+                showCoverageProgressModal('File Analysis', `Analyzing ${fileName} for coverage improvement opportunities...`);
+                
+                // Connect to WebSocket FIRST with the session ID
+                connectToProgressWebSocket(sessionId);
+                
+                // Then start the backend processing with the SAME session ID
+                const result = await fileCoverageClient.improveFileCoverage(request, sessionId);
+                console.log('File coverage improvement started:', result);
+                
+                // Update modal with session info (but don't reconnect WebSocket)
+                updateProgressModalWithoutWebSocket(result);
+                
+            } catch (error) {
+                console.error('Failed to start file coverage improvement:', error);
+                showErrorInModal('Failed to start file coverage improvement', error.message);
+            }
+        }
+
+        // Progress Modal Functions
+        function showCoverageProgressModal(title, subtitle) {
+            // Set initial state
+            document.getElementById('progressTitle').textContent = title;
+            document.getElementById('progressSubtitle').textContent = subtitle;
+            document.getElementById('coverageProgressBar').style.width = '10%';
+            document.getElementById('currentStatusText').textContent = 'Starting...';
+            document.getElementById('progressStartTime').textContent = new Date().toLocaleTimeString();
+            
+            // Show spinner, hide checkmark
+            document.getElementById('progressSpinner').style.display = 'inline-block';
+            document.getElementById('progressComplete').style.display = 'none';
+            
+            // Hide technical details by default
+            document.getElementById('progressMessagesContainer').style.display = 'none';
+            document.getElementById('sessionInfoContainer').style.display = 'none';
+            
+            // Clear previous log
+            document.getElementById('progressLog').innerHTML = '';
+            
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('coverageProgressModal'), {
+                backdrop: 'static',
+                keyboard: false
+            });
+            modal.show();
+        }
+
+        function updateProgressModalWithoutWebSocket(result) {
+            if (result && result.sessionId) {
+                // Don't show session ID - keep it simple
+                updateCurrentStatus('Processing', 'Analysis in progress...');
+            }
+        }
+
+        // Generate a unique session ID for coordinating WebSocket and backend processing
+        function generateSessionId() {
+            return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function connectToProgressWebSocket(sessionId) {
+            if (window.progressWebSocket) {
+                window.progressWebSocket.close();
+            }
+            
+            // Use query parameter approach for session ID
+            const wsUrl = `ws://localhost:8080/ws/coverage-progress?sessionId=${sessionId}`;
+            console.log('Connecting to progress WebSocket:', wsUrl);
+            
+            try {
+                window.progressWebSocket = new WebSocket(wsUrl);
+                
+                window.progressWebSocket.onopen = function(event) {
+                    console.log('Progress WebSocket connected successfully');
+                    updateCurrentStatus('Connected', 'Starting analysis...');
+                };
+                
+                window.progressWebSocket.onmessage = function(event) {
+                    try {
+                        const message = JSON.parse(event.data);
+                        console.log('WebSocket message received:', message);
+                        handleProgressMessage(message);
+                    } catch (e) {
+                        console.log('Simple progress update:', event.data);
+                        updateCurrentStatus('Processing', event.data);
+                    }
+                };
+                
+                window.progressWebSocket.onerror = function(error) {
+                    console.error('Progress WebSocket error:', error);
+                    updateCurrentStatus('Processing', 'Analysis continues...');
+                };
+                
+                window.progressWebSocket.onclose = function(event) {
+                    console.log('Progress WebSocket closed:', event);
+                    if (event.code !== 1000) {
+                        updateCurrentStatus('Finalizing', 'Almost done...');
+                    } else {
+                        showCompletionState();
+                    }
+                };
+                
+            } catch (error) {
+                console.error('Failed to create WebSocket connection:', error);
+                updateCurrentStatus('Processing', 'Analysis running...');
+            }
+        }
+
+        function handleProgressMessage(message) {
+            console.log('📨 Processing message:', message);
+            
+            // Skip technical connection messages
+            if (message.currentStep === 'Connected' || message.message === 'WebSocket connection established') {
+                return;
+            }
+
+            // Update progress bar if percentage is provided
+            if (message.progressPercentage && message.progressPercentage > 0) {
+                const progressBar = document.getElementById('coverageProgressBar');
+                const percentage = Math.min(message.progressPercentage, 90); // Cap at 90% until complete
+                progressBar.style.width = percentage + '%';
+            }
+
+            // Simple status updates (no technical details)
+            if (message.currentStep) {
+                let simpleStatus = simplifyStatusMessage(message.currentStep);
+                updateCurrentStatus(simpleStatus, 'Processing...');
+            }
+
+            // Check for completion
+            if (message.currentStep && (message.currentStep.toLowerCase().includes('complete') ||
+                message.currentStep.toLowerCase().includes('finished') ||
+                message.currentStep.toLowerCase().includes('ready for review'))) {
+                // Add a small delay to ensure results are saved before showing button
+                setTimeout(() => {
+                showCompletionState();
+                }, 1500);
+            }
+        }
+
+        function simplifyStatusMessage(step) {
+            // Convert technical steps to user-friendly messages
+            if (step.toLowerCase().includes('analyze') || step.toLowerCase().includes('scanning')) {
+                return 'Analyzing';
+            } else if (step.toLowerCase().includes('generate') || step.toLowerCase().includes('creating')) {
+                return 'Generating tests';
+            } else if (step.toLowerCase().includes('validate') || step.toLowerCase().includes('testing')) {
+                return 'Validating';
+            } else if (step.toLowerCase().includes('complete') || step.toLowerCase().includes('finished')) {
+                return 'Complete';
+            } else {
+                return 'Processing';
+            }
+        }
+
+        function showCompletionState() {
+            // Show green checkmark instead of spinner
+            document.getElementById('progressSpinner').style.display = 'none';
+            document.getElementById('progressComplete').style.display = 'inline-block';
+            
+            // Complete the progress bar
+            document.getElementById('coverageProgressBar').style.width = '100%';
+            document.getElementById('coverageProgressBar').classList.remove('progress-bar-animated');
+            
+            // Update status
+            updateCurrentStatus('Complete', 'Coverage improvement finished!');
+            
+            // Update titles
+            document.getElementById('progressTitle').textContent = 'Improvement Complete';
+            document.getElementById('progressSubtitle').textContent = 'Your coverage has been enhanced';
+            
+            // Show results button
+            showViewResultsButton();
+        }
+
+        function updateCurrentStatus(status, detail) {
+            document.getElementById('currentStatusText').textContent = status;
+            // Simplified - no detailed status message shown by default
+        }
+
+        function showViewResultsButton() {
+            document.getElementById('viewResultsBtn').style.display = 'inline-block';
+        }
+
+        function showErrorInModal(title, message) {
+            // Show error state
+            document.getElementById('progressSpinner').style.display = 'none';
+            document.getElementById('progressComplete').style.display = 'none';
+            
+            updateCurrentStatus('Error', 'Something went wrong');
+            document.getElementById('progressTitle').textContent = 'Error Occurred';
+            document.getElementById('progressSubtitle').textContent = 'Please try again later';
+            
+            // Show a simple error message
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-danger mt-2';
+            errorDiv.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${title}`;
+            document.getElementById('progressLog').appendChild(errorDiv);
+            document.getElementById('progressMessagesContainer').style.display = 'block';
+        }
+
+        function viewCoverageResults() {
+            console.log('=== VIEW RESULTS DEBUG ===');
+            console.log('Current session ID:', currentSessionId);
+            console.log('Current session type:', currentSessionType);
+
+            if (!currentSessionId) {
+                console.error('No active session ID to view results');
+                alert('No active session found. Please restart the coverage improvement process.');
+                return;
+            }
+
+            // Close progress modal
+            const progressModal = bootstrap.Modal.getInstance(document.getElementById('coverageProgressModal'));
+            if (progressModal) {
+                progressModal.hide();
+            }
+
+            // Fetch session results and show summary modal
+            fetchAndShowResultsSummary(currentSessionId, currentSessionType);
+        }
+
+        async function fetchAndShowResultsSummary(sessionId, sessionType, retryCount = 0) {
+            try {
+                // Determine the correct endpoint based on session type
+                const endpoint = sessionType === 'FILE_IMPROVEMENT'
+                    ? `/api/coverage/file/session/${sessionId}/results`
+                    : `/api/coverage/repo/session/${sessionId}/results`;
+
+                console.log('Fetching results from:', endpoint, 'Retry:', retryCount);
+
+                const response = await fetch(endpoint);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('Results data:', data);
+
+                // Check if results are available
+                if (data.hasResults === false || !data.results) {
+                    // If this is the first attempt, wait a bit and retry (race condition protection)
+                    if (retryCount < 3) {
+                        console.log('Results not ready, retrying in 2 seconds... (attempt', retryCount + 1, 'of 3)');
+                        setTimeout(() => {
+                            fetchAndShowResultsSummary(sessionId, sessionType, retryCount + 1);
+                        }, 2000);
+                        return;
+                    }
+
+                    const message = data.message || 'Results are not yet available. Please wait for the process to complete.';
+                    alert(message);
+                    console.log('Session status:', data.status, 'Progress:', data.progress, 'Current step:', data.currentStep);
+                    return;
+                }
+
+                // Check completion status - accept multiple completion states
+                const completionStates = ['COMPLETED', 'READY_FOR_REVIEW', 'PARTIALLY_COMPLETED'];
+                if (data.results && completionStates.includes(data.status)) {
+                    // Show modal first, then populate after it's fully shown
+                    showResultsModalWithData(data);
+                } else if (data.status === 'FAILED') {
+                    showErrorSummaryModal(data.errors || ['Unknown error occurred']);
+                } else {
+                    // If this is the first attempt and status suggests completion, retry
+                    if (retryCount < 2 && (data.progress >= 100 || data.currentStep?.toLowerCase().includes('complete'))) {
+                        console.log('Status suggests completion but results not ready, retrying...');
+                        setTimeout(() => {
+                            fetchAndShowResultsSummary(sessionId, sessionType, retryCount + 1);
+                        }, 2000);
+                        return;
+                    }
+
+                    const message = `Process status: ${data.status}. ${data.message || 'Please wait for completion.'}`;
+                    alert(message);
+                    console.log('Full session data:', data);
+                }
+            } catch (error) {
+                console.error('Error fetching results:', error);
+
+                // Retry on network errors (up to 2 times)
+                if (retryCount < 2) {
+                    console.log('Network error, retrying in 3 seconds...');
+                    setTimeout(() => {
+                        fetchAndShowResultsSummary(sessionId, sessionType, retryCount + 1);
+                    }, 3000);
+                    return;
+                }
+
+                alert('Failed to load results: ' + error.message);
+            }
+        }
+
+        function populateResultsSummary(data) {
+            console.log('Populating results summary with data:', data);
+
+            // Ensure modal exists before populating
+            const modal = document.getElementById('coverageResultsModal');
+            if (!modal) {
+                console.error('Results modal not found in DOM');
+                return;
+            }
+
+            const results = data.results;
+
+            // Handle different result types (File vs Repository)
+            if (results.fileName) {
+                // File improvement results
+                populateFileResultsSummary(results, data);
+            } else if (results.fileResults) {
+                // Repository improvement results
+                populateRepositoryResultsSummary(results, data);
+            } else {
+                console.warn('Unknown results format:', results);
+            }
+
+            // Common session details with error checking
+            try {
+                const sessionIdElement = document.getElementById('sessionIdDisplay');
+                if (sessionIdElement) {
+                    sessionIdElement.textContent = data.sessionId || 'N/A';
+                } else {
+                    console.error('sessionIdDisplay element not found');
+                }
+
+                const processingStatusElement = document.getElementById('processingStatus');
+                if (processingStatusElement) {
+                    processingStatusElement.textContent = data.status || 'Unknown';
+                } else {
+                    console.error('processingStatus element not found');
+                }
+
+                if (data.startedAt) {
+                    const startTimeElement = document.getElementById('startTime');
+                    if (startTimeElement) {
+                        startTimeElement.textContent = new Date(data.startedAt).toLocaleString();
+                    } else {
+                        console.error('startTime element not found');
+                    }
+                }
+            } catch (error) {
+                console.error('Error populating common session details:', error);
+            }
+        }
+
+        function populateFileResultsSummary(results, data) {
+            console.log('Populating file results:', results);
+
+            try {
+                // Coverage improvement with error checking
+                const originalCoverageElement = document.getElementById('originalCoverage');
+                if (originalCoverageElement) {
+                    originalCoverageElement.textContent = `${results.originalCoverage?.toFixed(1)}%` || 'N/A';
+                } else {
+                    console.error('originalCoverage element not found');
+                }
+
+                const improvedCoverageElement = document.getElementById('improvedCoverage');
+                if (improvedCoverageElement) {
+                    improvedCoverageElement.textContent = `${results.improvedCoverage?.toFixed(1)}%` || 'N/A';
+                } else {
+                    console.error('improvedCoverage element not found');
+                }
+
+                const coverageIncreaseElement = document.getElementById('coverageIncrease');
+                if (coverageIncreaseElement) {
+                    coverageIncreaseElement.textContent = `+${results.coverageIncrease?.toFixed(1)}%` || 'N/A';
+                } else {
+                    console.error('coverageIncrease element not found');
+                }
+
+                // Test generation with error checking
+                const filesProcessedElement = document.getElementById('filesProcessed');
+                if (filesProcessedElement) {
+                    filesProcessedElement.textContent = '1';
+                } else {
+                    console.error('filesProcessed element not found');
+                }
+
+                const testMethodsGeneratedElement = document.getElementById('testMethodsGenerated');
+                if (testMethodsGeneratedElement) {
+                    testMethodsGeneratedElement.textContent = results.totalTestsGenerated || '0';
+                } else {
+                    console.error('testMethodsGenerated element not found');
+                }
+
+                const testFilesCreatedElement = document.getElementById('testFilesCreated');
+                if (testFilesCreatedElement) {
+                    testFilesCreatedElement.textContent = results.testFilePaths?.length || '0';
+                } else {
+                    console.error('testFilesCreated element not found');
+                }
+
+                // Modified files
+                const modifiedFilesList = document.getElementById('modifiedFilesList');
+                if (modifiedFilesList) {
+                    if (results.testFilePaths && results.testFilePaths.length > 0) {
+                        modifiedFilesList.innerHTML = `
+                            <div class="mb-2"><strong>Original File:</strong> ${results.fileName}</div>
+                            <div><strong>Test Files Created:</strong></div>
+                            <ul class="list-unstyled ms-3">
+                                ${results.testFilePaths.map(path => `<li><i class="bi bi-file-plus text-success"></i> ${path}</li>`).join('')}
+                            </ul>
+                        `;
+                    } else {
+                        modifiedFilesList.innerHTML = '<div class="text-muted">No files were modified</div>';
+                    }
+                } else {
+                    console.error('modifiedFilesList element not found');
+                }
+
+                // Test preview
+                populateTestPreview(results.generatedTests || []);
+            } catch (error) {
+                console.error('Error populating file results summary:', error);
+            }
+        }
+
+        function populateRepositoryResultsSummary(results, data) {
+            console.log('Populating repository results:', results);
+
+            try {
+                // Coverage improvement
+                const totalIncrease = results.totalCoverageIncrease || 0;
+                const avgIncrease = results.averageCoverageIncrease || 0;
+
+                const originalCoverageElement = document.getElementById('originalCoverage');
+                if (originalCoverageElement) {
+                    originalCoverageElement.textContent = 'Repository-wide';
+                } else {
+                    console.error('originalCoverage element not found');
+                }
+
+                const improvedCoverageElement = document.getElementById('improvedCoverage');
+                if (improvedCoverageElement) {
+                    improvedCoverageElement.textContent = `+${totalIncrease.toFixed(1)}%`;
+                } else {
+                    console.error('improvedCoverage element not found');
+                }
+
+                const coverageIncreaseElement = document.getElementById('coverageIncrease');
+                if (coverageIncreaseElement) {
+                    coverageIncreaseElement.textContent = `Avg: +${avgIncrease.toFixed(1)}%`;
+                } else {
+                    console.error('coverageIncrease element not found');
+                }
+
+                // Processing stats
+                const filesProcessedElement = document.getElementById('filesProcessed');
+                if (filesProcessedElement) {
+                    filesProcessedElement.textContent = results.totalFilesProcessed || '0';
+                } else {
+                    console.error('filesProcessed element not found');
+                }
+
+                const testMethodsGeneratedElement = document.getElementById('testMethodsGenerated');
+                if (testMethodsGeneratedElement) {
+                    testMethodsGeneratedElement.textContent = getTotalTestMethods(results.fileResults);
+                } else {
+                    console.error('testMethodsGenerated element not found');
+                }
+
+                const testFilesCreatedElement = document.getElementById('testFilesCreated');
+                if (testFilesCreatedElement) {
+                    testFilesCreatedElement.textContent = getTotalTestFiles(results.fileResults);
+                } else {
+                    console.error('testFilesCreated element not found');
+                }
+
+                // Modified files
+                const modifiedFilesList = document.getElementById('modifiedFilesList');
+                if (modifiedFilesList) {
+                    if (results.fileResults && results.fileResults.length > 0) {
+                        const successfulFiles = results.fileResults.filter(fr => fr.status === 'COMPLETED');
+                        modifiedFilesList.innerHTML = `
+                            <div class="mb-2"><strong>Successfully Processed Files:</strong> ${successfulFiles.length}</div>
+                            <div class="accordion" id="filesAccordion">
+                                ${successfulFiles.map((fr, index) => `
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#file${index}">
+                                                <i class="bi bi-file-code me-2"></i>${fr.fileName}
+                                                <span class="badge bg-success ms-2">+${fr.coverageIncrease?.toFixed(1)}%</span>
+                                            </button>
+                                        </h2>
+                                        <div id="file${index}" class="accordion-collapse collapse" data-bs-parent="#filesAccordion">
+                                            <div class="accordion-body">
+                                                <div><strong>Coverage:</strong> ${fr.originalCoverage?.toFixed(1)}% → ${fr.improvedCoverage?.toFixed(1)}%</div>
+                                                <div><strong>Tests Generated:</strong> ${fr.totalTestsGenerated}</div>
+                                                <div><strong>Test Files:</strong> ${fr.testFilePaths?.join(', ') || 'None'}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    } else {
+                        modifiedFilesList.innerHTML = '<div class="text-muted">No files were successfully processed</div>';
+                    }
+                } else {
+                    console.error('modifiedFilesList element not found');
+                }
+
+                // Test preview for repository results
+                const allTests = results.fileResults?.flatMap(fr => fr.generatedTests || []) || [];
+                populateTestPreview(allTests);
+            } catch (error) {
+                console.error('Error populating repository results summary:', error);
+            }
+        }
+
+        function getTotalTestMethods(fileResults) {
+            if (!fileResults) return '0';
+            return fileResults.reduce((total, fr) => total + (fr.totalTestsGenerated || 0), 0).toString();
+        }
+
+        function getTotalTestFiles(fileResults) {
+            if (!fileResults) return '0';
+            return fileResults.reduce((total, fr) => total + (fr.testFilePaths?.length || 0), 0).toString();
+        }
+
+        function populateTestPreview(generatedTests) {
+            const testPreviewContent = document.getElementById('testPreviewContent');
+
+            if (!testPreviewContent) {
+                console.error('testPreviewContent element not found');
+                return;
+            }
+
+            if (!generatedTests || generatedTests.length === 0) {
+                testPreviewContent.innerHTML = '<div class="text-muted">No test details available</div>';
+                return;
+            }
+
+            try {
+                testPreviewContent.innerHTML = `
+                    <div class="row">
+                        ${generatedTests.map((test, index) => `
+                            <div class="col-12 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">${test.testMethodName || `Test ${index + 1}`}</h6>
+                                        <small class="text-muted">${test.testClass || 'Test Class'}</small>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="mb-2">${test.description || 'No description available'}</p>
+                                        ${test.coveredMethods ? `
+                                            <div class="mb-2">
+                                                <strong>Covers:</strong> ${Array.isArray(test.coveredMethods) ? test.coveredMethods.join(', ') : test.coveredMethods}
+                                            </div>
+                                        ` : ''}
+                                        ${test.testCode ? `
+                                            <div class="mt-3">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="toggleTestCode(${index})">
+                                                    <span id="testCodeToggle${index}">Show Code</span>
+                                                </button>
+                                                <pre class="mt-2" id="testCode${index}" style="display: none;"><code class="language-java">${test.testCode}</code></pre>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error populating test preview:', error);
+                testPreviewContent.innerHTML = '<div class="text-danger">Error loading test preview</div>';
+            }
+        }
+
+        function showErrorSummary(errors) {
+            // Show error in the results modal
+            document.getElementById('coverageImprovementSummary').innerHTML = '<div class="text-danger">Process failed</div>';
+            document.getElementById('testsGeneratedSummary').innerHTML = '<div class="text-danger">No tests generated</div>';
+            document.getElementById('modifiedFilesList').innerHTML = `
+                <div class="alert alert-danger">
+                    <h6>Errors occurred:</h6>
+                    <ul>
+                        ${errors.map(error => `<li>${error}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+            showResultsModal();
+        }
+
+        function showErrorSummaryModal(errors) {
+            console.log('Showing error summary modal...');
+            const modalElement = document.getElementById('coverageResultsModal');
+            if (!modalElement) {
+                console.error('Results modal element not found in DOM');
+                return;
+            }
+
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+
+            // Wait for modal to be fully shown before populating error data
+            modalElement.addEventListener('shown.bs.modal', function () {
+                console.log('Error modal fully shown, now populating error data...');
+                // Show error in the results modal
+                const coverageElement = document.getElementById('coverageImprovementSummary');
+                if (coverageElement) {
+                    coverageElement.innerHTML = '<div class="text-danger">Process failed</div>';
+                }
+
+                const testsElement = document.getElementById('testsGeneratedSummary');
+                if (testsElement) {
+                    testsElement.innerHTML = '<div class="text-danger">No tests generated</div>';
+                }
+
+                const modifiedFilesElement = document.getElementById('modifiedFilesList');
+                if (modifiedFilesElement) {
+                    modifiedFilesElement.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h6>Errors occurred:</h6>
+                            <ul>
+                                ${errors.map(error => `<li>${error}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+            }, { once: true });
+        }
+
+        function showResultsModal() {
+            console.log('Showing results modal...');
+            const modalElement = document.getElementById('coverageResultsModal');
+            if (!modalElement) {
+                console.error('Results modal element not found in DOM');
+                return;
+            }
+
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+
+            // Add event listener to ensure modal is fully shown before any additional actions
+            modalElement.addEventListener('shown.bs.modal', function () {
+                console.log('Results modal fully shown');
+            }, { once: true });
+        }
+
+        function showResultsModalWithData(data) {
+            console.log('Showing results modal with data...');
+            const modalElement = document.getElementById('coverageResultsModal');
+            if (!modalElement) {
+                console.error('Results modal element not found in DOM');
+                return;
+            }
+
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+
+            // Wait for modal to be fully shown before populating data
+            modalElement.addEventListener('shown.bs.modal', function () {
+                console.log('Results modal fully shown, now populating data...');
+                populateResultsSummary(data);
+            }, { once: true });
+        }
+
+        function toggleTestPreview() {
+            const body = document.getElementById('testPreviewBody');
+            const icon = document.getElementById('toggleTestIcon');
+            const text = document.getElementById('toggleTestText');
+
+            if (body && icon && text) {
+                if (body.style.display === 'none') {
+                    body.style.display = 'block';
+                    icon.className = 'bi bi-chevron-up';
+                    text.textContent = 'Hide Details';
+                } else {
+                    body.style.display = 'none';
+                    icon.className = 'bi bi-chevron-down';
+                    text.textContent = 'Show Details';
+                }
+            } else {
+                console.error('Toggle elements not found');
+            }
+        }
+
+        function toggleTestCode(index) {
+            const codeElement = document.getElementById(`testCode${index}`);
+            const toggleElement = document.getElementById(`testCodeToggle${index}`);
+
+            if (codeElement && toggleElement) {
+                if (codeElement.style.display === 'none') {
+                    codeElement.style.display = 'block';
+                    toggleElement.textContent = 'Hide Code';
+                } else {
+                    codeElement.style.display = 'none';
+                    toggleElement.textContent = 'Show Code';
+                }
+            } else {
+                console.error(`Test code elements not found for index ${index}`);
+            }
+        }
+
+        function modifyChanges() {
+            alert('Modify functionality will be implemented in the next iteration. You can manually edit the generated tests and re-run the improvement process.');
+        }
+
+        function createPullRequest() {
+            if (!currentSessionId) {
+                alert('No active session found');
+                return;
+            }
+
+            // Close results modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('coverageResultsModal'));
+            if (modal) {
+            modal.hide();
+            }
+
+            // Apply changes and create PR
+            applyChangesAndCreatePR(currentSessionId, currentSessionType);
+        }
+
+        async function applyChangesAndCreatePR(sessionId, sessionType) {
+            try {
+                // Determine the correct endpoint based on session type
+                const endpoint = sessionType === 'FILE_IMPROVEMENT'
+                    ? `/api/coverage/file/session/${sessionId}/apply`
+                    : `/api/coverage/repo/session/${sessionId}/apply`;
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        createPullRequest: true,
+                        prTitle: `Coverage Improvement - Session ${sessionId}`,
+                        prDescription: 'Automated test generation to improve code coverage'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                if (result.pullRequestUrl) {
+                    // Show success message with PR link
+                    const successModal = `
+                        <div class="modal fade" id="prSuccessModal" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header bg-success text-white">
+                                        <h5 class="modal-title">Pull Request Created Successfully!</h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>Your coverage improvement changes have been applied and a pull request has been created.</p>
+                                        <p><strong>PR URL:</strong> <a href="${result.pullRequestUrl}" target="_blank">${result.pullRequestUrl}</a></p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        <a href="${result.pullRequestUrl}" target="_blank" class="btn btn-primary">View PR</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    document.body.insertAdjacentHTML('beforeend', successModal);
+                    const prModal = new bootstrap.Modal(document.getElementById('prSuccessModal'));
+                    prModal.show();
+                } else {
+                    alert('Changes applied successfully, but no pull request was created.');
+                }
+            } catch (error) {
+                console.error('Error creating PR:', error);
+                alert('Failed to create pull request: ' + error.message);
+            }
+        }
     </script>
+
+    <style>
+        /* Results Modal Styling */
+        #coverageResultsModal .card {
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #coverageResultsModal .card-header {
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+        }
+
+        #coverageResultsModal .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        #coverageResultsModal .modal-header {
+            border-radius: 12px 12px 0 0;
+        }
+
+        #coverageResultsModal .modal-footer {
+            border-radius: 0 0 12px 12px;
+        }
+
+        #coverageResultsModal .accordion-button:not(.collapsed) {
+            background-color: #e7f3ff;
+            color: #0d6efd;
+        }
+
+        #coverageResultsModal .badge {
+            font-size: 0.75em;
+        }
+
+        #coverageResultsModal .progress {
+            height: 8px;
+            border-radius: 4px;
+        }
+
+        #coverageResultsModal .btn {
+            border-radius: 6px;
+            font-weight: 500;
+            padding: 8px 16px;
+        }
+
+        #coverageResultsModal .list-unstyled li {
+            padding: 4px 0;
+        }
+
+        #coverageResultsModal .text-success {
+            color: #198754 !important;
+        }
+
+        #coverageResultsModal .text-primary {
+            color: #0d6efd !important;
+        }
+    </style>
 </th:block>
 </body>
 </html>

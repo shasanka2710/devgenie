@@ -326,6 +326,56 @@ public class CoverageController {
     }
 
     /**
+     * Get session results for file coverage improvement
+     */
+    @GetMapping("/file/session/{sessionId}/results")
+    public ResponseEntity<?> getFileCoverageSessionResults(@PathVariable String sessionId) {
+        try {
+            Optional<CoverageImprovementSession> sessionOpt = sessionManagementService.getSession(sessionId);
+            if (sessionOpt.isPresent()) {
+                CoverageImprovementSession session = sessionOpt.get();
+
+                // Check if session has results and is in a completed state
+                boolean hasResults = session.getResults() != null;
+                boolean isCompletedState = session.getStatus() == CoverageImprovementSession.SessionStatus.COMPLETED ||
+                                         session.getStatus() == CoverageImprovementSession.SessionStatus.READY_FOR_REVIEW ||
+                                         session.getStatus() == CoverageImprovementSession.SessionStatus.PARTIALLY_COMPLETED;
+
+                if (hasResults && isCompletedState) {
+                    return ResponseEntity.ok(Map.of(
+                        "sessionId", sessionId,
+                        "status", session.getStatus(),
+                        "results", session.getResults(),
+                        "startedAt", session.getStartedAt(),
+                        "progress", session.getProgress()
+                    ));
+                } else if (session.getStatus() == CoverageImprovementSession.SessionStatus.FAILED) {
+                    return ResponseEntity.ok(Map.of(
+                        "sessionId", sessionId,
+                        "status", session.getStatus(),
+                        "errors", session.getErrors()
+                    ));
+                } else {
+                    return ResponseEntity.ok(Map.of(
+                        "sessionId", sessionId,
+                        "status", session.getStatus(),
+                        "progress", session.getProgress(),
+                        "currentStep", session.getCurrentStep(),
+                        "hasResults", hasResults,
+                        "message", hasResults ? "Results are available" : "Results are not yet available. Please wait for the process to complete."
+                    ));
+                }
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            log.error("Error getting session results", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
      * Get repository coverage session status (for async repo improvement)
      */
     @GetMapping("/repo/session/{sessionId}/status")
