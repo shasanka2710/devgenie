@@ -344,6 +344,12 @@ public class CoverageWebController {
                 }
             }
 
+            // For dashboard tab, we need repository context but not necessarily coverage data
+            if ("dashboard".equals(activeTab)) {
+                log.info("Dashboard tab requested for {}/{}", owner, repo);
+                // The ProductivityDashboardController will handle the actual dashboard API calls
+            }
+
             // Set model attributes for unified page
             model.addAttribute("repository", repository);
             model.addAttribute("owner", owner);

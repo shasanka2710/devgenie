@@ -575,6 +575,239 @@
         .status-icon.processing {
             animation: pulse 2s infinite;
         }
+
+        /* Dashboard Specific Styles */
+        .dashboard-filter-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--wf-border);
+        }
+
+        .dashboard-metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--wf-border);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        .timeline-item:last-child {
+            border-bottom: none;
+        }
+
+        .timeline-marker {
+            position: absolute;
+            left: -22px;
+            top: 5px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: white;
+        }
+
+        .timeline-marker.bg-success {
+            background-color: var(--wf-green) !important;
+        }
+
+        .timeline-marker.bg-primary {
+            background-color: var(--wf-blue) !important;
+        }
+
+        .timeline-marker.bg-danger {
+            background-color: var(--wf-red) !important;
+        }
+
+        .timeline-marker.bg-warning {
+            background-color: var(--wf-yellow) !important;
+        }
+
+        .timeline-marker.bg-secondary {
+            background-color: var(--wf-dark-gray) !important;
+        }
+
+        .timeline-content {
+            margin-left: 10px;
+        }
+
+        .dashboard-chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        .dashboard-empty-chart {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            background: var(--wf-gray);
+            border-radius: 8px;
+            color: var(--wf-dark-gray);
+        }
+
+        .active-session-item {
+            border-left: 4px solid var(--wf-blue);
+            padding-left: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .active-session-item.processing {
+            border-left-color: var(--wf-yellow);
+        }
+
+        .active-session-item.failed {
+            border-left-color: var(--wf-red);
+        }
+
+        .improvement-record-row:hover {
+            background-color: var(--wf-light-gray);
+            cursor: pointer;
+        }
+
+        .dashboard-loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .dashboard-stat-card {
+            transition: all 0.3s ease;
+        }
+
+        .dashboard-stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .trend-indicator {
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .trend-indicator.positive {
+            color: var(--wf-green);
+        }
+
+        .trend-indicator.negative {
+            color: var(--wf-red);
+        }
+
+        .trend-indicator.neutral {
+            color: var(--wf-dark-gray);
+        }
+
+        .dashboard-filter-chip {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            margin: 0.25rem 0.25rem 0.25rem 0;
+            background: var(--wf-red-light);
+            color: var(--wf-red);
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .dashboard-filter-chip .remove {
+            margin-left: 0.5rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .dashboard-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--wf-border);
+        }
+
+        .dashboard-section-header h5 {
+            margin: 0;
+            color: var(--wf-dark-gray);
+            font-weight: 600;
+        }
+
+        .activity-description {
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .activity-metadata {
+            font-size: 0.8rem;
+            color: var(--wf-dark-gray);
+        }
+
+        .session-progress-mini {
+            width: 100%;
+            height: 4px;
+            background: var(--wf-gray);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .session-progress-mini .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--wf-blue), var(--wf-green));
+            transition: width 0.3s ease;
+        }
+
+        .modify-session-btn {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-metrics-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .timeline {
+                padding-left: 20px;
+            }
+            
+            .timeline-marker {
+                left: -15px;
+                width: 12px;
+                height: 12px;
+                font-size: 6px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -608,7 +841,7 @@
                         <div class="text-end">
                             <a th:href="@{/dashboard}" class="btn btn-outline-secondary">
                                 <i class="bi bi-arrow-left me-2"></i>
-                                Back to Dashboard
+                                Back to Home
                             </a>
                         </div>
                     </div>
@@ -637,6 +870,15 @@
                        role="tab">
                         <i class="bi bi-speedometer2 me-2"></i>
                         Coverage
+                    </a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link"
+                       th:classappend="${activeTab == 'dashboard'} ? 'active' : ''"
+                       th:href="@{/coverage/repository/{owner}/{repo}(owner=${owner}, repo=${repoName}, tab='dashboard')}"
+                       role="tab">
+                        <i class="bi bi-graph-up me-2"></i>
+                        Dashboard
                     </a>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -689,6 +931,187 @@
                     <div th:if="${dashboardData != null}">
                         <!-- Include the coverage dashboard content here -->
                         <div th:replace="~{fragments/coverage-content :: coverage-content}"></div>
+                    </div>
+                </div>
+
+                <!-- Dashboard Tab -->
+                <div th:if="${activeTab == 'dashboard'}" class="tab-pane fade show active p-4" role="tabpanel">
+                    <div id="productivityDashboard">
+                        <!-- Dashboard Header -->
+                        <div class="row mb-4">
+                            <div class="col-md-8">
+                                <h4 class="mb-1" style="color: var(--wf-dark-gray);">
+                                    <i class="bi bi-graph-up me-2"></i>
+                                    Productivity Dashboard
+                                </h4>
+                                <p class="text-muted mb-0">Track the effectiveness and impact of DevGenie improvements</p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <!-- Category Filter -->
+                                <div class="d-flex gap-2 align-items-center justify-content-end">
+                                    <select class="form-select form-select-sm" id="categoryFilter" style="width: auto;">
+                                        <option value="ALL">All Categories</option>
+                                        <option value="COVERAGE">Coverage</option>
+                                        <option value="ISSUES" disabled>Issues (Coming Soon)</option>
+                                    </select>
+                                    <select class="form-select form-select-sm" id="subCategoryFilter" style="width: auto;">
+                                        <option value="ALL">All Types</option>
+                                        <option value="FILE_LEVEL">File Level</option>
+                                        <option value="REPOSITORY_LEVEL">Repository Level</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div id="dashboardLoading" class="text-center py-5">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h6>Loading Dashboard Data...</h6>
+                            <p class="text-muted">Analyzing productivity metrics and improvement trends</p>
+                        </div>
+
+                        <!-- Dashboard Content -->
+                        <div id="dashboardContent" style="display: none;">
+                            <!-- Top Metrics Cards (RBGY) -->
+                            <div class="row mb-4" id="metricsCards">
+                                <div class="col-lg-3 col-md-6 mb-3">
+                                    <div class="card stats-card stats-card-blue h-100">
+                                        <div class="card-body text-center text-white">
+                                            <i class="fas fa-chart-line mb-2"></i>
+                                            <h3 class="mb-1" id="totalSessionsValue">0</h3>
+                                            <p class="mb-0" id="totalSessionsSubtitle">No sessions yet</p>
+                                            <small class="opacity-75" id="totalSessionsChange"></small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-6 mb-3">
+                                    <div class="card stats-card stats-card-green h-100">
+                                        <div class="card-body text-center text-white">
+                                            <i class="fas fa-check-circle mb-2"></i>
+                                            <h3 class="mb-1" id="successRateValue">0%</h3>
+                                            <p class="mb-0" id="successRateSubtitle">Completion rate</p>
+                                            <small class="opacity-75" id="successRateChange"></small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-6 mb-3">
+                                    <div class="card stats-card stats-card-red h-100">
+                                        <div class="card-body text-center text-white">
+                                            <i class="fas fa-arrow-up mb-2"></i>
+                                            <h3 class="mb-1" id="coverageIncreaseValue">0%</h3>
+                                            <p class="mb-0" id="coverageIncreaseSubtitle">Per improvement</p>
+                                            <small class="opacity-75" id="coverageIncreaseChange"></small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-6 mb-3">
+                                    <div class="card stats-card stats-card-yellow h-100">
+                                        <div class="card-body text-center text-white">
+                                            <i class="fas fa-clock mb-2"></i>
+                                            <h3 class="mb-1" id="timeSavedValue">0 hrs</h3>
+                                            <p class="mb-0" id="timeSavedSubtitle">Estimated dev time</p>
+                                            <small class="opacity-75" id="timeSavedChange"></small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Main Dashboard Grid -->
+                            <div class="row">
+                                <!-- Left Column -->
+                                <div class="col-lg-8">
+                                    <!-- Recent Activity -->
+                                    <div class="card mb-4">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">
+                                                <i class="bi bi-clock-history me-2"></i>
+                                                Recent Activity
+                                            </h6>
+                                            <button class="btn btn-outline-secondary btn-sm" onclick="refreshDashboard()">
+                                                <i class="bi bi-arrow-clockwise"></i>
+                                            </button>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <div id="recentActivityList" class="timeline p-3">
+                                                <!-- Activity items will be loaded here -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Improvement Records -->
+                                    <div class="card">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">
+                                                <i class="bi bi-table me-2"></i>
+                                                Improvement Records
+                                            </h6>
+                                            <div class="d-flex gap-2">
+                                                <select class="form-select form-select-sm" id="statusFilter" style="width: auto;">
+                                                    <option value="ALL">All Status</option>
+                                                    <option value="COMPLETED">Completed</option>
+                                                    <option value="IN_PROGRESS">In Progress</option>
+                                                    <option value="FAILED">Failed</option>
+                                                </select>
+                                                <select class="form-select form-select-sm" id="timeRangeFilter" style="width: auto;">
+                                                    <option value="LAST_7_DAYS">Last 7 Days</option>
+                                                    <option value="LAST_30_DAYS" selected>Last 30 Days</option>
+                                                    <option value="LAST_90_DAYS">Last 90 Days</option>
+                                                    <option value="ALL_TIME">All Time</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <div id="improvementRecords">
+                                                <!-- Records table will be loaded here -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column -->
+                                <div class="col-lg-4">
+                                    <!-- Active Sessions -->
+                                    <div class="card mb-4" id="activeSessionsCard">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">
+                                                <i class="bi bi-play-circle me-2"></i>
+                                                Active Sessions
+                                            </h6>
+                                        </div>
+                                        <div class="card-body" id="activeSessionsList">
+                                            <!-- Active sessions will be loaded here -->
+                                        </div>
+                                    </div>
+
+                                    <!-- Analytics Chart -->
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">
+                                                <i class="bi bi-graph-up me-2"></i>
+                                                Trends
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="trendsChart" width="300" height="200"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div id="dashboardEmptyState" class="text-center py-5" style="display: none;">
+                            <i class="bi bi-graph-up" style="font-size: 4rem; color: var(--wf-gray);"></i>
+                            <h4 class="mt-3" style="color: var(--wf-dark-gray);">No Data Available</h4>
+                            <p class="text-muted">Start using DevGenie to see productivity insights here.</p>
+                            <a th:href="@{/coverage/repository/{owner}/{repo}(owner=${owner}, repo=${repoName}, tab='coverage')}" 
+                               class="btn btn-primary">
+                                <i class="bi bi-speedometer2 me-2"></i>
+                                Start Coverage Improvement
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -919,11 +1342,19 @@
 </div>
 
 <th:block layout:fragment="scripts">
+    <!-- Chart.js for dashboard analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Dashboard JavaScript -->
+    <script src="/js/productivity-dashboard.js"></script>
+    
+    <!-- Coverage functionality -->
     <script src="/js/file-coverage-client.js"></script>
     <script th:inline="javascript">
         // Repository context for coverage functionality
         const REPOSITORY_CONTEXT = {
             repositoryUrl: /*[[${repositoryUrl}]]*/ 'https://github.com/example/repo',
+            repositoryId: /*[[${repository.id}]]*/ 'repo-id',
             branch: /*[[${defaultBranch}]]*/ 'main',
             fullName: /*[[${owner + '/' + repoName}]]*/ 'owner/repo'
         };
@@ -1033,6 +1464,21 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize dashboard if we're on the dashboard tab
+            const activeTab = /*[[${activeTab}]]*/ '';
+            if (activeTab === 'dashboard') {
+                console.log('Initializing Productivity Dashboard...');
+                if (typeof ProductivityDashboard !== 'undefined') {
+                    const dashboard = new ProductivityDashboard();
+                    window.dashboardInstance = dashboard; // Store globally for refresh functionality
+                    dashboard.init().catch(error => {
+                        console.error('Failed to initialize dashboard:', error);
+                    });
+                } else {
+                    console.error('ProductivityDashboard class not found. Make sure productivity-dashboard.js is loaded.');
+                }
+            }
+            
             // Start polling if analysis is in progress
             if (document.getElementById('analysisStatus')) {
                 console.log('=== ANALYSIS POLLING DEBUG INFO ===');
@@ -1058,6 +1504,21 @@
                 });
             }
         });
+
+        // Global functions for dashboard functionality
+        window.refreshDashboard = function() {
+            console.log('Refreshing dashboard...');
+            if (window.dashboardInstance && typeof window.dashboardInstance.loadDashboardData === 'function') {
+                window.dashboardInstance.loadDashboardData();
+            } else {
+                console.warn('Dashboard instance not available for refresh');
+                // Fallback: reload the page
+                window.location.reload();
+            }
+        };
+
+        // Store dashboard instance globally for refresh functionality
+        window.dashboardInstance = null;
 
         // File selection and display functions for coverage tab
         function selectFile(element) {
