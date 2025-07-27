@@ -2081,8 +2081,11 @@
             // Close results modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('coverageResultsModal'));
             if (modal) {
-            modal.hide();
+                modal.hide();
             }
+
+            // Show spinner overlay immediately
+            showPRSpinnerModal();
 
             // Apply changes and create PR
             applyChangesAndCreatePR(currentSessionId, currentSessionType);
@@ -2112,39 +2115,229 @@
                 }
 
                 const result = await response.json();
+                console.log('PR creation result:', result); // Debug log
+                console.log('PR result structure:', {
+                    success: result.success,
+                    pullRequest: result.pullRequest,
+                    pullRequestExists: !!result.pullRequest,
+                    prUrl: result.pullRequest?.prUrl,
+                    prSuccess: result.pullRequest?.success,
+                    error: result.error
+                });
 
-                if (result.pullRequestUrl) {
-                    // Show success message with PR link
-                    const successModal = `
-                        <div class="modal fade" id="prSuccessModal" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header bg-success text-white">
-                                        <h5 class="modal-title">Pull Request Created Successfully!</h5>
-                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <p>Your coverage improvement changes have been applied and a pull request has been created.</p>
-                                        <p><strong>PR URL:</strong> <a href="${result.pullRequestUrl}" target="_blank">${result.pullRequestUrl}</a></p>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                        <a href="${result.pullRequestUrl}" target="_blank" class="btn btn-primary">View PR</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
+                // Hide spinner modal before showing result
+                hidePRSpinnerModal();
 
-                    document.body.insertAdjacentHTML('beforeend', successModal);
-                    const prModal = new bootstrap.Modal(document.getElementById('prSuccessModal'));
-                    prModal.show();
+                // Check if PR was created successfully
+                if (result.success && result.pullRequest && result.pullRequest.success && result.pullRequest.prUrl) {
+                    console.log('PR created successfully, showing success modal');
+                    showPRSuccessModal(result.pullRequest);
+                } else if (result.pullRequest && result.pullRequest.prUrl) {
+                    // Fallback - sometimes success flag might not be set but PR was created
+                    console.log('PR URL found, showing success modal (fallback)');
+                    showPRSuccessModal(result.pullRequest);
                 } else {
-                    alert('Changes applied successfully, but no pull request was created.');
+                    // Show error modal instead of alert
+                    const errorMsg = result.error || result.pullRequest?.error || 'Pull request creation failed';
+                    console.log('PR creation failed, showing error modal:', errorMsg);
+                    showPRErrorModal(errorMsg);
                 }
             } catch (error) {
                 console.error('Error creating PR:', error);
-                alert('Failed to create pull request: ' + error.message);
+                // Hide spinner modal before showing error
+                hidePRSpinnerModal();
+                showPRErrorModal('Failed to create pull request: ' + error.message);
+            }
+        }
+
+        // PR Success/Error Modal Functions
+        function showPRSuccessModal(prData) {
+            // Remove any existing modals first
+            removeExistingPRModals();
+            
+            const successModal = `
+                <div class="modal fade" id="prSuccessModal" tabindex="-1" data-bs-backdrop="static">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header bg-success text-white">
+                                <h5 class="modal-title"><i class="bi bi-git me-2"></i> Pull Request Created Successfully</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="text-center mb-4">
+                                    <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                                    <h4 class="mt-3">🎉 Pull Request Created!</h4>
+                                    <p class="text-muted">Your coverage improvement changes have been successfully applied and a pull request has been created.</p>
+                                </div>
+                                
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i> Pull Request Details</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <p><strong>PR Number:</strong> <span class="badge bg-primary">#${prData.prNumber || 'N/A'}</span></p>
+                                                <p><strong>Branch:</strong> <span class="text-monospace">${prData.branchName || 'N/A'}</span></p>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <p><strong>Session ID:</strong> <span class="text-monospace">${currentSessionId || 'N/A'}</span></p>
+                                                <p><strong>Status:</strong> <span class="badge bg-warning">Open</span></p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mt-3">
+                                            <p><strong>Description:</strong></p>
+                                            <div class="bg-light p-3 rounded">
+                                                Automated test generation to improve code coverage
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-info mt-3">
+                                    <i class="bi bi-lightbulb me-2"></i> 
+                                    <strong>Next Steps:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>Review the generated tests in the pull request</li>
+                                        <li>Verify test quality and coverage improvements</li>
+                                        <li>Merge the PR when you're satisfied with the changes</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <a href="${prData.prUrl}" target="_blank" class="btn btn-primary">
+                                    <i class="bi bi-box-arrow-up-right me-2"></i> View Pull Request
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', successModal);
+            const prModal = new bootstrap.Modal(document.getElementById('prSuccessModal'));
+            prModal.show();
+        }
+
+        function showPRErrorModal(errorMessage) {
+            // Remove any existing modals first
+            removeExistingPRModals();
+            
+            const errorModal = `
+                <div class="modal fade" id="prErrorModal" tabindex="-1" data-bs-backdrop="static">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i> Pull Request Issue</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="text-center mb-3">
+                                    <i class="bi bi-exclamation-circle-fill text-warning" style="font-size: 3rem;"></i>
+                                    <h4 class="mt-3">Changes Applied Successfully</h4>
+                                    <p class="text-muted">Your coverage improvement changes have been applied, but there was an issue with creating the pull request.</p>
+                                </div>
+                                
+                                <div class="alert alert-warning">
+                                    <strong>Issue:</strong> ${errorMessage}
+                                </div>
+                                
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle me-2"></i> 
+                                    <strong>What you can do:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>Check your GitHub token permissions</li>
+                                        <li>Manually create a pull request with the generated changes</li>
+                                        <li>Contact support if the issue persists</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Understood</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', errorModal);
+            const errorModalInstance = new bootstrap.Modal(document.getElementById('prErrorModal'));
+            errorModalInstance.show();
+        }
+
+        function showPRSpinnerModal() {
+            // Remove any existing spinner modal first
+            const existingSpinnerModal = document.getElementById('prSpinnerModal');
+            if (existingSpinnerModal) {
+                existingSpinnerModal.remove();
+            }
+            
+            const spinnerModal = `
+                <div class="modal fade" id="prSpinnerModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-body text-center py-5">
+                                <div class="mb-4">
+                                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                                <h5 class="mb-3">Creating Pull Request</h5>
+                                <p class="text-muted mb-0">
+                                    <i class="bi bi-git me-2"></i>
+                                    Applying changes and creating your pull request...
+                                </p>
+                                <div class="mt-3">
+                                    <div class="progress" style="height: 6px;">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                             role="progressbar" style="width: 100%"></div>
+                                    </div>
+                                </div>
+                                <p class="text-muted mt-3 small">This may take a few moments. Please do not close this window.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', spinnerModal);
+            const spinnerModalInstance = new bootstrap.Modal(document.getElementById('prSpinnerModal'));
+            spinnerModalInstance.show();
+        }
+
+        function hidePRSpinnerModal() {
+            const spinnerModal = document.getElementById('prSpinnerModal');
+            if (spinnerModal) {
+                const modalInstance = bootstrap.Modal.getInstance(spinnerModal);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+                // Remove the modal from DOM after hiding
+                setTimeout(() => {
+                    if (spinnerModal && spinnerModal.parentNode) {
+                        spinnerModal.remove();
+                    }
+                }, 300); // Wait for hide animation to complete
+            }
+        }
+
+        function removeExistingPRModals() {
+            // Remove any existing PR modals to avoid conflicts
+            const existingSuccessModal = document.getElementById('prSuccessModal');
+            if (existingSuccessModal) {
+                existingSuccessModal.remove();
+            }
+            
+            const existingErrorModal = document.getElementById('prErrorModal');
+            if (existingErrorModal) {
+                existingErrorModal.remove();
+            }
+
+            const existingSpinnerModal = document.getElementById('prSpinnerModal');
+            if (existingSpinnerModal) {
+                existingSpinnerModal.remove();
             }
         }
     </script>

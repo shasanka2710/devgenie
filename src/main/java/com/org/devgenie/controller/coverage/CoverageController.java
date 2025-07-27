@@ -11,6 +11,7 @@ import com.org.devgenie.service.coverage.CoverageAgentService;
 import com.org.devgenie.service.coverage.RepositoryAnalysisService;
 import com.org.devgenie.service.coverage.RepositoryService;
 import com.org.devgenie.service.coverage.SessionManagementService;
+import com.org.devgenie.service.coverage.GitService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -40,6 +41,9 @@ public class CoverageController {
 
     @Autowired
     private AsyncCoverageProcessingService asyncCoverageProcessingService;
+
+    @Autowired
+    private GitService gitService;
 
     /**
      * NEW: Analyze repository and provide summary before coverage improvement
@@ -462,6 +466,30 @@ public class CoverageController {
             log.error("Error applying repository coverage changes", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Debug endpoint to validate GitHub token configuration
+     */
+    @GetMapping("/debug/github-token")
+    public ResponseEntity<Map<String, Object>> validateGitHubToken() {
+        try {
+            boolean isValid = gitService.validateGitHubToken();
+            Map<String, Object> response = Map.of(
+                "isValid", isValid,
+                "message", isValid ? "GitHub token is valid" : "GitHub token is invalid or not configured",
+                "timestamp", LocalDateTime.now()
+            );
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error validating GitHub token", e);
+            Map<String, Object> response = Map.of(
+                "isValid", false,
+                "message", "Error validating GitHub token: " + e.getMessage(),
+                "timestamp", LocalDateTime.now()
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
