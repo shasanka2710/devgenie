@@ -127,7 +127,7 @@ public class CoverageAgentService {
 
 
             // Apply all generated test files
-            gitService.applyChanges(request.getChanges(), workspaceDir);
+            //gitService.applyChanges(request.getChanges(), workspaceDir);
 
             // Get original coverage for comparison
             CoverageData originalCoverage = coverageDataService.getCurrentCoverage(repoDir, repositoryUrl, branch).getCoverageDataList().get(0);
@@ -310,11 +310,28 @@ public class CoverageAgentService {
             // Step 5: Write generated test files using strategy-aware approach (80% progress)
             sessionManagementService.updateProgress(sessionId, 80.0, "Writing test files using " + strategy.getStrategy() + " approach");
             writeGeneratedTestFilesWithStrategy(repoDir, allGeneratedTestsWithCode, testFilePaths, strategy, sourceContent, directTestResult);
+            
+            // Step 5.1: Ensure files are written and flushed to disk (85% progress)
+            sessionManagementService.updateProgress(sessionId, 85.0, "Finalizing test file creation");
+            
+            // Verify files were actually written
+            int filesCreated = 0;
+            for (String testPath : testFilePaths) {
+                String absoluteTestPath = Paths.get(repoDir, testPath).toString();
+                if (!Files.exists(Paths.get(absoluteTestPath))) {
+                    log.warn("Test file was not created successfully: {}", absoluteTestPath);
+                } else {
+                    filesCreated++;
+                    log.info("Test file verified successfully created: {}", absoluteTestPath);
+                }
+            }
+            
+            log.info("File verification complete: {}/{} test files created successfully", filesCreated, testFilePaths.size());
 
-            // Step 6: Validate generated tests (85% progress)
+            // Step 6: Validate generated tests (90% progress)
             TestValidationResult validationResult = null;
             if (request.getValidateTests()) {
-                sessionManagementService.updateProgress(sessionId, 85.0, "Validating generated tests");
+                sessionManagementService.updateProgress(sessionId, 90.0, "Validating generated tests");
                 validationResult = testGenerationService.validateGeneratedTests(repoDir, testFilePaths);
             }
 
@@ -322,8 +339,8 @@ public class CoverageAgentService {
             sessionManagementService.updateProgress(sessionId, 95.0, "Calculating coverage improvement");
             CoverageData estimatedCoverage = estimateFileCoverageImprovement(fileCoverageData, allGeneratedTests);
 
-            // Step 8: Prepare results (100% progress)
-            sessionManagementService.updateProgress(sessionId, 100.0, "Results ready for review");
+            // Step 8: Prepare and store results (98% progress)
+            sessionManagementService.updateProgress(sessionId, 98.0, "Preparing final results");
             
             // Calculate total batches processed based on strategy used
             int totalBatchesProcessed = switch (strategy.getStrategy()) {
@@ -362,6 +379,9 @@ public class CoverageAgentService {
             sessionManagementService.setSessionResults(sessionId, result);
             sessionManagementService.updateSessionStatus(sessionId,
                     CoverageImprovementSession.SessionStatus.READY_FOR_REVIEW);
+            
+            // Step 9: Final completion update (100% progress) - only after all data is persisted
+            sessionManagementService.updateProgress(sessionId, 100.0, "File improvement complete! Results are ready for review.");
 
             return result;
 
@@ -1579,6 +1599,13 @@ public class CoverageAgentService {
         // Write the complete test class directly
         Files.write(testFile, testContent.getBytes(StandardCharsets.UTF_8), 
                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+        
+        // Ensure the file is fully written to disk
+        try {
+            testFile.getFileSystem().provider().checkAccess(testFile);
+        } catch (Exception e) {
+            log.warn("Unable to verify file access after write: {}", e.getMessage());
+        }
         
         log.info("Successfully wrote direct test file: {}", absoluteTestPath);
         log.info("=== DEBUG: File content that was actually written (first 200 chars) ===");

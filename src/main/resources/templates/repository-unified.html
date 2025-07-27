@@ -1453,11 +1453,12 @@
             // Check for completion
             if (message.currentStep && (message.currentStep.toLowerCase().includes('complete') ||
                 message.currentStep.toLowerCase().includes('finished') ||
-                message.currentStep.toLowerCase().includes('ready for review'))) {
-                // Add a small delay to ensure results are saved before showing button
+                message.currentStep.toLowerCase().includes('ready for review') ||
+                message.type === 'COMPLETION')) {
+                // Add a delay to ensure all backend operations (file writes, session updates) are complete
                 setTimeout(() => {
-                showCompletionState();
-                }, 1500);
+                    showCompletionState();
+                }, 2500); // Increased delay to 2.5 seconds for better reliability
             }
         }
 
@@ -1502,7 +1503,56 @@
         }
 
         function showViewResultsButton() {
-            document.getElementById('viewResultsBtn').style.display = 'inline-block';
+            // Additional validation before showing the button
+            if (!currentSessionId) {
+                console.warn('Cannot show results button - no active session ID');
+                return;
+            }
+            
+            // Double-check that session is truly ready
+            validateSessionBeforeShowingResults();
+        }
+        
+        async function validateSessionBeforeShowingResults() {
+            try {
+                // Quick check to ensure session exists and has status READY_FOR_REVIEW
+                const endpoint = currentSessionType === 'FILE_IMPROVEMENT'
+                    ? `/api/coverage/file/session/${currentSessionId}/status`
+                    : `/api/coverage/repo/session/${currentSessionId}/status`;
+                
+                const response = await fetch(endpoint);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Session validation response:', data);
+                    
+                    // Only show button if session is truly ready
+                    if (data.status === 'READY_FOR_REVIEW' && data.hasResults === true && data.isReady === true) {
+                        document.getElementById('viewResultsBtn').style.display = 'inline-block';
+                        console.log('Results button enabled - session is ready');
+                    } else {
+                        console.log('Session not fully ready yet, status:', data.status, 'hasResults:', data.hasResults, 'isReady:', data.isReady);
+                        // Retry after a short delay (max 5 retries to avoid infinite loop)
+                        if (window.validationRetryCount === undefined) window.validationRetryCount = 0;
+                        if (window.validationRetryCount < 5) {
+                            window.validationRetryCount++;
+                            setTimeout(() => {
+                                validateSessionBeforeShowingResults();
+                            }, 1500); // Increased delay for better reliability
+                        } else {
+                            console.warn('Max validation retries reached, showing button anyway');
+                            document.getElementById('viewResultsBtn').style.display = 'inline-block';
+                        }
+                    }
+                } else {
+                    console.warn('Failed to validate session status');
+                    // Show button anyway to avoid blocking user indefinitely
+                    document.getElementById('viewResultsBtn').style.display = 'inline-block';
+                }
+            } catch (error) {
+                console.error('Error validating session:', error);
+                // Show button anyway to avoid blocking user indefinitely
+                document.getElementById('viewResultsBtn').style.display = 'inline-block';
+            }
         }
 
         function showErrorInModal(title, message) {
@@ -1579,18 +1629,18 @@
 
                 // Check completion status - accept multiple completion states
                 const completionStates = ['COMPLETED', 'READY_FOR_REVIEW', 'PARTIALLY_COMPLETED'];
-                if (data.results && completionStates.includes(data.status)) {
+                if (data.results && completionStates.includes(data.status) && data.hasResults !== false) {
                     // Show modal first, then populate after it's fully shown
                     showResultsModalWithData(data);
                 } else if (data.status === 'FAILED') {
                     showErrorSummaryModal(data.errors || ['Unknown error occurred']);
                 } else {
                     // If this is the first attempt and status suggests completion, retry
-                    if (retryCount < 2 && (data.progress >= 100 || data.currentStep?.toLowerCase().includes('complete'))) {
+                    if (retryCount < 3 && (data.progress >= 100 || data.currentStep?.toLowerCase().includes('complete'))) {
                         console.log('Status suggests completion but results not ready, retrying...');
                         setTimeout(() => {
                             fetchAndShowResultsSummary(sessionId, sessionType, retryCount + 1);
-                        }, 2000);
+                        }, 3000); // Increased delay for better reliability
                         return;
                     }
 
