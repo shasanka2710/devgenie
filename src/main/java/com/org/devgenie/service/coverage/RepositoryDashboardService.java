@@ -100,52 +100,95 @@ public class RepositoryDashboardService {
         
         FileTreeNode root = new FileTreeNode("src", "DIRECTORY", null);
         root.setNodeType("DIRECTORY");
+        root.setAutoExpanded(true);  // Auto-expand root directory
         
         // Separate Java files (with package names) from other files
+        // Filter out src/test files - only include src/main/java
         Map<String, List<CoverageData>> javaFilesByPackage = new HashMap<>();
         List<CoverageData> nonJavaFiles = new ArrayList<>();
         
         for (CoverageData data : coverageData) {
             log.debug("Processing file: {} (package: {}, type: {})", data.getPath(), data.getPackageName(), data.getType());
+            
+            // Skip src/test files entirely
+            if (data.getPath().contains("/test/")) {
+                log.info("FILTERED OUT test file: {}", data.getPath());
+                continue;
+            }
+            
             if (data.getPackageName() != null && !data.getPackageName().isEmpty() && 
                 "FILE".equals(data.getType()) && data.getPath().endsWith(".java")) {
                 javaFilesByPackage.computeIfAbsent(data.getPackageName(), k -> new ArrayList<>()).add(data);
                 log.debug("Added to package: {}", data.getPackageName());
-            } else {
+            } else if (!data.getPath().contains("/test/")) {
+                // Only add non-test files
                 nonJavaFiles.add(data);
             }
         }
         
-        log.info("Found {} Java packages: {}", javaFilesByPackage.size(), javaFilesByPackage.keySet());
+        log.info("FINAL RESULT: Found {} Java packages: {}", javaFilesByPackage.size(), javaFilesByPackage.keySet());
+        log.info("FINAL RESULT: Found {} non-Java files", nonJavaFiles.size());
         
-        // Create main directory node
+        // Create main directory node and auto-expand it
         FileTreeNode mainNode = new FileTreeNode("main", "DIRECTORY", null);
         mainNode.setNodeType("DIRECTORY");
+        mainNode.setAutoExpanded(true);  // Auto-expand main directory
         root.addChild(mainNode);
         
-        // Add Java package nodes
+        // Add Java package nodes with complete flattening
         if (!javaFilesByPackage.isEmpty()) {
             FileTreeNode javaNode = new FileTreeNode("java", "DIRECTORY", null);
             javaNode.setNodeType("DIRECTORY");
             javaNode.setFlattened(true);
+            javaNode.setAutoExpanded(true);  // Auto-expand java directory
             mainNode.addChild(javaNode);
             
-            // Create package nodes
-            for (Map.Entry<String, List<CoverageData>> packageEntry : javaFilesByPackage.entrySet()) {
-                String packageName = packageEntry.getKey();
-                List<CoverageData> packageFiles = packageEntry.getValue();
+            // Sort packages alphabetically for consistent display
+            List<String> sortedPackages = javaFilesByPackage.keySet().stream()
+                    .sorted()
+                    .collect(Collectors.toList());
+            
+            // Create flattened package nodes - each package becomes a direct child
+            for (String packageName : sortedPackages) {
+                List<CoverageData> packageFiles = javaFilesByPackage.get(packageName);
                 
-                log.info("Creating PACKAGE node: {} with {} files", packageName, packageFiles.size());
+                log.info("Creating FLATTENED PACKAGE node: {} with {} files", packageName, packageFiles.size());
+                
+                // Create package node with complete package path as name for full visibility
                 FileTreeNode packageNode = new FileTreeNode(packageName, "DIRECTORY", null, "PACKAGE", packageName);
-                log.info("Package node created - nodeType: {}, packageName: {}", packageNode.getNodeType(), packageNode.getPackageName());
-                javaNode.addChild(packageNode);
+                packageNode.setAutoExpanded(true);  // Auto-expand all packages
+                packageNode.setFlattened(true);     // Mark as flattened for visual indication
                 
-                // Add files to package
+                // Calculate package-level coverage metrics
+                double totalLineCoverage = 0;
+                double totalBranchCoverage = 0;
+                double totalMethodCoverage = 0;
+                int fileCount = packageFiles.size();
+                
+                // Add all Java files directly to the package
                 for (CoverageData fileData : packageFiles) {
                     FileTreeNode fileNode = new FileTreeNode(fileData.getFileName(), "FILE", fileData);
                     fileNode.setNodeType("FILE");
                     packageNode.addChild(fileNode);
+                    
+                    // Accumulate coverage metrics
+                    totalLineCoverage += fileData.getLineCoverage();
+                    totalBranchCoverage += fileData.getBranchCoverage();
+                    totalMethodCoverage += fileData.getMethodCoverage();
                 }
+                
+                // Set package average coverage
+                if (fileCount > 0) {
+                    packageNode.setLineCoverage(totalLineCoverage / fileCount);
+                    packageNode.setBranchCoverage(totalBranchCoverage / fileCount);
+                    packageNode.setMethodCoverage(totalMethodCoverage / fileCount);
+                }
+                
+                log.info("Package node created - nodeType: {}, packageName: {}, autoExpanded: {}, flattened: {}", 
+                    packageNode.getNodeType(), packageNode.getPackageName(), 
+                    packageNode.isAutoExpanded(), packageNode.isFlattened());
+                
+                javaNode.addChild(packageNode);
             }
         }
         
@@ -315,6 +358,10 @@ public class RepositoryDashboardService {
         private String nodeType; // "PACKAGE", "DIRECTORY", "FILE"
         private String packageName; // For package nodes
         private boolean isFlattened; // Indicates if this is a flattened package structure
+        private boolean autoExpanded; // Indicates if this node should be auto-expanded
+        private double lineCoverage;
+        private double branchCoverage;
+        private double methodCoverage;
 
         public FileTreeNode(String name, String type, CoverageData data) {
             this.name = name;
@@ -323,6 +370,7 @@ public class RepositoryDashboardService {
             this.children = new ArrayList<>();
             this.nodeType = "DIRECTORY"; // Default
             this.isFlattened = false;
+            this.autoExpanded = false;
         }
 
         // New constructor for package nodes
@@ -345,6 +393,7 @@ public class RepositoryDashboardService {
         public String getNodeType() { return nodeType; }
         public String getPackageName() { return packageName; }
         public boolean isFlattened() { return isFlattened; }
+        public boolean isAutoExpanded() { return autoExpanded; }
         public boolean isDirectory() { return "DIRECTORY".equals(type); }
         public boolean isPackage() { return "PACKAGE".equals(nodeType); }
         public boolean hasChildren() { return !children.isEmpty(); }
@@ -352,8 +401,15 @@ public class RepositoryDashboardService {
         public void setNodeType(String nodeType) { this.nodeType = nodeType; }
         public void setPackageName(String packageName) { this.packageName = packageName; }
         public void setFlattened(boolean flattened) { this.isFlattened = flattened; }
+        public void setAutoExpanded(boolean autoExpanded) { this.autoExpanded = autoExpanded; }
+        public void setLineCoverage(double lineCoverage) { this.lineCoverage = lineCoverage; }
+        public void setBranchCoverage(double branchCoverage) { this.branchCoverage = branchCoverage; }
+        public void setMethodCoverage(double methodCoverage) { this.methodCoverage = methodCoverage; }
         
         public double getLineCoverage() {
+            if (lineCoverage > 0) {
+                return lineCoverage;
+            }
             if (data != null) {
                 return data.getLineCoverage();
             }
@@ -364,6 +420,26 @@ public class RepositoryDashboardService {
                     .mapToDouble(FileTreeNode::getLineCoverage)
                     .average()
                     .orElse(0.0);
+            }
+            return 0.0;
+        }
+        
+        public double getBranchCoverage() {
+            if (branchCoverage > 0) {
+                return branchCoverage;
+            }
+            if (data != null) {
+                return data.getBranchCoverage();
+            }
+            return 0.0;
+        }
+        
+        public double getMethodCoverage() {
+            if (methodCoverage > 0) {
+                return methodCoverage;
+            }
+            if (data != null) {
+                return data.getMethodCoverage();
             }
             return 0.0;
         }

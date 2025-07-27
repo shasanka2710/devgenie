@@ -241,6 +241,24 @@ public class FastDashboardService {
             coverageData // ✅ Now provides actual coverage data for templates
         );
         
+        // 🚀 RESTORE OPTIMIZATION FLAGS FROM CACHE
+        if (cacheNode.getNodeType() != null) {
+            node.setNodeType(cacheNode.getNodeType());
+        }
+        if (cacheNode.getPackageName() != null) {
+            node.setPackageName(cacheNode.getPackageName());
+        }
+        if (cacheNode.getFlattened() != null) {
+            node.setFlattened(cacheNode.getFlattened());
+        }
+        if (cacheNode.getAutoExpanded() != null) {
+            node.setAutoExpanded(cacheNode.getAutoExpanded());
+        } else {
+            // 🔄 FALLBACK: Apply auto-expansion logic if not cached
+            boolean shouldAutoExpand = shouldAutoExpandNode(cacheNode);
+            node.setAutoExpanded(shouldAutoExpand);
+        }
+        
         if (cacheNode.getChildren() != null) {
             for (DashboardCache.FileTreeData child : cacheNode.getChildren()) {
                 if (child != null) { // Add null check for children
@@ -280,6 +298,20 @@ public class FastDashboardService {
             cacheNode.getType(), 
             coverageData
         );
+        
+        // Restore optimization flags from cache
+        if (cacheNode.getNodeType() != null) {
+            node.setNodeType(cacheNode.getNodeType());
+        }
+        if (cacheNode.getPackageName() != null) {
+            node.setPackageName(cacheNode.getPackageName());
+        }
+        if (cacheNode.getFlattened() != null) {
+            node.setFlattened(cacheNode.getFlattened());
+        }
+        if (cacheNode.getAutoExpanded() != null) {
+            node.setAutoExpanded(cacheNode.getAutoExpanded());
+        }
         
         // Recursively process children
         if (cacheNode.getChildren() != null) {
@@ -501,81 +533,47 @@ public class FastDashboardService {
      * OPTIMIZED file tree building - FINAL FIX for correct tree structure
      */
     private DashboardCache.FileTreeData buildOptimizedFileTree(List<CoverageData> coverageData) {
-        log.info("Building file tree from {} coverage data items", coverageData.size());
+        log.info("🚀 Building OPTIMIZED file tree from {} coverage data items", coverageData.size());
         
-        Map<String, DashboardCache.FileTreeData> nodeMap = new HashMap<>();
-        DashboardCache.FileTreeData root = DashboardCache.FileTreeData.builder()
-                .name("src").type("DIRECTORY").path("src").children(new ArrayList<>()).build();
-        nodeMap.put("src", root);
-
-        // Process each file/directory path
-        for (CoverageData data : coverageData) {
-            String[] pathParts = data.getPath().split("/");
-            
-            // Skip if path doesn't start with "src"
-            if (pathParts.length == 0 || !"src".equals(pathParts[0])) continue;
-            
-            log.debug("Processing path: {} (type: {})", data.getPath(), data.getType());
-            
-            // Build all directory levels first
-            StringBuilder cumulativePath = new StringBuilder("src");
-            DashboardCache.FileTreeData currentParent = root;
-            
-            // Process all path segments except the last one (which might be a file)
-            for (int i = 1; i < pathParts.length - 1; i++) {
-                String dirName = pathParts[i];
-                if (dirName.isEmpty()) continue;
-                
-                cumulativePath.append("/").append(dirName);
-                String dirPath = cumulativePath.toString();
-                
-                // Get or create directory node
-                DashboardCache.FileTreeData dirNode = nodeMap.get(dirPath);
-                if (dirNode == null) {
-                    dirNode = DashboardCache.FileTreeData.builder()
-                            .name(dirName)
-                            .type("DIRECTORY")
-                            .path(dirPath)
-                            .lineCoverage(0.0)
-                            .children(new ArrayList<>())
-                            .build();
-                    
-                    currentParent.getChildren().add(dirNode);
-                    nodeMap.put(dirPath, dirNode);
-                    log.debug("Created directory node: {} at path: {}", dirName, dirPath);
-                }
-                currentParent = dirNode;
-            }
-            
-            // Now handle the final segment (file or directory)
-            if (pathParts.length > 1) {
-                String finalName = pathParts[pathParts.length - 1];
-                cumulativePath.append("/").append(finalName);
-                String finalPath = cumulativePath.toString();
-                
-                // Check if this final node already exists
-                DashboardCache.FileTreeData finalNode = nodeMap.get(finalPath);
-                if (finalNode == null) {
-                    finalNode = DashboardCache.FileTreeData.builder()
-                            .name(finalName)
-                            .type(data.getType())
-                            .path(finalPath)
-                            .lineCoverage("FILE".equals(data.getType()) ? data.getLineCoverage() : 0.0)
-                            .children(new ArrayList<>())
-                            .build();
-                    
-                    currentParent.getChildren().add(finalNode);
-                    nodeMap.put(finalPath, finalNode);
-                    log.debug("Created {} node: {} at path: {}", data.getType(), finalName, finalPath);
-                }
-            }
+        // 🔥 USE THE OPTIMIZED LOGIC FROM REPOSITORY DASHBOARD SERVICE
+        RepositoryDashboardService.FileTreeNode optimizedTree = 
+            repositoryDashboardService.buildPackageStyleFileTree(coverageData);
+        
+        // 🔄 CONVERT OPTIMIZED TREE TO CACHE FORMAT WITH ALL FLAGS PRESERVED
+        DashboardCache.FileTreeData cacheTree = convertOptimizedTreeToCache(optimizedTree);
+        
+        log.info("✅ Optimized file tree built with auto-expansion and flattening");
+        return cacheTree;
+    }
+    
+    /**
+     * 🚀 Converts optimized FileTreeNode to cache format while preserving all optimization flags
+     */
+    private DashboardCache.FileTreeData convertOptimizedTreeToCache(RepositoryDashboardService.FileTreeNode node) {
+        if (node == null) return null;
+        
+        DashboardCache.FileTreeData.FileTreeDataBuilder builder = DashboardCache.FileTreeData.builder()
+                .name(node.getName())
+                .type(node.getType())
+                .path(node.getData() != null ? node.getData().getPath() : null)
+                .lineCoverage(node.getLineCoverage())
+                .branchCoverage(node.getData() != null ? node.getData().getBranchCoverage() : null)
+                .methodCoverage(node.getData() != null ? node.getData().getMethodCoverage() : null)
+                .nodeType(node.getNodeType())
+                .packageName(node.getPackageName())
+                .flattened(node.isFlattened())
+                .autoExpanded(node.isAutoExpanded()); // 🎯 PRESERVE AUTO-EXPANSION FLAG
+        
+        // Convert children recursively
+        if (node.hasChildren()) {
+            List<DashboardCache.FileTreeData> cacheChildren = node.getChildren().stream()
+                    .map(this::convertOptimizedTreeToCache)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            builder.children(cacheChildren);
         }
         
-        // Log final tree structure
-        log.info("File tree built successfully:");
-        logTreeStructure(root, 0);
-        
-        return root;
+        return builder.build();
     }
 
     /**
@@ -638,7 +636,8 @@ public class FastDashboardService {
                 .type(node.getType())
                 .nodeType(node.getNodeType())
                 .packageName(node.getPackageName())
-                .flattened(node.isFlattened());
+                .flattened(node.isFlattened())
+                .autoExpanded(node.isAutoExpanded()); // 🎯 PRESERVE AUTO-EXPANSION FLAG
         
         // Add coverage data if available
         if (node.getData() != null) {
@@ -963,5 +962,32 @@ public class FastDashboardService {
         }
         
         return root;
+    }
+    
+    /**
+     * 🚀 Determines if a cached node should be auto-expanded based on optimization rules
+     */
+    private boolean shouldAutoExpandNode(DashboardCache.FileTreeData cacheNode) {
+        if (cacheNode == null) return false;
+        
+        String name = cacheNode.getName();
+        String nodeType = cacheNode.getNodeType();
+        
+        // Auto-expand main development directories
+        if ("src".equals(name) || "main".equals(name) || "java".equals(name) || "resources".equals(name)) {
+            return true;
+        }
+        
+        // Auto-expand package nodes with few children
+        if ("PACKAGE".equals(nodeType) && cacheNode.getChildren() != null && cacheNode.getChildren().size() <= 3) {
+            return true;
+        }
+        
+        // Auto-expand directories with few children
+        if ("DIRECTORY".equals(cacheNode.getType()) && cacheNode.getChildren() != null && cacheNode.getChildren().size() <= 5) {
+            return true;
+        }
+        
+        return false;
     }
 }

@@ -70,6 +70,7 @@ public class DashboardCache {
         private String nodeType;        // PACKAGE, DIRECTORY, FILE
         private String packageName;     // For package nodes (e.g., com.example.service)
         private Boolean flattened;      // Whether this node was flattened
+        private Boolean autoExpanded;   // Whether this node should be auto-expanded in UI
     }
     
     @Data

@@ -125,6 +125,11 @@ public class SessionManagementService {
         if (sessionOpt.isPresent()) {
             CoverageImprovementSession session = sessionOpt.get();
             session.setStatus(CoverageImprovementSession.SessionStatus.FAILED);
+            
+            // Initialize errors list if null to prevent NPE
+            if (session.getErrors() == null) {
+                session.setErrors(new java.util.ArrayList<>());
+            }
             session.getErrors().add(error.getMessage());
             sessionRepository.save(session);
 
