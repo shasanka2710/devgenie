@@ -574,6 +574,8 @@ public class TestGenerationService {
             // Create batch-specific prompt
             String batchPrompt = createBatchTestGenerationPrompt(fileContent, analysis, batchIndex, maxTestsPerBatch);
             String aiResponse = chatClient.prompt(batchPrompt).call().content();
+            log.info("Batch Test message to LLM: {}, batch index: {}", batchPrompt,batchIndex+1);
+            log.info("Batch LLM output message: {}, batch index: {}", aiResponse,batchIndex+1);
 
             return parseBatchTestGenerationResponse(aiResponse, analysis, batchIndex);
 
@@ -928,6 +930,7 @@ public class TestGenerationService {
      * Create prompt for direct full-file generation
      */
     private String createDirectFullFilePrompt(String fileContent, FileAnalysisResult analysis, TestGenerationStrategy strategy) {
+        log.info("Creating direct full-file generation prompt for file: {}", analysis.getFilePath());
         String classTypeGuidance = analyzeClassTypeForPrompt(fileContent, analysis);
         
         // Determine coverage target based on complexity

@@ -8,6 +8,7 @@ import com.org.devgenie.model.coverage.RepositoryAnalysisResponse;
 import com.org.devgenie.model.coverage.WorkspaceStatusResponse;
 import com.org.devgenie.service.coverage.AsyncCoverageProcessingService;
 import com.org.devgenie.service.coverage.CoverageAgentService;
+import com.org.devgenie.service.coverage.GitService;
 import com.org.devgenie.service.coverage.RepositoryAnalysisService;
 import com.org.devgenie.service.coverage.RepositoryService;
 import com.org.devgenie.service.coverage.SessionManagementService;
@@ -40,6 +41,9 @@ public class CoverageController {
 
     @Autowired
     private AsyncCoverageProcessingService asyncCoverageProcessingService;
+
+    @Autowired
+    private GitService gitService;
 
     /**
      * NEW: Analyze repository and provide summary before coverage improvement
@@ -231,6 +235,7 @@ public class CoverageController {
      */
     @PostMapping("/file/improve-async")
     public ResponseEntity<?> improveFileCoverageAsync(@RequestBody EnhancedFileCoverageRequest request) {
+        log.info("***** BEGIN async file coverage improvement for: {}", request.getFilePath());
         try {
             String sessionId = asyncCoverageProcessingService.startFileCoverageImprovement(request);
             return ResponseEntity.ok(Map.of(
@@ -314,7 +319,24 @@ public class CoverageController {
         try {
             Optional<CoverageImprovementSession> sessionOpt = sessionManagementService.getSession(sessionId);
             if (sessionOpt.isPresent()) {
-                return ResponseEntity.ok(sessionOpt.get());
+                CoverageImprovementSession session = sessionOpt.get();
+                
+                // Check if session has results and is in a completed state
+                boolean hasResults = session.getResults() != null;
+                boolean isCompletedState = session.getStatus() == CoverageImprovementSession.SessionStatus.COMPLETED ||
+                                         session.getStatus() == CoverageImprovementSession.SessionStatus.READY_FOR_REVIEW ||
+                                         session.getStatus() == CoverageImprovementSession.SessionStatus.PARTIALLY_COMPLETED;
+                
+                return ResponseEntity.ok(Map.of(
+                    "sessionId", sessionId,
+                    "status", session.getStatus(),
+                    "progress", session.getProgress(),
+                    "currentStep", session.getCurrentStep() != null ? session.getCurrentStep() : "",
+                    "hasResults", hasResults,
+                    "isReady", hasResults && isCompletedState,
+                    "startedAt", session.getStartedAt(),
+                    "message", getStatusMessage(session)
+                ));
             } else {
                 return ResponseEntity.notFound().build();
             }
@@ -383,7 +405,24 @@ public class CoverageController {
         try {
             Optional<CoverageImprovementSession> sessionOpt = sessionManagementService.getSession(sessionId);
             if (sessionOpt.isPresent()) {
-                return ResponseEntity.ok(sessionOpt.get());
+                CoverageImprovementSession session = sessionOpt.get();
+                
+                // Check if session has results and is in a completed state
+                boolean hasResults = session.getResults() != null;
+                boolean isCompletedState = session.getStatus() == CoverageImprovementSession.SessionStatus.COMPLETED ||
+                                         session.getStatus() == CoverageImprovementSession.SessionStatus.READY_FOR_REVIEW ||
+                                         session.getStatus() == CoverageImprovementSession.SessionStatus.PARTIALLY_COMPLETED;
+                
+                return ResponseEntity.ok(Map.of(
+                    "sessionId", sessionId,
+                    "status", session.getStatus(),
+                    "progress", session.getProgress(),
+                    "currentStep", session.getCurrentStep() != null ? session.getCurrentStep() : "",
+                    "hasResults", hasResults,
+                    "isReady", hasResults && isCompletedState,
+                    "startedAt", session.getStartedAt(),
+                    "message", getStatusMessage(session)
+                ));
             } else {
                 return ResponseEntity.notFound().build();
             }
@@ -427,6 +466,60 @@ public class CoverageController {
             log.error("Error applying repository coverage changes", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Debug endpoint to validate GitHub token configuration
+     */
+    @GetMapping("/debug/github-token")
+    public ResponseEntity<Map<String, Object>> validateGitHubToken() {
+        try {
+            boolean isValid = gitService.validateGitHubToken();
+            Map<String, Object> response = Map.of(
+                "isValid", isValid,
+                "message", isValid ? "GitHub token is valid" : "GitHub token is invalid or not configured",
+                "timestamp", LocalDateTime.now()
+            );
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error validating GitHub token", e);
+            Map<String, Object> response = Map.of(
+                "isValid", false,
+                "message", "Error validating GitHub token: " + e.getMessage(),
+                "timestamp", LocalDateTime.now()
+            );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    /**
+     * Helper method to generate user-friendly status messages
+     */
+    private String getStatusMessage(CoverageImprovementSession session) {
+        switch (session.getStatus()) {
+            case CREATED:
+                return "Session created, preparing to start...";
+            case ANALYZING_FILE:
+                return "Analyzing file structure and coverage...";
+            case ANALYZING_REPOSITORY:
+                return "Analyzing repository files...";
+            case GENERATING_TESTS:
+                return "Generating test cases...";
+            case VALIDATING_TESTS:
+                return "Validating generated tests...";
+            case READY_FOR_REVIEW:
+                return session.getResults() != null ? "Complete! Results are ready for review." : "Processing complete, finalizing results...";
+            case COMPLETED:
+                return "Process completed successfully!";
+            case PARTIALLY_COMPLETED:
+                return "Process completed with some issues.";
+            case FAILED:
+                return "Process failed. Please try again.";
+            case CANCELLED:
+                return "Process was cancelled.";
+            default:
+                return "Processing...";
         }
     }
 }

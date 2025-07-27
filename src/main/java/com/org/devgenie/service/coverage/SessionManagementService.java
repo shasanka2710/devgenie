@@ -93,7 +93,16 @@ public class SessionManagementService {
         if (sessionOpt.isPresent()) {
             CoverageImprovementSession session = sessionOpt.get();
             session.setStatus(status);
-            sessionRepository.save(session);
+            CoverageImprovementSession savedSession = sessionRepository.save(session);
+            
+            // Verify the save was successful
+            if (savedSession.getStatus().equals(status)) {
+                log.info("Session status updated to {} for session: {}", status, sessionId);
+            } else {
+                log.warn("Session status may not have been updated properly for session: {}", sessionId);
+            }
+        } else {
+            log.warn("Attempted to update status for non-existent session: {}", sessionId);
         }
     }
 
@@ -112,7 +121,16 @@ public class SessionManagementService {
         if (sessionOpt.isPresent()) {
             CoverageImprovementSession session = sessionOpt.get();
             session.setResults(results);
-            sessionRepository.save(session);
+            CoverageImprovementSession savedSession = sessionRepository.save(session);
+            
+            // Verify the save was successful
+            if (savedSession.getResults() != null) {
+                log.info("Session results stored successfully for session: {}", sessionId);
+            } else {
+                log.warn("Session results may not have been saved properly for session: {}", sessionId);
+            }
+        } else {
+            log.warn("Attempted to set results for non-existent session: {}", sessionId);
         }
     }
 
