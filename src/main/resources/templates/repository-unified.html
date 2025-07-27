@@ -1000,9 +1000,21 @@
                 }
                 
                 pollAttempts++;
-                const url = `/coverage/analyze/${/*[[${owner}]]*/ 'owner'}/${/*[[${repoName}]]*/ 'repo'}/status`;
+                // Extract owner and repo from REPOSITORY_CONTEXT.fullName (format: "owner/repo")
+                const [owner, repo] = REPOSITORY_CONTEXT.fullName.split('/');
+                if (!owner || !repo) {
+                    console.error('Invalid repository context:', REPOSITORY_CONTEXT.fullName);
+                    return;
+                }
+                const url = `/coverage/analyze/${owner}/${repo}/status`;
+                console.log('Polling analysis status for:', owner, '/', repo, 'URL:', url);
                 fetch(url, { cache: 'no-store' })
-                    .then(res => res.json())
+                    .then(res => {
+                        if (!res.ok) {
+                            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                        }
+                        return res.json();
+                    })
                     .then(data => {
                         console.log('Polling analysis status (attempt', pollAttempts, '):', data);
                         if (data && data.success) {
@@ -1014,6 +1026,7 @@
                     })
                     .catch((error) => {
                         console.error('Error polling analysis status:', error);
+                        console.error('URL that failed:', url);
                         setTimeout(pollAnalysis, 2000);
                     });
             }
@@ -1022,6 +1035,9 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Start polling if analysis is in progress
             if (document.getElementById('analysisStatus')) {
+                console.log('=== ANALYSIS POLLING DEBUG INFO ===');
+                console.log('REPOSITORY_CONTEXT:', REPOSITORY_CONTEXT);
+                console.log('fullName:', REPOSITORY_CONTEXT.fullName);
                 console.log('Analysis in progress, starting polling...');
                 pollAttempts = 0; // Reset poll attempts
                 // Start polling immediately, then continue every 2 seconds

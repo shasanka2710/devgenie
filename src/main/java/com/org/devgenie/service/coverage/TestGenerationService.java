@@ -8,6 +8,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,23 +24,173 @@ public class TestGenerationService {
     @Autowired
     private FileService fileService;
 
+    /**
+     * Generate tests for a file using hybrid approach:
+     * - Direct full-file generation for small/simple classes
+     * - Batch method-based generation for large/complex classes
+     * - Intelligent fallback mechanisms
+     */
     public TestGenerationResult generateTestsForFile(FileAnalysisResult analysis) {
         log.info("Generating tests for file: {}", analysis.getFilePath());
 
         try {
             String fileContent = fileService.readFile(analysis.getFilePath());
-            String testPrompt = createTestGenerationPrompt(fileContent, analysis);
-            String aiResponse = chatClient.prompt(testPrompt).call().content();
-
-            return parseTestGenerationResponse(aiResponse, analysis);
+            
+            // Determine if existing test file exists
+            boolean existingTestFile = checkExistingTestFile(analysis.getFilePath());
+            
+            // Determine optimal test generation strategy
+            TestGenerationStrategy strategy = TestGenerationStrategy.determine(analysis, existingTestFile, fileContent);
+            log.info("Selected strategy: {} - {}", strategy.getStrategy(), strategy.getReasoning());
+            
+            // Execute strategy with fallback
+            return executeTestGenerationStrategy(strategy, analysis, fileContent);
 
         } catch (Exception e) {
             log.error("Failed to generate tests for file: {}", analysis.getFilePath(), e);
             return TestGenerationResult.failure(analysis.getFilePath(), e.getMessage());
         }
     }
+    
+    /**
+     * Execute the determined test generation strategy with fallback mechanisms
+     */
+    private TestGenerationResult executeTestGenerationStrategy(TestGenerationStrategy strategy, 
+                                                             FileAnalysisResult analysis, 
+                                                             String fileContent) {
+        try {
+            switch (strategy.getStrategy()) {
+                case DIRECT_FULL_FILE:
+                    return generateDirectFullFile(analysis, fileContent, strategy);
+                    
+                case BATCH_METHOD_BASED:
+                    return generateBatchMethodBased(analysis, fileContent, strategy);
+                    
+                case MERGE_WITH_EXISTING:
+                    return generateAndMergeWithExisting(analysis, fileContent, strategy);
+                    
+                default:
+                    throw new IllegalArgumentException("Unknown strategy: " + strategy.getStrategy());
+            }
+        } catch (Exception e) {
+            log.warn("Primary strategy {} failed, attempting fallback", strategy.getStrategy(), e);
+            return attemptFallbackStrategy(strategy, analysis, fileContent, e);
+        }
+    }
+    
+    /**
+     * Attempt fallback strategy if primary fails
+     */
+    private TestGenerationResult attemptFallbackStrategy(TestGenerationStrategy originalStrategy,
+                                                        FileAnalysisResult analysis,
+                                                        String fileContent,
+                                                        Exception originalError) {
+        try {
+            if (originalStrategy.getStrategy() == TestGenerationStrategy.Strategy.DIRECT_FULL_FILE) {
+                log.info("Direct full-file generation failed, falling back to batch method approach");
+                TestGenerationStrategy fallbackStrategy = TestGenerationStrategy.builder()
+                    .strategy(TestGenerationStrategy.Strategy.BATCH_METHOD_BASED)
+                    .reasoning("Fallback from failed direct generation")
+                    .maxTestsPerBatch(3)
+                    .requiresValidation(true)
+                    .build();
+                return generateBatchMethodBased(analysis, fileContent, fallbackStrategy);
+            } else {
+                log.info("Batch method generation failed, falling back to simple direct approach");
+                TestGenerationStrategy fallbackStrategy = TestGenerationStrategy.builder()
+                    .strategy(TestGenerationStrategy.Strategy.DIRECT_FULL_FILE)
+                    .reasoning("Fallback from failed batch generation")
+                    .requiresValidation(false)
+                    .build();
+                return generateDirectFullFile(analysis, fileContent, fallbackStrategy);
+            }
+        } catch (Exception fallbackError) {
+            log.error("Both primary and fallback strategies failed", fallbackError);
+            return TestGenerationResult.failure(analysis.getFilePath(), 
+                "Primary strategy failed: " + originalError.getMessage() + 
+                "; Fallback also failed: " + fallbackError.getMessage());
+        }
+    }
+    
+    /**
+     * Generate complete test file directly from AI (for small/simple classes)
+     */
+    private TestGenerationResult generateDirectFullFile(FileAnalysisResult analysis, 
+                                                       String fileContent, 
+                                                       TestGenerationStrategy strategy) {
+        log.info("Using DIRECT_FULL_FILE strategy for: {}", analysis.getFilePath());
+        
+        String testPrompt = createDirectFullFilePrompt(fileContent, analysis, strategy);
+        String aiResponse = chatClient.prompt(testPrompt).call().content();
+
+        log.info("Input Test message to LLM: {}", testPrompt);
+        log.info("LLM output message : {}", aiResponse);
+        
+        // For DIRECT_FULL_FILE, use minimal processing to preserve LLM output quality
+        TestGenerationResult result = parseDirectFullFileResponseMinimal(aiResponse, analysis, strategy);
+        
+        // Only validate if explicitly required by strategy (disabled for minimal processing)
+        // if (strategy.isRequiresValidation() && result.isSuccess()) {
+        //     result = validateDirectGeneratedTest(result);
+        // }
+        
+        return result;
+    }
+    
+    /**
+     * Generate tests in batches and assemble manually (for large/complex classes)
+     */
+    private TestGenerationResult generateBatchMethodBased(FileAnalysisResult analysis, 
+                                                         String fileContent, 
+                                                         TestGenerationStrategy strategy) {
+        log.info("BATCH_METHOD_BASED strategy temporarily disabled - falling back to DIRECT_FULL_FILE");
+        
+        // Fallback to DIRECT_FULL_FILE for now
+        TestGenerationStrategy fallbackStrategy = TestGenerationStrategy.builder()
+            .strategy(TestGenerationStrategy.Strategy.DIRECT_FULL_FILE)
+            .reasoning("Fallback from BATCH_METHOD_BASED (temporarily disabled)")
+            .requiresValidation(false)
+            .build();
+        return generateDirectFullFile(analysis, fileContent, fallbackStrategy);
+    }
+    
+    /**
+     * Generate new tests and merge with existing test file
+     */
+    private TestGenerationResult generateAndMergeWithExisting(FileAnalysisResult analysis, 
+                                                            String fileContent, 
+                                                            TestGenerationStrategy strategy) {
+        log.info("Using MERGE_WITH_EXISTING strategy for: {}", analysis.getFilePath());
+        
+        // Generate new tests using batch approach (safer for merging)
+        TestGenerationResult batchResult = generateBatchMethodBased(analysis, fileContent, strategy);
+        
+        if (!batchResult.isSuccess()) {
+            return batchResult;
+        }
+        
+        // Mark for merging in the result
+        return TestGenerationResult.builder()
+            .sourceFilePath(batchResult.getSourceFilePath())
+            .testFilePath(batchResult.getTestFilePath())
+            .testClassName(batchResult.getTestClassName())
+            .generatedTests(batchResult.getGeneratedTests())
+            .imports(batchResult.getImports())
+            .mockDependencies(batchResult.getMockDependencies())
+            .generatedTestContent(batchResult.getGeneratedTestContent())
+            .estimatedCoverageIncrease(batchResult.getEstimatedCoverageIncrease())
+            .notes("Generated for merging with existing test file")
+            .success(batchResult.isSuccess())
+            .error(batchResult.getError())
+            .buildToolSpecific(batchResult.getBuildToolSpecific())
+            .projectConfiguration(batchResult.getProjectConfiguration())
+            .build();
+    }
 
     private String createTestGenerationPrompt(String fileContent, FileAnalysisResult analysis) {
+        // Analyze the class type to provide intelligent guidance
+        String classTypeGuidance = analyzeClassTypeForPrompt(fileContent, analysis);
+        
         return String.format("""
             Generate comprehensive JUnit 5 test cases for the following Java class to improve code coverage.
             
@@ -46,6 +198,9 @@ public class TestGenerationService {
             ```java
             %s
             ```
+            
+            Class Analysis & Guidance:
+            %s
             
             Analysis Results:
             - Current Coverage: %.2f%%
@@ -64,7 +219,7 @@ public class TestGenerationService {
             
             Requirements:
             1. Generate complete, runnable JUnit 5 test class
-            2. Use Mockito for mocking dependencies
+            2. Use Mockito for mocking dependencies ONLY when appropriate
             3. Include tests for all uncovered code paths
             4. Add edge case tests for high-risk methods
             5. Use proper test naming conventions
@@ -99,6 +254,7 @@ public class TestGenerationService {
             }
             """,
                 fileContent,
+                classTypeGuidance,
                 analysis.getCurrentCoverage(),
                 analysis.getComplexity(),
                 analysis.getBusinessLogicPriority(),
@@ -107,6 +263,223 @@ public class TestGenerationService {
                 formatTestableComponents(analysis.getTestableComponents()),
                 String.join(", ", analysis.getDependencies())
         );
+    }
+
+    /**
+     * Framework-agnostic class type analysis for prompt generation
+     * Works with Spring Boot, plain Java, Jakarta EE, Micronaut, Quarkus, Maven/Gradle projects, etc.
+     */
+    private String analyzeClassTypeForPrompt(String fileContent, FileAnalysisResult analysis) {
+        StringBuilder guidance = new StringBuilder();
+        
+        // Check for main application classes (any framework or plain Java)
+        if (fileContent.contains("public static void main")) {
+            if (fileContent.contains("@SpringBootApplication")) {
+                guidance.append("⚠️  SPRING BOOT APPLICATION CLASS DETECTED:\n");
+                guidance.append("- This is a Spring Boot application entry point\n");
+                guidance.append("- Focus on testing application startup and configuration\n");
+                guidance.append("- Use @SpringBootTest for integration testing\n");
+                guidance.append("- Test annotation presence and configuration\n");
+                guidance.append("- Keep tests simple and focused on essential functionality\n");
+                guidance.append("- Limit test generation to 2-3 essential tests\n\n");
+            } else if (fileContent.contains("io.micronaut") || fileContent.contains("@MicronautTest")) {
+                guidance.append("🦄 MICRONAUT APPLICATION CLASS DETECTED:\n");
+                guidance.append("- This is a Micronaut application entry point\n");
+                guidance.append("- Use @MicronautTest for testing\n");
+                guidance.append("- Focus on application context and bean initialization\n");
+                guidance.append("- Test configuration and dependency injection\n");
+                guidance.append("- Keep tests lightweight and focused\n");
+                guidance.append("- Limit test generation to 2-3 essential tests\n\n");
+            } else if (fileContent.contains("io.quarkus") || fileContent.contains("@QuarkusTest")) {
+                guidance.append("⚡ QUARKUS APPLICATION CLASS DETECTED:\n");
+                guidance.append("- This is a Quarkus application entry point\n");
+                guidance.append("- Use @QuarkusTest for testing\n");
+                guidance.append("- Focus on application startup and native compilation readiness\n");
+                guidance.append("- Test CDI context and configuration\n");
+                guidance.append("- Keep tests efficient for fast startup\n");
+                guidance.append("- Limit test generation to 2-3 essential tests\n\n");
+            } else {
+                guidance.append("📱 MAIN APPLICATION CLASS DETECTED:\n");
+                guidance.append("- This is a main application entry point (plain Java)\n");
+                guidance.append("- Focus on testing main method functionality\n");
+                guidance.append("- Test command line argument handling if present\n");
+                guidance.append("- Test application initialization logic\n");
+                guidance.append("- Use standard JUnit 5 testing approach\n");
+                guidance.append("- Keep tests simple and focused on core functionality\n");
+                guidance.append("- Limit test generation to 2-3 essential tests\n\n");
+            }
+        }
+        
+        // Check for web components (framework-agnostic)
+        if (fileContent.contains("@Controller") || fileContent.contains("@RestController")) {
+            guidance.append("🌐 SPRING CONTROLLER CLASS DETECTED:\n");
+            guidance.append("- Use @WebMvcTest for lightweight testing\n");
+            guidance.append("- Mock service dependencies with @MockBean\n");
+            guidance.append("- Test HTTP endpoints, request mapping, and response handling\n");
+            guidance.append("- Test validation and error handling\n\n");
+        } else if (fileContent.contains("extends HttpServlet") || fileContent.contains("@WebServlet")) {
+            guidance.append("🌐 SERVLET CLASS DETECTED:\n");
+            guidance.append("- Use servlet testing framework or mock HTTP requests\n");
+            guidance.append("- Test doGet, doPost, and other HTTP methods\n");
+            guidance.append("- Test request parameter handling and response generation\n");
+            guidance.append("- Focus on servlet lifecycle and session management\n\n");
+        } else if (fileContent.contains("implements Filter") || fileContent.contains("@WebFilter")) {
+            guidance.append("🔍 FILTER CLASS DETECTED:\n");
+            guidance.append("- Test filter chain execution and request/response modification\n");
+            guidance.append("- Mock FilterChain and HttpServletRequest/Response\n");
+            guidance.append("- Test filter initialization and destruction\n");
+            guidance.append("- Focus on request filtering logic\n\n");
+        }
+        
+        // Check for service/business layer (framework-agnostic)
+        if (fileContent.contains("@Service") || (fileContent.contains("Service") && fileContent.contains("class"))) {
+            guidance.append("⚙️  SERVICE CLASS DETECTED:\n");
+            guidance.append("- Focus on business logic testing\n");
+            guidance.append("- Mock repository/external dependencies\n");
+            guidance.append("- Test various input scenarios and edge cases\n");
+            guidance.append("- Test exception handling and error conditions\n\n");
+        } else if (fileContent.contains("@Component") && !fileContent.contains("@Repository") && !fileContent.contains("@Controller")) {
+            guidance.append("🔧 COMPONENT CLASS DETECTED:\n");
+            guidance.append("- Test component functionality and dependency injection\n");
+            guidance.append("- Mock external dependencies as needed\n");
+            guidance.append("- Focus on component-specific business logic\n");
+            guidance.append("- Test lifecycle methods if present\n\n");
+        }
+        
+        // Check for data access layer (framework-agnostic)
+        if (fileContent.contains("@Repository") || (fileContent.contains("Repository") && fileContent.contains("class"))) {
+            guidance.append("💾 REPOSITORY CLASS DETECTED:\n");
+            guidance.append("- Use @DataJpaTest for JPA repositories or appropriate testing framework\n");
+            guidance.append("- Test database operations and queries\n");
+            guidance.append("- Focus on data persistence and retrieval\n");
+            guidance.append("- Test custom queries and data validation\n\n");
+        } else if (fileContent.contains("@Entity") || fileContent.contains("@Table")) {
+            guidance.append("📊 JPA ENTITY CLASS DETECTED:\n");
+            guidance.append("- Test entity relationships and mappings\n");
+            guidance.append("- Test validation annotations and constraints\n");
+            guidance.append("- Test equals, hashCode, and toString methods\n");
+            guidance.append("- Focus on data integrity and persistence behavior\n\n");
+        }
+        
+        // Check for configuration classes (framework-agnostic)
+        if (fileContent.contains("@Configuration") || (fileContent.contains("Config") && fileContent.contains("class"))) {
+            guidance.append("⚙️  CONFIGURATION CLASS DETECTED:\n");
+            guidance.append("- Test bean creation and configuration\n");
+            guidance.append("- Verify conditional configurations\n");
+            guidance.append("- Use @SpringBootTest or appropriate framework test for integration testing\n");
+            guidance.append("- Test property binding and validation\n\n");
+        }
+        
+        // Check for data structures and utilities (framework-agnostic)
+        if (fileContent.contains("public interface") || fileContent.contains("interface")) {
+            guidance.append("🔌 INTERFACE DETECTED:\n");
+            guidance.append("- Focus on contract testing\n");
+            guidance.append("- Test default methods if present\n");
+            guidance.append("- Consider testing implementation classes\n");
+            guidance.append("- Keep tests minimal and focused on interface contracts\n\n");
+        } else if (fileContent.contains("abstract class")) {
+            guidance.append("🏗️  ABSTRACT CLASS DETECTED:\n");
+            guidance.append("- Test concrete methods in the abstract class\n");
+            guidance.append("- Create test subclass for testing abstract methods\n");
+            guidance.append("- Focus on shared functionality\n");
+            guidance.append("- Test template method patterns if present\n\n");
+        } else if (fileContent.contains("public enum") || fileContent.contains("enum")) {
+            guidance.append("📋 ENUM CLASS DETECTED:\n");
+            guidance.append("- Test enum value creation and retrieval\n");
+            guidance.append("- Test any custom methods in the enum\n");
+            guidance.append("- Test serialization/deserialization if applicable\n");
+            guidance.append("- Keep tests simple and focused on enum behavior\n\n");
+        } else if (fileContent.contains("@Entity") || fileContent.contains("@Data") || isDataClass(fileContent)) {
+            guidance.append("📊 DATA CLASS DETECTED:\n");
+            guidance.append("- Test getters, setters, and constructors\n");
+            guidance.append("- Test equals, hashCode, and toString methods\n");
+            guidance.append("- Test validation annotations if present\n");
+            guidance.append("- Focus on data integrity and validation\n\n");
+        } else if (isUtilityClass(fileContent)) {
+            guidance.append("🛠️  UTILITY CLASS DETECTED:\n");
+            guidance.append("- Test static utility methods\n");
+            guidance.append("- Focus on edge cases and boundary conditions\n");
+            guidance.append("- Test null handling and exception scenarios\n");
+            guidance.append("- Ensure comprehensive input validation testing\n\n");
+        }
+        
+        // Add Jakarta EE specific guidance
+        if (fileContent.contains("javax.") || fileContent.contains("jakarta.")) {
+            guidance.append("☕ JAKARTA EE/JEE COMPONENT DETECTED:\n");
+            guidance.append("- Use appropriate Jakarta EE testing framework (Arquillian, etc.)\n");
+            guidance.append("- Test CDI injection and enterprise features\n");
+            guidance.append("- Focus on container-managed functionality\n");
+            guidance.append("- Test transaction management if applicable\n\n");
+        }
+        
+        // Add complexity-based guidance
+        if ("HIGH".equals(analysis.getComplexity()) || "VERY_HIGH".equals(analysis.getComplexity())) {
+            guidance.append("🔥 HIGH COMPLEXITY DETECTED:\n");
+            guidance.append("- Break down complex methods into multiple test cases\n");
+            guidance.append("- Test all branches and edge conditions\n");
+            guidance.append("- Focus on error handling and boundary conditions\n");
+            guidance.append("- Consider parameterized tests for multiple scenarios\n\n");
+        }
+        
+        // Add framework-agnostic guidance for plain Java
+        if (!fileContent.contains("@") || countAnnotations(fileContent) < 2) {
+            guidance.append("☕ PLAIN JAVA CLASS DETECTED:\n");
+            guidance.append("- Use standard JUnit 5 testing approach\n");
+            guidance.append("- Focus on core Java functionality testing\n");
+            guidance.append("- Test object creation, method behavior, and state changes\n");
+            guidance.append("- No special framework considerations needed\n\n");
+        }
+        
+        // Add general Java testing guidance
+        guidance.append("📝 GENERAL TESTING GUIDELINES:\n");
+        guidance.append("- Use meaningful test method names that describe what is being tested\n");
+        guidance.append("- Follow AAA pattern: Arrange, Act, Assert\n");
+        guidance.append("- Mock external dependencies appropriately\n");
+        guidance.append("- Test both happy path and error scenarios\n");
+        guidance.append("- Include edge cases and boundary value testing\n");
+        guidance.append("- Use appropriate assertions for the testing framework\n");
+        guidance.append("- For simple classes (LOW complexity), aim for 80%+ coverage with comprehensive tests\n");
+        guidance.append("- Generate multiple test methods to thoroughly exercise the code\n");
+        
+        return guidance.toString();
+    }
+    
+    /**
+     * Check if class is a data class (POJO with mainly getters/setters)
+     */
+    private boolean isDataClass(String fileContent) {
+        int getterSetterCount = 0;
+        int totalMethods = 0;
+        
+        String[] lines = fileContent.split("\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.contains("public ") && trimmed.contains("(") && trimmed.contains(")")) {
+                totalMethods++;
+                if (trimmed.contains("get") || trimmed.contains("set") || 
+                    trimmed.contains("is") && trimmed.contains("()")) {
+                    getterSetterCount++;
+                }
+            }
+        }
+        
+        return totalMethods > 0 && (getterSetterCount >= totalMethods * 0.7);
+    }
+    
+    /**
+     * Check if class is a utility class (mainly static methods)
+     */
+    private boolean isUtilityClass(String fileContent) {
+        return fileContent.contains("private") && fileContent.contains("static") && 
+               !fileContent.contains("@Component") && !fileContent.contains("@Service") &&
+               fileContent.contains("public static");
+    }
+    
+    /**
+     * Count number of annotations in the class
+     */
+    private int countAnnotations(String fileContent) {
+        return (int) fileContent.lines().filter(line -> line.trim().startsWith("@")).count();
     }
 
     private TestGenerationResult parseTestGenerationResponse(String aiResponse, FileAnalysisResult analysis) {
@@ -256,6 +629,9 @@ public class TestGenerationService {
 
     private String createBatchTestGenerationPrompt(String fileContent, FileAnalysisResult analysis, 
                                                   int batchIndex, Integer maxTestsPerBatch) {
+        // Add intelligent class type analysis for batch generation too
+        String classTypeGuidance = analyzeClassTypeForPrompt(fileContent, analysis);
+        
         return String.format("""
             Generate %d JUnit 5 test methods for the following Java class (batch %d).
             Focus on different aspects of the code to maximize coverage.
@@ -264,6 +640,9 @@ public class TestGenerationService {
             ```java
             %s
             ```
+            
+            Class Analysis & Guidance:
+            %s
             
             Analysis Results:
             - File Path: %s
@@ -275,7 +654,7 @@ public class TestGenerationService {
             2. Return ONLY the test method code, NOT complete class declarations
             3. Each method should be a standalone test method with @Test annotation
             4. Use JUnit 5 annotations (@Test, @BeforeEach, etc.)
-            5. Include Mockito mocks where appropriate
+            5. Include Mockito mocks ONLY when appropriate (avoid for simple application classes)
             6. Focus on edge cases and error conditions
             7. Ensure tests are independent and can run in any order
             8. Include meaningful assertions
@@ -307,7 +686,7 @@ public class TestGenerationService {
             - setUp methods
             - Class closing braces
             """, 
-            maxTestsPerBatch, batchIndex + 1, fileContent, analysis.getFilePath(), 
+            maxTestsPerBatch, batchIndex + 1, fileContent, classTypeGuidance, analysis.getFilePath(), 
             analysis.getCurrentCoverage(), getMethodsForBatch(analysis, batchIndex), maxTestsPerBatch);
     }
 
@@ -514,5 +893,339 @@ public class TestGenerationService {
         code = code.replaceAll("\\n+$", ""); // Remove trailing newlines
         
         return code.trim();
+    }
+    
+    /**
+     * Check if an existing test file exists for the given source file
+     */
+    private boolean checkExistingTestFile(String sourceFilePath) {
+        try {
+            String testFilePath = generateTestFilePath(sourceFilePath);
+            return Files.exists(Paths.get(testFilePath));
+        } catch (Exception e) {
+            log.debug("Could not check for existing test file: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Generate test file path from source file path
+     */
+    private String generateTestFilePath(String sourceFilePath) {
+        return sourceFilePath.replace("src/main/java", "src/test/java")
+                            .replace(".java", "Test.java");
+    }
+    
+    /**
+     * Extract test class name from test file path
+     */
+    private String extractTestClassName(String testFilePath) {
+        String fileName = Paths.get(testFilePath).getFileName().toString();
+        return fileName.replace(".java", "");
+    }
+    
+    /**
+     * Create prompt for direct full-file generation
+     */
+    private String createDirectFullFilePrompt(String fileContent, FileAnalysisResult analysis, TestGenerationStrategy strategy) {
+        String classTypeGuidance = analyzeClassTypeForPrompt(fileContent, analysis);
+        
+        // Determine coverage target based on complexity
+        String complexityLevel = analysis.getComplexity().toString();
+        String coverageTarget = switch (complexityLevel) {
+            case "LOW" -> "MINIMUM 80% coverage - Simple classes should have comprehensive test coverage";
+            case "MEDIUM" -> "MINIMUM 70% coverage - Cover all main scenarios and edge cases";
+            case "HIGH" -> "MINIMUM 60% coverage - Focus on critical paths and business logic";
+            default -> "MINIMUM 70% coverage";
+        };
+        
+        return String.format("""
+            Generate a COMPLETE, COMPILABLE JUnit 5 test class for the following Java class.
+            This should be a ready-to-use test file that can be saved directly without modification.
+            
+            🎯 COVERAGE TARGET: %s
+            
+            Source Code:
+            ```java
+            %s
+            ```
+            
+            Class Analysis & Guidance:
+            %s
+            
+            Analysis Results:
+            - Current Coverage: %.2f%%
+            - Complexity: %s
+            - Business Logic Priority: %s
+            - Strategy: %s
+            
+            Requirements for COMPLETE TEST FILE:
+            1. Include package declaration matching the source package structure
+            2. Include ALL necessary imports (JUnit 5, Mockito if needed, assertions, etc.)
+            3. Generate a complete test class with proper class declaration
+            4. Include @Test methods with meaningful names and proper assertions
+            5. Add @BeforeEach setup method ONLY if absolutely necessary
+            6. Use appropriate test annotations (@SpringBootTest for app classes, @ExtendWith for others)
+            7. Keep it simple for Spring Boot application classes (2-3 basic tests max)
+            8. For other classes, generate comprehensive test methods covering different scenarios
+            9. Include proper JavaDoc comments for the test class
+            10. Ensure the file is immediately compilable and runnable
+            
+            Please provide the response in the following JSON format:
+            {
+                "testClassName": "TestClassName",
+                "testFilePath": "src/test/java/package/path/TestClassName.java",
+                "testClassContent": "COMPLETE test class content ready to save to file",
+                "generatedTests": [
+                    {
+                        "methodName": "testMethodName",
+                        "testType": "UNIT|INTEGRATION|EDGE_CASE",
+                        "description": "Description of what this test covers",
+                        "targetCodePath": "Method or code path being tested",
+                        "coverageImpact": "HIGH|MEDIUM|LOW"
+                    }
+                ],
+                "imports": ["list", "of", "import", "statements"],
+                "mockDependencies": ["list", "of", "mocked", "dependencies"],
+                "estimatedCoverageIncrease": 25.5,
+                "notes": "Any important notes about the generated tests"
+            }
+            """,
+                coverageTarget,
+                fileContent,
+                classTypeGuidance,
+                analysis.getCurrentCoverage(),
+                analysis.getComplexity(),
+                analysis.getBusinessLogicPriority(),
+                strategy.getReasoning()
+        );
+    }
+    
+    /**
+     * Parse response from direct full-file generation
+     */
+    private TestGenerationResult parseDirectFullFileResponse(String aiResponse, FileAnalysisResult analysis) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonResponse = mapper.readTree(extractJsonFromResponse(aiResponse));
+
+            List<GeneratedTest> tests = parseGeneratedTests(jsonResponse.get("generatedTests"));
+            String rawTestClassContent = jsonResponse.get("testClassContent").asText();
+            String testFilePath = jsonResponse.get("testFilePath").asText();
+
+            // Validate and clean the test content to prevent syntax errors
+            // String cleanedTestContent = validateAndCleanTestContent(rawTestClassContent);
+            String cleanedTestContent = rawTestClassContent; // Temporary - use raw content for now
+            
+            // Log if we had to clean up the content
+            // if (!rawTestClassContent.equals(cleanedTestContent)) {
+            //     log.info("Cleaned up test content for better syntax: {}", analysis.getFilePath());
+            // }
+
+            return TestGenerationResult.builder()
+                    .sourceFilePath(analysis.getFilePath())
+                    .testFilePath(testFilePath)
+                    .testClassName(jsonResponse.get("testClassName").asText())
+                    .generatedTests(tests)
+                    .imports(parseStringArray(jsonResponse.get("imports")))
+                    .mockDependencies(parseStringArray(jsonResponse.get("mockDependencies")))
+                    .generatedTestContent(cleanedTestContent)
+                    .estimatedCoverageIncrease(jsonResponse.get("estimatedCoverageIncrease").asDouble())
+                    .notes(jsonResponse.get("notes").asText())
+                    .success(true)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Failed to parse direct full-file generation response", e);
+            return TestGenerationResult.failure(analysis.getFilePath(), "Failed to parse AI response: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Parse response from direct full-file generation with minimal processing
+     * This preserves the LLM output quality while doing only essential validation
+     */
+    private TestGenerationResult parseDirectFullFileResponseMinimal(String aiResponse, 
+                                                                   FileAnalysisResult analysis, 
+                                                                   TestGenerationStrategy strategy) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonResponse = mapper.readTree(extractJsonFromResponse(aiResponse));
+
+            String rawTestClassContent = jsonResponse.get("testClassContent").asText();
+            String testFilePath = jsonResponse.get("testFilePath").asText();
+            
+            log.info("=== DEBUG: Raw LLM testClassContent length: {} ===", rawTestClassContent.length());
+            log.info("=== DEBUG: Raw LLM testClassContent preview (first 500 chars) ===");
+            log.info("{}", rawTestClassContent.substring(0, Math.min(500, rawTestClassContent.length())));
+            
+            // For DIRECT_FULL_FILE, apply minimal cleanup only if content is clearly malformed
+            String finalTestContent;
+            if (isContentClearlyMalformed(rawTestClassContent)) {
+                log.info("Content appears malformed for {}, applying minimal cleanup", analysis.getFilePath());
+                finalTestContent = applyMinimalCleanup(rawTestClassContent);
+            } else {
+                log.info("Using LLM output directly for {}, minimal processing applied", analysis.getFilePath());
+                finalTestContent = rawTestClassContent.trim();
+            }
+            
+            log.info("=== DEBUG: Final test content length after processing: {} ===", finalTestContent.length());
+            log.info("=== DEBUG: Final test content preview (first 500 chars) ===");
+            log.info("{}", finalTestContent.substring(0, Math.min(500, finalTestContent.length())));
+
+            // Parse metadata with defaults if missing
+            List<GeneratedTest> tests = parseGeneratedTestsWithDefaults(jsonResponse.get("generatedTests"));
+            
+            return TestGenerationResult.builder()
+                    .sourceFilePath(analysis.getFilePath())
+                    .testFilePath(testFilePath)
+                    .testClassName(getValueOrDefault(jsonResponse, "testClassName", 
+                                  extractClassNameFromPath(analysis.getFilePath()) + "Test"))
+                    .generatedTests(tests)
+                    .imports(parseStringArrayWithDefaults(jsonResponse.get("imports")))
+                    .mockDependencies(parseStringArrayWithDefaults(jsonResponse.get("mockDependencies")))
+                    .generatedTestContent(finalTestContent)
+                    .estimatedCoverageIncrease(getValueOrDefault(jsonResponse, "estimatedCoverageIncrease", 25.0))
+                    .notes(getValueOrDefault(jsonResponse, "notes", "Generated using DIRECT_FULL_FILE strategy"))
+                    .success(true)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Failed to parse direct full-file generation response for {}", analysis.getFilePath(), e);
+            return TestGenerationResult.failure(analysis.getFilePath(), 
+                "Failed to parse AI response: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Check if content is clearly malformed and needs cleanup
+     */
+    private boolean isContentClearlyMalformed(String content) {
+        if (content == null || content.trim().isEmpty()) {
+            return true;
+        }
+        
+        // Basic checks for clearly malformed content
+        int openBraces = content.length() - content.replace("{", "").length();
+        int closeBraces = content.length() - content.replace("}", "").length();
+        
+        // Allow for slight imbalance but flag major issues
+        return Math.abs(openBraces - closeBraces) > 2 ||
+               !content.contains("class ") ||
+               !content.contains("package ");
+    }
+    
+    /**
+     * Apply minimal cleanup only for clearly malformed content
+     */
+    private String applyMinimalCleanup(String content) {
+        if (content == null) return "";
+        
+        String cleaned = content.trim();
+        
+        // Only fix severe brace imbalance
+        int openBraces = cleaned.length() - cleaned.replace("{", "").length();
+        int closeBraces = cleaned.length() - cleaned.replace("}", "").length();
+        
+        if (openBraces > closeBraces) {
+            // Add only the essential missing closing braces
+            int toAdd = Math.min(openBraces - closeBraces, 3); // Limit to prevent over-correction
+            for (int i = 0; i < toAdd; i++) {
+                cleaned += "\n}";
+            }
+        }
+        
+        return cleaned;
+    }
+    
+    /**
+     * Parse generated tests with sensible defaults
+     */
+    private List<GeneratedTest> parseGeneratedTestsWithDefaults(JsonNode testsNode) {
+        if (testsNode == null || !testsNode.isArray()) {
+            return List.of(); // Return empty list instead of failing
+        }
+        
+        List<GeneratedTest> tests = new ArrayList<>();
+        for (JsonNode testNode : testsNode) {
+            try {
+                tests.add(GeneratedTest.builder()
+                    .methodName(getValueOrDefault(testNode, "methodName", "testMethod"))
+                    .testType(getValueOrDefault(testNode, "testType", "UNIT"))
+                    .description(getValueOrDefault(testNode, "description", "Generated test"))
+                    .targetCodePath(getValueOrDefault(testNode, "targetCodePath", ""))
+                    .coverageImpact(getValueOrDefault(testNode, "coverageImpact", "MEDIUM"))
+                    .build());
+            } catch (Exception e) {
+                log.warn("Failed to parse individual test, skipping: {}", e.getMessage());
+            }
+        }
+        return tests;
+    }
+    
+    /**
+     * Parse string array with defaults
+     */
+    private List<String> parseStringArrayWithDefaults(JsonNode arrayNode) {
+        if (arrayNode == null || !arrayNode.isArray()) {
+            return new ArrayList<>();
+        }
+        
+        List<String> result = new ArrayList<>();
+        for (JsonNode item : arrayNode) {
+            if (item.isTextual()) {
+                result.add(item.asText());
+            }
+        }
+        return result;
+    }
+    
+    /**
+     * Get value from JSON node with default
+     */
+    private String getValueOrDefault(JsonNode node, String fieldName, String defaultValue) {
+        if (node != null && node.has(fieldName) && !node.get(fieldName).isNull()) {
+            return node.get(fieldName).asText();
+        }
+        return defaultValue;
+    }
+    
+    /**
+     * Get double value from JSON node with default
+     */
+    private double getValueOrDefault(JsonNode node, String fieldName, double defaultValue) {
+        if (node != null && node.has(fieldName) && !node.get(fieldName).isNull()) {
+            return node.get(fieldName).asDouble();
+        }
+        return defaultValue;
+    }
+    
+    /**
+     * Extract class name from file path
+     */
+    private String extractClassNameFromPath(String filePath) {
+        if (filePath == null) return "Unknown";
+        
+        String fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+        return fileName.replace(".java", "");
+    }
+    
+    /**
+     * Generate tests for a file using a pre-determined strategy (no re-determination)
+     */
+    public TestGenerationResult generateTestsForFileWithStrategy(FileAnalysisResult analysis, 
+                                                               TestGenerationStrategy strategy) {
+        log.info("Generating tests using pre-determined strategy: {} for file: {}", 
+                strategy.getStrategy(), analysis.getFilePath());
+        
+        try {
+            String fileContent = fileService.readFile(analysis.getFilePath());
+            return executeTestGenerationStrategy(strategy, analysis, fileContent);
+        } catch (Exception e) {
+            log.error("Failed to generate tests with strategy {} for file: {}", 
+                     strategy.getStrategy(), analysis.getFilePath(), e);
+            return TestGenerationResult.failure(analysis.getFilePath(), 
+                "Strategy execution failed: " + e.getMessage());
+        }
     }
 }

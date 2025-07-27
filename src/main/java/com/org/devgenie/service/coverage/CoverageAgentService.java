@@ -10,14 +10,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -212,39 +211,105 @@ public class CoverageAgentService {
             sessionManagementService.updateProgress(sessionId, 25.0, "Analyzing file structure");
             FileAnalysisResult analysis = fileAnalysisService.analyzeFile(repoDir+"/"+request.getFilePath());
 
-            // Step 4: Generate tests in batches (25% - 80% progress)
-            sessionManagementService.updateProgress(sessionId, 30.0, "Generating tests in batches");
-            List<FileCoverageImprovementResult.GeneratedTestInfo> allGeneratedTests = new ArrayList<>();
-            List<GeneratedTestInfo> allGeneratedTestsWithCode = new ArrayList<>(); // Keep original objects with test code
-            List<String> testFilePaths = new ArrayList<>();
-            int totalBatches = calculateBatchCount(analysis, request.getMaxTestsPerBatch());
-
-            for (int batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-                double progressStart = 30.0 + (batchIndex * 50.0 / totalBatches);
-                double progressEnd = 30.0 + ((batchIndex + 1) * 50.0 / totalBatches);
-
-                sessionManagementService.updateProgress(sessionId, progressStart,
-                        String.format("Processing batch %d of %d", batchIndex + 1, totalBatches));
-
-                // Generate tests for this batch
-                BatchTestGenerationResult batchResult = testGenerationService.generateTestsBatch(
-                        analysis, batchIndex, request.getMaxTestsPerBatch());
-
-                if (batchResult.getSuccess()) {
-                    allGeneratedTests.addAll(convertToResultTestInfo(batchResult.getGeneratedTests()));
-                    allGeneratedTestsWithCode.addAll(batchResult.getGeneratedTests()); // Keep originals with test code
-                    testFilePaths.addAll(batchResult.getTestFilePaths());
-                } else {
-                    log.warn("Batch {} failed: {}", batchIndex + 1, batchResult.getError());
+            // Step 4: Generate tests using intelligent strategy selection (25% - 80% progress)
+            sessionManagementService.updateProgress(sessionId, 30.0, "Determining optimal test generation strategy");
+            
+            // Read source file content for strategy analysis
+            String sourceFilePath = repoDir + "/" + request.getFilePath();
+            String sourceContent = "";
+            try {
+                if (Files.exists(Paths.get(sourceFilePath))) {
+                    sourceContent = Files.readString(Paths.get(sourceFilePath));
                 }
+            } catch (Exception e) {
+                log.warn("Could not read source file for strategy analysis: {}", e.getMessage());
+            }
+            
+            // Determine if test file already exists
+            String testFilePath = generateTestFilePath(sourceFilePath);
+            boolean existingTestFile = Files.exists(Paths.get(repoDir, testFilePath));
+            
+            // Use TestGenerationStrategy to determine optimal approach
+            TestGenerationStrategy strategy = TestGenerationStrategy.determine(analysis, existingTestFile, sourceContent);
+            log.info("🎯 Selected test generation strategy: {} - {}", strategy.getStrategy(), strategy.getReasoning());
+            
+            sessionManagementService.updateProgress(sessionId, 35.0, 
+                "Using " + strategy.getStrategy() + " strategy: " + strategy.getReasoning());
+            
+            List<FileCoverageImprovementResult.GeneratedTestInfo> allGeneratedTests = new ArrayList<>();
+            List<GeneratedTestInfo> allGeneratedTestsWithCode = new ArrayList<>();
+            List<String> testFilePaths = new ArrayList<>();
+            TestGenerationResult directTestResult = null; // Store for DIRECT_FULL_FILE strategy
+            
+            // Execute strategy-based test generation
+            switch (strategy.getStrategy()) {
+                case DIRECT_FULL_FILE:
+                    sessionManagementService.updateProgress(sessionId, 40.0, "Generating complete test file directly");
+                    directTestResult = testGenerationService.generateTestsForFileWithStrategy(analysis, strategy);
+                    if (directTestResult.isSuccess()) {
+                        allGeneratedTests.addAll(convertDirectResultToResultTestInfo(directTestResult));
+                        // For DIRECT_FULL_FILE, we'll use the complete test content directly, not convert to individual methods
+                        testFilePaths.add(directTestResult.getTestFilePath());
+                    }
+                    sessionManagementService.updateProgress(sessionId, 80.0, "Direct generation completed");
+                    break;
+                    
+                case BATCH_METHOD_BASED:
+                    sessionManagementService.updateProgress(sessionId, 40.0, "Generating tests in optimized batches");
+                    int totalBatches = Math.max(1, (int) Math.ceil((double) analysis.getUncoveredMethods().size() / strategy.getMaxTestsPerBatch()));
+                    
+                    for (int batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+                        double progressStart = 40.0 + (batchIndex * 40.0 / totalBatches);
+                        double progressEnd = 40.0 + ((batchIndex + 1) * 40.0 / totalBatches);
 
-                sessionManagementService.updateProgress(sessionId, progressEnd,
-                        String.format("Completed batch %d", batchIndex + 1));
+                        sessionManagementService.updateProgress(sessionId, progressStart,
+                                String.format("Processing batch %d of %d", batchIndex + 1, totalBatches));
+
+                        BatchTestGenerationResult batchResult = testGenerationService.generateTestsBatch(
+                                analysis, batchIndex, strategy.getMaxTestsPerBatch());
+
+                        if (batchResult.getSuccess()) {
+                            allGeneratedTests.addAll(convertToResultTestInfo(batchResult.getGeneratedTests()));
+                            allGeneratedTestsWithCode.addAll(batchResult.getGeneratedTests());
+                            testFilePaths.addAll(batchResult.getTestFilePaths());
+                        } else {
+                            log.warn("Batch {} failed: {}", batchIndex + 1, batchResult.getError());
+                        }
+
+                        sessionManagementService.updateProgress(sessionId, progressEnd,
+                                String.format("Completed batch %d", batchIndex + 1));
+                    }
+                    break;
+                    
+                case MERGE_WITH_EXISTING:
+                    sessionManagementService.updateProgress(sessionId, 40.0, "Generating tests to merge with existing file");
+                    int mergeBatches = Math.max(1, strategy.getMaxTestsPerBatch() / 2); // Fewer batches for merging
+                    
+                    for (int batchIndex = 0; batchIndex < mergeBatches; batchIndex++) {
+                        double progressStart = 40.0 + (batchIndex * 40.0 / mergeBatches);
+                        double progressEnd = 40.0 + ((batchIndex + 1) * 40.0 / mergeBatches);
+
+                        sessionManagementService.updateProgress(sessionId, progressStart,
+                                String.format("Generating merge batch %d of %d", batchIndex + 1, mergeBatches));
+
+                        BatchTestGenerationResult batchResult = testGenerationService.generateTestsBatch(
+                                analysis, batchIndex, strategy.getMaxTestsPerBatch());
+
+                        if (batchResult.getSuccess()) {
+                            allGeneratedTests.addAll(convertToResultTestInfo(batchResult.getGeneratedTests()));
+                            allGeneratedTestsWithCode.addAll(batchResult.getGeneratedTests());
+                            testFilePaths.addAll(batchResult.getTestFilePaths());
+                        }
+
+                        sessionManagementService.updateProgress(sessionId, progressEnd,
+                                String.format("Completed merge batch %d", batchIndex + 1));
+                    }
+                    break;
             }
 
-            // Step 5: Write generated test files to disk (80% progress)
-            sessionManagementService.updateProgress(sessionId, 80.0, "Writing test files to disk");
-            writeGeneratedTestFiles(repoDir, allGeneratedTestsWithCode, testFilePaths);
+            // Step 5: Write generated test files using strategy-aware approach (80% progress)
+            sessionManagementService.updateProgress(sessionId, 80.0, "Writing test files using " + strategy.getStrategy() + " approach");
+            writeGeneratedTestFilesWithStrategy(repoDir, allGeneratedTestsWithCode, testFilePaths, strategy, sourceContent, directTestResult);
 
             // Step 6: Validate generated tests (85% progress)
             TestValidationResult validationResult = null;
@@ -259,6 +324,13 @@ public class CoverageAgentService {
 
             // Step 8: Prepare results (100% progress)
             sessionManagementService.updateProgress(sessionId, 100.0, "Results ready for review");
+            
+            // Calculate total batches processed based on strategy used
+            int totalBatchesProcessed = switch (strategy.getStrategy()) {
+                case DIRECT_FULL_FILE -> 1; // Direct generation is like 1 batch
+                case BATCH_METHOD_BASED -> Math.max(1, (int) Math.ceil((double) analysis.getUncoveredMethods().size() / strategy.getMaxTestsPerBatch()));
+                case MERGE_WITH_EXISTING -> Math.max(1, strategy.getMaxTestsPerBatch() / 2);
+            };
 
             FileCoverageImprovementResult result = FileCoverageImprovementResult.builder()
                     .sessionId(sessionId)
@@ -276,13 +348,13 @@ public class CoverageAgentService {
                     .startedAt(startTime)
                     .completedAt(LocalDateTime.now())
                     .processingTimeMs(java.time.Duration.between(startTime, LocalDateTime.now()).toMillis())
-                    .batchesProcessed(totalBatches)
+                    .batchesProcessed(totalBatchesProcessed)
                     .retryCount(0)
                     .validationResult(validationResult)
                     .testsCompiled(validationResult != null ? validationResult.getSuccess() : null)
                     .testsExecuted(validationResult != null ? validationResult.getTestsExecuted() > 0 : null)
                     .status(FileCoverageImprovementResult.ProcessingStatus.COMPLETED)
-                    .recommendations(generateRecommendations(analysis, allGeneratedTests))
+                    .recommendations(generateRecommendations(analysis, allGeneratedTests, strategy))
                     .warnings(new ArrayList<>())
                     .errors(new ArrayList<>())
                     .build();
@@ -349,21 +421,43 @@ public class CoverageAgentService {
         return filePath.substring(filePath.lastIndexOf('/') + 1);
     }
 
-    private List<String> generateRecommendations(FileAnalysisResult analysis, List<FileCoverageImprovementResult.GeneratedTestInfo> tests) {
+    private List<String> generateRecommendations(FileAnalysisResult analysis, List<FileCoverageImprovementResult.GeneratedTestInfo> tests, TestGenerationStrategy strategy) {
         List<String> recommendations = new ArrayList<>();
 
+        // Strategy-specific recommendations
+        switch (strategy.getStrategy()) {
+            case DIRECT_FULL_FILE:
+                recommendations.add("✅ Used direct generation strategy - tests generated as complete file");
+                recommendations.add("💡 Review the generated test class for completeness and add assertions as needed");
+                break;
+            case BATCH_METHOD_BASED:
+                recommendations.add("⚡ Used batch generation strategy for optimal handling of complex class");
+                recommendations.add("🔍 Consider reviewing each batch of generated tests for consistency");
+                break;
+            case MERGE_WITH_EXISTING:
+                recommendations.add("🔄 Merged new tests with existing test file - review for conflicts");
+                recommendations.add("🧪 Verify that new tests don't duplicate existing functionality");
+                break;
+        }
+
         if (tests.size() < analysis.getUncoveredMethods().size()) {
-            recommendations.add("Consider generating additional tests for remaining uncovered methods");
+            recommendations.add("📈 Consider generating additional tests for remaining uncovered methods");
         }
 
         if (analysis.getComplexityScore() > 5.0) {
-            recommendations.add("High complexity file - focus on edge cases and error conditions");
+            recommendations.add("🔥 High complexity file - focus on edge cases and error conditions");
         }
 
-        recommendations.add("Review generated tests and add additional assertions as needed");
-        recommendations.add("Consider integration tests for this component");
+        recommendations.add("🎯 Strategy used: " + strategy.getReasoning());
+        recommendations.add("📝 Review generated tests and add additional assertions as needed");
+        recommendations.add("🔗 Consider integration tests for this component");
 
         return recommendations;
+    }
+    
+    private List<String> generateRecommendations(FileAnalysisResult analysis, List<FileCoverageImprovementResult.GeneratedTestInfo> tests) {
+        // Fallback method for backward compatibility
+        return generateRecommendations(analysis, tests, null);
     }
 
     private ProcessingResult processFilesForCoverage(List<FilePriority> files, double targetCoverage, CoverageData currentCoverage) {
@@ -481,32 +575,60 @@ public class CoverageAgentService {
 
     /**
      * Write generated test files to disk with proper structure
+     * Enhanced to handle existing test files intelligently with hybrid approach support
      */
     private void writeGeneratedTestFiles(String repoDir, List<GeneratedTestInfo> generatedTests, List<String> testFilePaths) throws IOException {
-        log.info("=== WRITING GENERATED TEST FILES ===");
+        log.info("=== WRITING GENERATED TEST FILES USING HYBRID APPROACH ===");
         log.info("Repository directory: {}", repoDir);
         log.info("Number of test files to create: {}", testFilePaths.size());
         log.info("Number of generated tests: {}", generatedTests.size());
         
         for (int i = 0; i < testFilePaths.size() && i < generatedTests.size(); i++) {
             String testFilePath = testFilePaths.get(i);
-            String absoluteTestPath = Paths.get(testFilePath).toString();
+            String absoluteTestPath = Paths.get(repoDir, testFilePath).toString();
             
-            log.info("=== CREATING TEST FILE {} ===", i + 1);
+            log.info("=== PROCESSING TEST FILE {} ===", i + 1);
             log.info("Relative test path: {}", testFilePath);
             log.info("Absolute test path: {}", absoluteTestPath);
             
-            // Generate complete test class content
-            String testContent = generateCompleteTestClass(generatedTests, testFilePath);
+            // Check if test file already exists
+            Path testFile = Paths.get(absoluteTestPath);
+            boolean testFileExists = Files.exists(testFile);
+            
+            log.info("Test file exists: {}", testFileExists);
+            
+            String testContent;
+            FileChange.Type changeType;
+            
+            if (testFileExists) {
+                // Handle existing test file - merge new tests
+                log.info("Existing test file detected. Using MERGE_WITH_EXISTING strategy...");
+                testContent = mergeWithExistingTestFile(absoluteTestPath, generatedTests);
+                changeType = FileChange.Type.TEST_MODIFIED;
+            } else {
+                // Create new complete test class using intelligent strategy selection
+                log.info("Creating new test file using optimal generation strategy...");
+                testContent = generateOptimalTestClass(generatedTests, testFilePath, repoDir);
+                changeType = FileChange.Type.TEST_ADDED;
+            }
+            
             log.info("Generated test content length: {} characters", testContent.length());
             log.info("Generated test content preview: {}", testContent.substring(0, Math.min(200, testContent.length())));
             
+            // Validate generated content
+            if (!validateTestContent(testContent)) {
+                log.warn("Generated test content failed validation, applying fixes...");
+                testContent = fixTestContent(testContent, testFilePath);
+            }
+            
             // Create file change for GitService
             FileChange testFileChange = FileChange.builder()
-                    .changeType(FileChange.Type.TEST_ADDED)
+                    .changeType(changeType)
                     .testFilePath(absoluteTestPath)
                     .content(testContent)
-                    .description("Generated test file with AI-generated test methods")
+                    .description(testFileExists ? 
+                        "Merged new AI-generated test methods with existing test class using hybrid approach" : 
+                        "Generated test file with AI-generated test methods using hybrid approach")
                     .build();
             
             log.info("FileChange created: {}", testFileChange.getDescription());
@@ -515,13 +637,19 @@ public class CoverageAgentService {
             try {
                 log.info("Calling GitService.applyChanges for: {}", absoluteTestPath);
                 gitService.applyChanges(List.of(testFileChange), repoDir);
-                log.info("✅ SUCCESS: Test file created successfully: {}", absoluteTestPath);
+                log.info("✅ SUCCESS: Test file {} successfully: {}", 
+                    testFileExists ? "updated" : "created", absoluteTestPath);
                 
-                // Verify file exists
+                // Verify file exists and validate content
                 Path createdFile = Paths.get(absoluteTestPath);
                 if (Files.exists(createdFile)) {
                     long fileSize = Files.size(createdFile);
                     log.info("✅ VERIFIED: File exists with size: {} bytes", fileSize);
+                    
+                    // Additional validation
+                    if (fileSize < 100) {
+                        log.warn("⚠️  WARNING: Generated test file is very small, may be incomplete");
+                    }
                 } else {
                     log.error("❌ ERROR: File was not created: {}", absoluteTestPath);
                 }
@@ -533,9 +661,399 @@ public class CoverageAgentService {
         
         log.info("=== TEST FILE WRITING COMPLETED ===");
     }
+    
+    /**
+     * Generate optimal test class based on content analysis and strategy selection
+     */
+    private String generateOptimalTestClass(List<GeneratedTestInfo> generatedTests, String testFilePath, String repoDir) {
+        try {
+            // Analyze the first test to understand the source class
+            if (generatedTests.isEmpty()) {
+                throw new IllegalArgumentException("No test methods to generate class content");
+            }
+            
+            String sourceFilePath = testFilePath.replace("src/test/java", "src/main/java")
+                                              .replace("Test.java", ".java");
+            String fullSourcePath = Paths.get(repoDir, sourceFilePath).toString();
+            
+            // Check if we can read the source file for better analysis
+            String sourceContent = "";
+            boolean hasSourceContent = false;
+            try {
+                if (Files.exists(Paths.get(fullSourcePath))) {
+                    sourceContent = Files.readString(Paths.get(fullSourcePath));
+                    hasSourceContent = true;
+                }
+            } catch (Exception e) {
+                log.debug("Could not read source file for analysis: {}", e.getMessage());
+            }
+            
+            // Determine optimal approach based on source analysis
+            if (hasSourceContent && shouldUseDirectGeneration(sourceContent, generatedTests)) {
+                log.info("Using direct generation approach based on source analysis");
+                return generateDirectStyleTestClass(generatedTests, testFilePath, sourceContent);
+            } else {
+                log.info("Using enhanced batch assembly approach");
+                return generateCompleteTestClass(generatedTests, testFilePath);
+            }
+            
+        } catch (Exception e) {
+            log.warn("Failed optimal generation, falling back to standard approach", e);
+            return generateCompleteTestClass(generatedTests, testFilePath);
+        }
+    }
+    
+    /**
+     * Determine if direct generation approach should be used
+     * Enhanced for all types of Java applications
+     */
+    private boolean shouldUseDirectGeneration(String sourceContent, List<GeneratedTestInfo> generatedTests) {
+        // Analyze class characteristics
+        int sourceLines = sourceContent.split("\n").length;
+        boolean fewTests = generatedTests.size() <= 3;
+        
+        // 1. Main application classes (any framework)
+        if (sourceContent.contains("public static void main")) {
+            return true; // Always use direct for main classes
+        }
+        
+        // 2. Utility classes (static methods)
+        if (isUtilityClass(sourceContent)) {
+            return true;
+        }
+        
+        // 3. Data classes (POJOs, entities)
+        if (isDataClass(sourceContent)) {
+            return true;
+        }
+        
+        // 4. Interfaces and abstract classes
+        if (sourceContent.contains("public interface") || sourceContent.contains("interface") ||
+            sourceContent.contains("abstract class")) {
+            return true;
+        }
+        
+        // 5. Enums
+        if (sourceContent.contains("public enum") || sourceContent.contains("enum")) {
+            return true;
+        }
+        
+        // 6. Small classes regardless of framework
+        if (sourceLines < 100 && fewTests) {
+            return true;
+        }
+        
+        // 7. Configuration classes (any type)
+        if (sourceContent.contains("Config") && sourceContent.contains("class") && sourceLines < 150) {
+            return true;
+        }
+        
+        // 8. Simple classes with few methods
+        int methodCount = countMethods(sourceContent);
+        if (methodCount <= 5 && sourceLines < 120) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if class is a utility class (mainly static methods, any framework)
+     */
+    private boolean isUtilityClass(String sourceContent) {
+        return sourceContent.contains("public static") && 
+               sourceContent.contains("private") &&
+               !sourceContent.contains("@Component") && 
+               !sourceContent.contains("@Service") &&
+               !sourceContent.contains("@Controller");
+    }
+    
+    /**
+     * Check if class is a data class (POJO, entity, DTO, etc.)
+     */
+    private boolean isDataClass(String sourceContent) {
+        // Check for common data class indicators
+        boolean hasDataAnnotations = sourceContent.contains("@Entity") || 
+                                    sourceContent.contains("@Data") || 
+                                    sourceContent.contains("@DTO") ||
+                                    sourceContent.contains("@Model");
+        
+        if (hasDataAnnotations) {
+            return true;
+        }
+        
+        // Count getters/setters vs total methods
+        int getterSetterCount = 0;
+        int totalMethods = 0;
+        
+        String[] lines = sourceContent.split("\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if ((trimmed.contains("public ") || trimmed.contains("private ")) && 
+                trimmed.contains("(") && trimmed.contains(")") && 
+                !trimmed.contains("class ")) {
+                totalMethods++;
+                if (trimmed.contains("get") || trimmed.contains("set") || 
+                    (trimmed.contains("is") && trimmed.contains("()"))) {
+                    getterSetterCount++;
+                }
+            }
+        }
+        
+        return totalMethods > 2 && (getterSetterCount >= totalMethods * 0.6);
+    }
+    
+    /**
+     * Count methods in the class
+     */
+    private int countMethods(String sourceContent) {
+        int count = 0;
+        String[] lines = sourceContent.split("\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if ((trimmed.contains("public ") || trimmed.contains("private ") || trimmed.contains("protected ")) &&
+                trimmed.contains("(") && trimmed.contains(")") && 
+                !trimmed.contains("class ") && !trimmed.contains("interface ") && 
+                !trimmed.contains("=") && !trimmed.contains("//")) {
+                count++;
+            }
+        }
+        return count;
+    }
+    
+    /**
+     * Generate test class using direct style (as if from AI full-file generation)
+     */
+    private String generateDirectStyleTestClass(List<GeneratedTestInfo> generatedTests, String testFilePath, String sourceContent) {
+        String packageName = extractPackageFromTestPath(testFilePath);
+        String className = extractClassNameFromTestPath(testFilePath);
+        String sourceClassName = className.replace("Test", "");
+        
+        boolean isSpringApp = sourceContent.contains("@SpringBootApplication");
+        
+        StringBuilder testClass = new StringBuilder();
+        
+        // Add package declaration
+        if (packageName != null && !packageName.isEmpty()) {
+            testClass.append("package ").append(packageName).append(";\n\n");
+        }
+        
+        // Add imports - minimal for Spring Boot apps, comprehensive for others
+        if (isSpringApp) {
+            testClass.append("import org.junit.jupiter.api.Test;\n");
+            testClass.append("import org.springframework.boot.test.context.SpringBootTest;\n");
+            testClass.append("import static org.junit.jupiter.api.Assertions.*;\n\n");
+        } else {
+            testClass.append("import org.junit.jupiter.api.Test;\n");
+            testClass.append("import org.junit.jupiter.api.BeforeEach;\n");
+            testClass.append("import org.junit.jupiter.api.DisplayName;\n");
+            testClass.append("import org.junit.jupiter.api.extension.ExtendWith;\n");
+            testClass.append("import org.mockito.junit.jupiter.MockitoExtension;\n");
+            testClass.append("import static org.junit.jupiter.api.Assertions.*;\n");
+            testClass.append("import static org.mockito.Mockito.*;\n\n");
+        }
+        
+        // Add class declaration
+        testClass.append("/**\n");
+        testClass.append(" * Test class for ").append(sourceClassName).append("\n");
+        testClass.append(" * Generated using DevGenie's hybrid test generation approach\n");
+        if (isSpringApp) {
+            testClass.append(" * Spring Boot Application class - focused on essential functionality\n");
+        }
+        testClass.append(" */\n");
+        
+        if (isSpringApp) {
+            testClass.append("@SpringBootTest\n");
+        } else {
+            testClass.append("@ExtendWith(MockitoExtension.class)\n");
+        }
+        
+        testClass.append("class ").append(className).append(" {\n\n");
+        
+        // Add setup method only if not a Spring Boot app
+        if (!isSpringApp) {
+            testClass.append("    @BeforeEach\n");
+            testClass.append("    void setUp() {\n");
+            testClass.append("        // Initialize test fixtures\n");
+            testClass.append("    }\n\n");
+        }
+        
+        // Add test methods
+        for (GeneratedTestInfo testInfo : generatedTests) {
+            String testCode = testInfo.getTestCode();
+            testCode = cleanTestMethodCode(testCode);
+            
+            if (!testCode.startsWith("    ")) {
+                testCode = indentCode(testCode, "    ");
+            }
+            
+            testClass.append("    @Test\n");
+            testClass.append("    @DisplayName(\"").append(testInfo.getDescription()).append("\")\n");
+            testClass.append("    ").append(testCode);
+            if (!testCode.endsWith("\n")) {
+                testClass.append("\n");
+            }
+            testClass.append("\n");
+        }
+        
+        // Close class
+        testClass.append("}\n");
+        
+        return testClass.toString();
+    }
+    
+    /**
+     * Validate test content for basic correctness
+     */
+    private boolean validateTestContent(String testContent) {
+        if (testContent == null || testContent.trim().isEmpty()) {
+            return false;
+        }
+        
+        // Check for essential elements
+        boolean hasPackage = testContent.contains("package ");
+        boolean hasImports = testContent.contains("import ");
+        boolean hasClass = testContent.contains("class ");
+        boolean hasTests = testContent.contains("@Test");
+        
+        // Check brace balance
+        int openBraces = testContent.length() - testContent.replace("{", "").length();
+        int closeBraces = testContent.length() - testContent.replace("}", "").length();
+        boolean balancedBraces = openBraces == closeBraces;
+        
+        return hasPackage && hasImports && hasClass && hasTests && balancedBraces;
+    }
+    
+    /**
+     * Fix common issues in test content
+     */
+    private String fixTestContent(String testContent, String testFilePath) {
+        if (testContent == null || testContent.trim().isEmpty()) {
+            log.warn("Test content is empty, generating minimal placeholder");
+            return generateMinimalTestClass(testFilePath);
+        }
+        
+        // Fix missing package declaration
+        if (!testContent.contains("package ")) {
+            String packageName = extractPackageFromTestPath(testFilePath);
+            if (packageName != null && !packageName.isEmpty()) {
+                testContent = "package " + packageName + ";\n\n" + testContent;
+            }
+        }
+        
+        // Fix missing basic imports
+        if (!testContent.contains("import org.junit.jupiter.api.Test")) {
+            String importSection = "import org.junit.jupiter.api.Test;\n" +
+                                 "import static org.junit.jupiter.api.Assertions.*;\n\n";
+            
+            if (testContent.contains("package ")) {
+                int packageEnd = testContent.indexOf(";\n") + 2;
+                testContent = testContent.substring(0, packageEnd) + "\n" + importSection + 
+                             testContent.substring(packageEnd);
+            } else {
+                testContent = importSection + testContent;
+            }
+        }
+        
+        // Fix unbalanced braces by adding missing closing brace
+        int openBraces = testContent.length() - testContent.replace("{", "").length();
+        int closeBraces = testContent.length() - testContent.replace("}", "").length();
+        
+        while (openBraces > closeBraces) {
+            testContent += "\n}";
+            closeBraces++;
+        }
+        
+        return testContent;
+    }
+    
+    /**
+     * Generate minimal test class as fallback
+     */
+    private String generateMinimalTestClass(String testFilePath) {
+        String packageName = extractPackageFromTestPath(testFilePath);
+        String className = extractClassNameFromTestPath(testFilePath);
+        
+        StringBuilder testClass = new StringBuilder();
+        
+        if (packageName != null && !packageName.isEmpty()) {
+            testClass.append("package ").append(packageName).append(";\n\n");
+        }
+        
+        testClass.append("import org.junit.jupiter.api.Test;\n");
+        testClass.append("import static org.junit.jupiter.api.Assertions.*;\n\n");
+        
+        testClass.append("/**\n");
+        testClass.append(" * Minimal test class generated as fallback\n");
+        testClass.append(" */\n");
+        testClass.append("class ").append(className).append(" {\n\n");
+        testClass.append("    @Test\n");
+        testClass.append("    void testPlaceholder() {\n");
+        testClass.append("        // TODO: Implement actual test methods\n");
+        testClass.append("        assertTrue(true, \"Placeholder test\");\n");
+        testClass.append("    }\n");
+        testClass.append("}\n");
+        
+        return testClass.toString();
+    }
+
+    /**
+     * Merge new test methods with existing test file content
+     */
+    private String mergeWithExistingTestFile(String testFilePath, List<GeneratedTestInfo> newTests) throws IOException {
+        log.info("Merging {} new test methods with existing file: {}", newTests.size(), testFilePath);
+        
+        String existingContent = Files.readString(Paths.get(testFilePath), StandardCharsets.UTF_8);
+        
+        // Find the last closing brace of the class
+        int lastBraceIndex = existingContent.lastIndexOf("}");
+        if (lastBraceIndex == -1) {
+            log.warn("Could not find class closing brace in existing test file. Creating new file instead.");
+            return generateCompleteTestClass(newTests, testFilePath);
+        }
+        
+        // Extract existing content without the closing brace
+        String contentBeforeClosingBrace = existingContent.substring(0, lastBraceIndex).trim();
+        
+        StringBuilder mergedContent = new StringBuilder(contentBeforeClosingBrace);
+        mergedContent.append("\n\n");
+        
+        // Add comment indicating new generated tests
+        mergedContent.append("    // ========================\n");
+        mergedContent.append("    // AI-Generated Test Methods\n");
+        mergedContent.append("    // ========================\n\n");
+        
+        // Add new test methods
+        for (GeneratedTestInfo testInfo : newTests) {
+            String testCode = testInfo.getTestCode();
+            
+            // Validate and clean the test method code
+            testCode = cleanTestMethodCode(testCode);
+            
+            // Add proper indentation if missing
+            if (!testCode.startsWith("    ")) {
+                testCode = indentCode(testCode, "    ");
+            }
+            
+            mergedContent.append("    @Test\n");
+            mergedContent.append("    @DisplayName(\"").append(testInfo.getDescription()).append("\")\n");
+            mergedContent.append("    ").append(testCode);
+            if (!testCode.endsWith("\n")) {
+                mergedContent.append("\n");
+            }
+            mergedContent.append("\n");
+        }
+        
+        // Close class
+        mergedContent.append("}\n");
+        
+        log.info("Successfully merged {} test methods into existing test class", newTests.size());
+        return mergedContent.toString();
+    }
 
     /**
      * Generate complete test class content from generated test methods
+     * Enhanced with intelligent import detection based on source class type
      */
     private String generateCompleteTestClass(List<GeneratedTestInfo> generatedTests, String testFilePath) {
         if (generatedTests.isEmpty()) {
@@ -549,6 +1067,9 @@ public class CoverageAgentService {
         
         log.info("Generating test class: {} in package: {} for source class: {}", className, packageName, sourceClassName);
         
+        // Analyze source class to determine appropriate imports and test style
+        ClassAnalysisResult classAnalysis = analyzeSourceClass(packageName, sourceClassName);
+        
         StringBuilder testClass = new StringBuilder();
         
         // Add package declaration
@@ -556,27 +1077,32 @@ public class CoverageAgentService {
             testClass.append("package ").append(packageName).append(";\n\n");
         }
         
-        // Add imports
-        testClass.append("import org.junit.jupiter.api.Test;\n");
-        testClass.append("import org.junit.jupiter.api.BeforeEach;\n");
-        testClass.append("import org.junit.jupiter.api.DisplayName;\n");
-        testClass.append("import org.mockito.Mock;\n");
-        testClass.append("import org.mockito.MockitoAnnotations;\n");
-        testClass.append("import static org.junit.jupiter.api.Assertions.*;\n");
-        testClass.append("import static org.mockito.Mockito.*;\n\n");
+        // Add imports based on class analysis
+        addImportsBasedOnClassType(testClass, classAnalysis);
         
         // Add class declaration
         testClass.append("/**\n");
         testClass.append(" * Generated test class for ").append(sourceClassName).append("\n");
         testClass.append(" * Auto-generated by DevGenie Coverage Improvement System\n");
+        if (classAnalysis.isSpringBootApplication()) {
+            testClass.append(" * Note: Spring Boot application class - limited testing recommended\n");
+        }
         testClass.append(" */\n");
+        
+        // Add appropriate class annotations based on class type
+        if (classAnalysis.isSpringBootApplication()) {
+            testClass.append("@SpringBootTest\n");
+        }
+        
         testClass.append("class ").append(className).append(" {\n\n");
         
-        // Add setup method
-        testClass.append("    @BeforeEach\n");
-        testClass.append("    void setUp() {\n");
-        testClass.append("        MockitoAnnotations.openMocks(this);\n");
-        testClass.append("    }\n\n");
+        // Add setup method only if needed (not for simple application classes)
+        if (!classAnalysis.isSimpleApplicationClass()) {
+            testClass.append("    @BeforeEach\n");
+            testClass.append("    void setUp() {\n");
+            testClass.append("        MockitoAnnotations.openMocks(this);\n");
+            testClass.append("    }\n\n");
+        }
         
         // Add generated test methods
         for (GeneratedTestInfo testInfo : generatedTests) {
@@ -608,6 +1134,211 @@ public class CoverageAgentService {
     }
 
     /**
+     * Analyze source class to determine its type and appropriate testing approach
+     */
+    private ClassAnalysisResult analyzeSourceClass(String packageName, String sourceClassName) {
+        // Simple heuristics to identify class types
+        boolean isSpringBootApp = sourceClassName.contains("Application") || sourceClassName.endsWith("App");
+        boolean isController = sourceClassName.contains("Controller");
+        boolean isService = sourceClassName.contains("Service");
+        boolean isRepository = sourceClassName.contains("Repository");
+        boolean isConfiguration = sourceClassName.contains("Config");
+        
+        boolean isSimpleApplicationClass = isSpringBootApp && 
+            !isController && !isService && !isRepository && !isConfiguration;
+        
+        return ClassAnalysisResult.builder()
+            .className(sourceClassName)
+            .packageName(packageName)
+            .isSpringBootApplication(isSpringBootApp)
+            .isController(isController)
+            .isService(isService)
+            .isRepository(isRepository)
+            .isConfiguration(isConfiguration)
+            .isSimpleApplicationClass(isSimpleApplicationClass)
+            .build();
+    }
+
+    /**
+     * Add appropriate imports based on the class type being tested
+     * Enhanced for all types of Java applications
+     */
+    private void addImportsBasedOnClassType(StringBuilder testClass, ClassAnalysisResult analysis) {
+        // Basic JUnit 5 imports for all Java applications
+        testClass.append("import org.junit.jupiter.api.Test;\n");
+        testClass.append("import org.junit.jupiter.api.DisplayName;\n");
+        
+        // Determine class type for appropriate test setup
+        boolean isMainClass = analysis.getClassName().contains("Application") || analysis.getClassName().contains("Main");
+        boolean isUtilityClass = analysis.getClassName().contains("Util") || analysis.getClassName().contains("Helper");
+        boolean isDataClass = analysis.getClassName().contains("DTO") || analysis.getClassName().contains("Entity") || 
+                             analysis.getClassName().contains("Model") || analysis.getClassName().contains("Data");
+        
+        // Add setup imports for complex classes (not for simple utilities, data classes, or main classes)
+        if (!isMainClass && !isUtilityClass && !isDataClass && !analysis.isSimpleApplicationClass()) {
+            testClass.append("import org.junit.jupiter.api.BeforeEach;\n");
+            
+            // Add Mockito for classes that likely need mocking
+            if (analysis.isService() || analysis.isController() || 
+                (!analysis.getClassName().contains("Config") && !analysis.getClassName().contains("Enum"))) {
+                testClass.append("import org.mockito.Mock;\n");
+                testClass.append("import org.mockito.MockitoAnnotations;\n");
+                testClass.append("import org.junit.jupiter.api.extension.ExtendWith;\n");
+                testClass.append("import org.mockito.junit.jupiter.MockitoExtension;\n");
+            }
+        }
+        
+        // Framework-specific imports
+        if (analysis.isSpringBootApplication()) {
+            // Spring Boot specific
+            testClass.append("import org.springframework.boot.test.context.SpringBootTest;\n");
+            testClass.append("import org.springframework.boot.SpringApplication;\n");
+            testClass.append("import org.springframework.boot.autoconfigure.SpringBootApplication;\n");
+            if (analysis.getClassName().contains("Async")) {
+                testClass.append("import org.springframework.scheduling.annotation.EnableAsync;\n");
+            }
+            if (analysis.getClassName().contains("Schedule")) {
+                testClass.append("import org.springframework.scheduling.annotation.EnableScheduling;\n");
+            }
+            if (analysis.getClassName().contains("Mongo") || analysis.isRepository()) {
+                testClass.append("import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;\n");
+            }
+            testClass.append("import org.mockito.MockedStatic;\n");
+            testClass.append("import org.mockito.Mockito;\n");
+        } else if (analysis.isController()) {
+            // Spring MVC specific (works with Spring Boot or Spring MVC)
+            testClass.append("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;\n");
+            testClass.append("import org.springframework.test.web.servlet.MockMvc;\n");
+            testClass.append("import org.springframework.beans.factory.annotation.Autowired;\n");
+            testClass.append("import org.springframework.boot.test.mock.mockito.MockBean;\n");
+        } else if (analysis.isService()) {
+            // Service layer testing (any framework)
+            if (analysis.getPackageName().contains("springframework")) {
+                testClass.append("import org.springframework.boot.test.mock.mockito.MockBean;\n");
+                testClass.append("import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;\n");
+            }
+        } else if (analysis.isRepository()) {
+            // Repository testing (JPA, MongoDB, etc.)
+            if (analysis.getPackageName().contains("springframework") || analysis.getClassName().contains("Jpa")) {
+                testClass.append("import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;\n");
+                testClass.append("import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;\n");
+            }
+            if (analysis.getClassName().contains("Mongo")) {
+                testClass.append("import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest;\n");
+            }
+        }
+        
+        // Standard assertion imports for all Java applications
+        testClass.append("import static org.junit.jupiter.api.Assertions.*;\n");
+        
+        // Add Mockito static imports only if mocking is likely needed
+        if (!isMainClass && !isUtilityClass && !isDataClass && !analysis.isSimpleApplicationClass()) {
+            testClass.append("import static org.mockito.Mockito.*;\n");
+        }
+        
+        // Add parametrized test support for utility classes
+        if (isUtilityClass) {
+            testClass.append("import org.junit.jupiter.params.ParameterizedTest;\n");
+            testClass.append("import org.junit.jupiter.params.provider.ValueSource;\n");
+        }
+        
+        testClass.append("\n");
+    }
+
+    /**
+     * Data class for class analysis results
+     */
+    private static class ClassAnalysisResult {
+        private String className;
+        private String packageName;
+        private boolean isSpringBootApplication;
+        private boolean isController;
+        private boolean isService;
+        private boolean isRepository;
+        private boolean isConfiguration;
+        private boolean isSimpleApplicationClass;
+        
+        // Builder pattern implementation
+        public static ClassAnalysisResultBuilder builder() {
+            return new ClassAnalysisResultBuilder();
+        }
+        
+        public static class ClassAnalysisResultBuilder {
+            private String className;
+            private String packageName;
+            private boolean isSpringBootApplication;
+            private boolean isController;
+            private boolean isService;
+            private boolean isRepository;
+            private boolean isConfiguration;
+            private boolean isSimpleApplicationClass;
+            
+            public ClassAnalysisResultBuilder className(String className) {
+                this.className = className;
+                return this;
+            }
+            
+            public ClassAnalysisResultBuilder packageName(String packageName) {
+                this.packageName = packageName;
+                return this;
+            }
+            
+            public ClassAnalysisResultBuilder isSpringBootApplication(boolean isSpringBootApplication) {
+                this.isSpringBootApplication = isSpringBootApplication;
+                return this;
+            }
+            
+            public ClassAnalysisResultBuilder isController(boolean isController) {
+                this.isController = isController;
+                return this;
+            }
+            
+            public ClassAnalysisResultBuilder isService(boolean isService) {
+                this.isService = isService;
+                return this;
+            }
+            
+            public ClassAnalysisResultBuilder isRepository(boolean isRepository) {
+                this.isRepository = isRepository;
+                return this;
+            }
+            
+            public ClassAnalysisResultBuilder isConfiguration(boolean isConfiguration) {
+                this.isConfiguration = isConfiguration;
+                return this;
+            }
+            
+            public ClassAnalysisResultBuilder isSimpleApplicationClass(boolean isSimpleApplicationClass) {
+                this.isSimpleApplicationClass = isSimpleApplicationClass;
+                return this;
+            }
+            
+            public ClassAnalysisResult build() {
+                ClassAnalysisResult result = new ClassAnalysisResult();
+                result.className = this.className;
+                result.packageName = this.packageName;
+                result.isSpringBootApplication = this.isSpringBootApplication;
+                result.isController = this.isController;
+                result.isService = this.isService;
+                result.isRepository = this.isRepository;
+                result.isConfiguration = this.isConfiguration;
+                result.isSimpleApplicationClass = this.isSimpleApplicationClass;
+                return result;
+            }
+        }
+        
+        // Getters
+        public String getClassName() { return className; }
+        public String getPackageName() { return packageName; }
+        public boolean isSpringBootApplication() { return isSpringBootApplication; }
+        public boolean isController() { return isController; }
+        public boolean isService() { return isService; }
+        public boolean isRepository() { return isRepository; }
+        public boolean isConfiguration() { return isConfiguration; }
+        public boolean isSimpleApplicationClass() { return isSimpleApplicationClass; }
+    }
+
+    /**
      * Extract package name from test file path
      */
     private String extractPackageFromTestPath(String testFilePath) {
@@ -625,7 +1356,7 @@ public class CoverageAgentService {
      * Extract class name from test file path
      */
     private String extractClassNameFromTestPath(String testFilePath) {
-        String fileName = Paths.get(testFilePath).getFileName().toString();
+        String fileName = testFilePath.substring(testFilePath.lastIndexOf("/") + 1);
         return fileName.replace(".java", "");
     }
 
@@ -668,24 +1399,190 @@ public class CoverageAgentService {
     /**
      * Add proper indentation to code
      */
-    private String indentCode(String code, String indentString) {
+    private String indentCode(String code, String indent) {
         if (code == null || code.trim().isEmpty()) {
             return code;
         }
         
-        String[] lines = code.split("\n");
-        StringBuilder result = new StringBuilder();
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i];
-            if (line.trim().isEmpty()) {
-                result.append(line);
-            } else {
-                result.append(indentString).append(line);
-            }
-            if (i < lines.length - 1) {
-                result.append("\n");
+        return Arrays.stream(code.split("\n"))
+                .map(line -> line.trim().isEmpty() ? line : indent + line)
+                .collect(Collectors.joining("\n"));
+    }
+    
+    /**
+     * Generate test file path from source file path
+     */
+    private String generateTestFilePath(String sourceFilePath) {
+        return sourceFilePath.replace("src/main/java", "src/test/java")
+                           .replace(".java", "Test.java");
+    }
+    
+    /**
+     * Convert direct TestGenerationResult to result test info format
+     */
+    private List<FileCoverageImprovementResult.GeneratedTestInfo> convertDirectResultToResultTestInfo(TestGenerationResult result) {
+        return result.getGeneratedTests().stream()
+                .map(test -> FileCoverageImprovementResult.GeneratedTestInfo.builder()
+                        .testMethodName(test.getMethodName())
+                        .testClass(result.getTestClassName())
+                        .description(test.getDescription())
+                        .coveredMethods(test.getTargetCodePath() != null ? List.of(test.getTargetCodePath()) : new ArrayList<>())
+                        .estimatedCoverageContribution(test.getCoverageImpact() != null ? 
+                            getCoverageImpactValue(test.getCoverageImpact()) : 5.0)
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
+    }
+    
+    /**
+     * Convert direct TestGenerationResult to GeneratedTestInfo format
+     */
+    private List<GeneratedTestInfo> convertDirectResultToGeneratedTestInfo(TestGenerationResult result) {
+        return result.getGeneratedTests().stream()
+                .map(test -> GeneratedTestInfo.builder()
+                        .testMethodName(test.getMethodName())
+                        .testClass(result.getTestClassName())
+                        .description(test.getDescription())
+                        .testCode(extractTestMethodCode(result.getGeneratedTestContent(), test.getMethodName()))
+                        .coveredMethods(test.getTargetCodePath() != null ? List.of(test.getTargetCodePath()) : new ArrayList<>())
+                        .estimatedCoverageContribution(test.getCoverageImpact() != null ? 
+                            getCoverageImpactValue(test.getCoverageImpact()) : 5.0)
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
+    }
+    
+    /**
+     * Convert coverage impact enum to numeric value
+     */
+    private double getCoverageImpactValue(String coverageImpact) {
+        switch (coverageImpact.toUpperCase()) {
+            case "HIGH": return 10.0;
+            case "MEDIUM": return 5.0;
+            case "LOW": return 2.0;
+            default: return 5.0;
+        }
+    }
+    
+    /**
+     * Extract specific test method code from complete test class content
+     */
+    private String extractTestMethodCode(String completeTestContent, String methodName) {
+        if (completeTestContent == null || methodName == null) {
+            return "void " + methodName + "() {\n        // Generated test method\n        assertTrue(true);\n    }";
+        }
+        
+        // Try to extract the specific method
+        int methodStart = completeTestContent.indexOf("void " + methodName);
+        if (methodStart == -1) {
+            // Fallback: return a simple test method
+            return "void " + methodName + "() {\n        // Generated test method\n        assertTrue(true);\n    }";
+        }
+        
+        // Find the method end by counting braces
+        int braceCount = 0;
+        int methodEnd = methodStart;
+        boolean foundOpenBrace = false;
+        
+        for (int i = methodStart; i < completeTestContent.length(); i++) {
+            char c = completeTestContent.charAt(i);
+            if (c == '{') {
+                braceCount++;
+                foundOpenBrace = true;
+            } else if (c == '}') {
+                braceCount--;
+                if (foundOpenBrace && braceCount == 0) {
+                    methodEnd = i + 1;
+                    break;
+                }
             }
         }
-        return result.toString();
+        
+        if (methodEnd > methodStart) {
+            return completeTestContent.substring(methodStart, methodEnd);
+        } else {
+            return "void " + methodName + "() {\n        // Generated test method\n        assertTrue(true);\n    }";
+        }
+    }
+    
+    /**
+     * Write generated test files using strategy-aware approach
+     */
+    private void writeGeneratedTestFilesWithStrategy(String repoDir, 
+                                                   List<GeneratedTestInfo> generatedTests, 
+                                                   List<String> testFilePaths, 
+                                                   TestGenerationStrategy strategy,
+                                                   String sourceContent,
+                                                   TestGenerationResult directTestResult) throws IOException {
+        log.info("=== WRITING TEST FILES USING {} STRATEGY ===", strategy.getStrategy());
+        log.info("Repository directory: {}", repoDir);
+        log.info("Number of test files to create: {}", testFilePaths.size());
+        log.info("Number of generated tests: {}", generatedTests.size());
+        
+        switch (strategy.getStrategy()) {
+            case DIRECT_FULL_FILE:
+                // For DIRECT_FULL_FILE, use the complete test class content from TestGenerationResult
+                writeDirectFullFileTests(repoDir, testFilePaths, strategy, directTestResult);
+                break;
+                
+            case BATCH_METHOD_BASED:
+            case MERGE_WITH_EXISTING:
+                // Use existing hybrid approach for these strategies
+                writeGeneratedTestFiles(repoDir, generatedTests, testFilePaths);
+                break;
+                
+            default:
+                log.warn("Unknown strategy {}, falling back to standard approach", strategy.getStrategy());
+                writeGeneratedTestFiles(repoDir, generatedTests, testFilePaths);
+                break;
+        }
+    }
+    
+    /**
+     * Write test files for DIRECT_FULL_FILE strategy with minimal processing
+     */
+    private void writeDirectFullFileTests(String repoDir, 
+                                        List<String> testFilePaths,
+                                        TestGenerationStrategy strategy,
+                                        TestGenerationResult testResult) throws IOException {
+        log.info("Using DIRECT_FULL_FILE approach - preserving LLM output quality");
+        
+        if (testResult == null || !testResult.isSuccess()) {
+            log.warn("No valid test result available for DIRECT_FULL_FILE strategy");
+            return;
+        }
+        
+        if (testFilePaths.isEmpty()) {
+            log.warn("No test file paths provided for DIRECT_FULL_FILE strategy");
+            return;
+        }
+        
+        String testFilePath = testFilePaths.get(0); // DIRECT_FULL_FILE generates one complete test file
+        String absoluteTestPath = Paths.get(repoDir, testFilePath).toString();
+        
+        log.info("Writing direct test file: {}", absoluteTestPath);
+        
+        // For DIRECT_FULL_FILE, use the complete test class content from TestGenerationResult
+        String testContent = testResult.getGeneratedTestContent();
+        
+        if (testContent == null || testContent.trim().isEmpty()) {
+            log.warn("No test content available in TestGenerationResult, skipping");
+            return;
+        }
+        
+        log.info("=== DEBUG: Full test content preview (first 500 chars) ===");
+        log.info("{}", testContent.substring(0, Math.min(500, testContent.length())));
+        log.info("=== DEBUG: Full test content length: {} characters ===", testContent.length());
+        
+        // Create directory if it doesn't exist
+        Path testFile = Paths.get(absoluteTestPath);
+        Files.createDirectories(testFile.getParent());
+        
+        // Write the complete test class directly
+        Files.write(testFile, testContent.getBytes(StandardCharsets.UTF_8), 
+                   java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+        
+        log.info("Successfully wrote direct test file: {}", absoluteTestPath);
+        log.info("=== DEBUG: File content that was actually written (first 200 chars) ===");
+        log.info("{}", testContent.substring(0, Math.min(200, testContent.length())));
+        log.info("=== DEBUG: Total file size written: {} characters ===", testContent.length());
     }
 }
