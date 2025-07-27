@@ -55,21 +55,21 @@ public class GitService {
     }
 
     public PullRequestResult createPullRequest(String sessionId, CoverageData finalCoverage, String repoDir) {
-        log.info("Creating pull request for session: {}", sessionId);
+        log.info("Creating pull request for session: {} in directory: {}", sessionId, repoDir);
 
         try {
-            // Create branch
+            // Create branch in the workspace directory
             String branchName = "coverage-improvement-" + sessionId;
-            createBranch(branchName);
+            createBranch(branchName, repoDir);
 
-            // Commit changes
-            commitChanges(sessionId, finalCoverage);
+            // Commit changes in the workspace directory
+            commitChanges(sessionId, finalCoverage, repoDir);
 
-            // Push branch
-            pushBranch(branchName);
+            // Push branch from the workspace directory
+            pushBranch(branchName, repoDir);
 
             // Create PR via GitHub API
-            return createGitHubPullRequest(branchName, sessionId, finalCoverage);
+            return createGitHubPullRequest(branchName, sessionId, finalCoverage, repoDir);
 
         } catch (Exception e) {
             log.error("Failed to create pull request", e);
@@ -81,8 +81,8 @@ public class GitService {
         log.info("Rolling back changes for session: {}", sessionId);
 
         try {
-            executeGitCommand("reset", "--hard", "HEAD");
-            executeGitCommand("clean", "-fd");
+            executeGitCommandInCurrentDir("reset", "--hard", "HEAD");
+            executeGitCommandInCurrentDir("clean", "-fd");
             log.info("Changes rolled back successfully");
         } catch (Exception e) {
             log.error("Failed to rollback changes", e);
@@ -191,12 +191,12 @@ public class GitService {
         return methods.toString();
     }
 
-    private void createBranch(String branchName) throws IOException, InterruptedException {
-        executeGitCommand("checkout", "-b", branchName);
+    private void createBranch(String branchName, String repoDir) throws IOException, InterruptedException {
+        executeGitCommand(repoDir, "checkout", "-b", branchName);
     }
 
-    private void commitChanges(String sessionId, CoverageData finalCoverage) throws IOException, InterruptedException {
-        executeGitCommand("add", ".");
+    private void commitChanges(String sessionId, CoverageData finalCoverage, String repoDir) throws IOException, InterruptedException {
+        executeGitCommand(repoDir, "add", ".");
 
         String commitMessage = String.format(
                 "feat: Improve code coverage by %.2f%%\n\nSession: %s\nOverall coverage: %.2f%% -> %.2f%%",
@@ -206,16 +206,16 @@ public class GitService {
                 finalCoverage.getOverallCoverage()
         );
 
-        executeGitCommand("commit", "-m", commitMessage);
+        executeGitCommand(repoDir, "commit", "-m", commitMessage);
     }
 
-    private void pushBranch(String branchName) throws IOException, InterruptedException {
-        executeGitCommand("push", "origin", branchName);
+    private void pushBranch(String branchName, String repoDir) throws IOException, InterruptedException {
+        executeGitCommand(repoDir, "push", "origin", branchName);
     }
 
-    private PullRequestResult createGitHubPullRequest(String branchName, String sessionId, CoverageData finalCoverage) {
+    private PullRequestResult createGitHubPullRequest(String branchName, String sessionId, CoverageData finalCoverage, String repoDir) {
         try {
-            String repoInfo = getRepositoryInfo();
+            String repoInfo = getRepositoryInfo(repoDir);
             String[] repoParts = repoInfo.split("/");
             String owner = repoParts[0];
             String repo = repoParts[1];
@@ -229,7 +229,12 @@ public class GitService {
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(prRequest, headers);
 
             String url = githubApiUrl + "/repos/" + owner + "/" + repo + "/pulls";
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, 
+                org.springframework.http.HttpMethod.POST, 
+                entity, 
+                new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}
+            );
 
             Map<String, Object> prData = response.getBody();
 
@@ -289,8 +294,9 @@ public class GitService {
         return prRequest;
     }
 
-    private String getRepositoryInfo() throws IOException, InterruptedException {
+    private String getRepositoryInfo(String repoDir) throws IOException, InterruptedException {
         ProcessBuilder pb = new ProcessBuilder(gitCommand, "remote", "get-url", "origin");
+        pb.directory(new java.io.File(repoDir));
         Process process = pb.start();
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
@@ -313,7 +319,23 @@ public class GitService {
         return 65.0; // Placeholder
     }
 
-    private void executeGitCommand(String... commands) throws IOException, InterruptedException {
+    private void executeGitCommand(String repoDir, String... commands) throws IOException, InterruptedException {
+        List<String> fullCommand = new ArrayList<>();
+        fullCommand.add(gitCommand);
+        fullCommand.addAll(Arrays.asList(commands));
+
+        ProcessBuilder pb = new ProcessBuilder(fullCommand);
+        pb.directory(new java.io.File(repoDir));
+        Process process = pb.start();
+
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            throw new GitException("Git command failed with exit code: " + exitCode);
+        }
+    }
+
+    // Keep the old method for backwards compatibility (current directory)
+    private void executeGitCommandInCurrentDir(String... commands) throws IOException, InterruptedException {
         List<String> fullCommand = new ArrayList<>();
         fullCommand.add(gitCommand);
         fullCommand.addAll(Arrays.asList(commands));
@@ -325,5 +347,101 @@ public class GitService {
         if (exitCode != 0) {
             throw new GitException("Git command failed with exit code: " + exitCode);
         }
+    }
+
+    /**
+     * Test method to verify PR creation workflow
+     * @param sessionId test session ID
+     * @param repoDir repository directory
+     * @return test result
+     */
+    public PullRequestResult testPullRequestCreation(String sessionId, String repoDir) {
+        log.info("Testing PR creation for session: {} in directory: {}", sessionId, repoDir);
+        
+        try {
+            // First validate GitHub token
+            if (!validateGitHubToken()) {
+                throw new GitException("GitHub token validation failed during test");
+            }
+            
+            // Test repository info extraction
+            String repoInfo = getRepositoryInfo(repoDir);
+            log.info("Repository info extracted: {}", repoInfo);
+            
+            // Create dummy coverage data for testing
+            CoverageData testCoverage = CoverageData.builder()
+                    .overallCoverage(85.0)
+                    .lineCoverage(85.0)
+                    .branchCoverage(80.0)
+                    .methodCoverage(90.0)
+                    .build();
+            
+            // Test the PR creation process (without actually creating git branch/commits)
+            String branchName = "coverage-improvement-test-" + sessionId;
+            Map<String, Object> prRequest = createPRRequestBody(branchName, sessionId, testCoverage);
+            
+            log.info("Test PR request created successfully: {}", prRequest.get("title"));
+            
+            return PullRequestResult.builder()
+                    .success(true)
+                    .branchName(branchName)
+                    .prNumber(0) // Test mode
+                    .prUrl("https://github.com/test/pr/0")
+                    .build();
+                    
+        } catch (Exception e) {
+            log.error("PR creation test failed", e);
+            return PullRequestResult.builder()
+                    .success(false)
+                    .error(e.getMessage())
+                    .branchName("test-branch-" + sessionId)
+                    .build();
+        }
+    }
+
+    /**
+     * Validates the GitHub token by making a test API call
+     * @return true if token is valid, false otherwise
+     */
+    public boolean validateGitHubToken() {
+        if (githubToken == null || githubToken.trim().isEmpty()) {
+            log.error("GitHub token is not configured");
+            return false;
+        }
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + githubToken);
+            headers.set("Accept", "application/vnd.github.v3+json");
+            headers.set("X-GitHub-Api-Version", "2022-11-28");
+
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            
+            // Test with user endpoint
+            String url = githubApiUrl + "/user";
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, 
+                org.springframework.http.HttpMethod.GET, 
+                entity, 
+                new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                Map<String, Object> userData = response.getBody();
+                log.info("GitHub token validated successfully for user: {}", userData.get("login"));
+                return true;
+            } else {
+                log.error("GitHub token validation failed with status: {}", response.getStatusCode());
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("Failed to validate GitHub token", e);
+            return false;
+        }
+    }
+
+    private boolean validateGitHubToken_Simple() {
+        // Simple validation - just check if token is not empty
+        return githubToken != null && !githubToken.trim().isEmpty();
     }
 }

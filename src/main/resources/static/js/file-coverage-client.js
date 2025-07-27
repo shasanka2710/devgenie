@@ -7,6 +7,7 @@ class FileCoverageClient {
     constructor() {
         this.websocket = null;
         this.sessionId = null;
+        this.sessionType = null; // 'file' or 'repo'
         this.progressCallback = null;
     }
 
@@ -36,6 +37,7 @@ class FileCoverageClient {
 
             const result = await response.json();
             this.sessionId = result.sessionId;
+            this.sessionType = 'file'; // Mark as file session
             
             console.log('File coverage improvement session started:', this.sessionId);
             console.log('🔍 Backend returned sessionId:', result.sessionId);
@@ -76,6 +78,7 @@ class FileCoverageClient {
 
             const result = await response.json();
             this.sessionId = result.sessionId;
+            this.sessionType = 'repo'; // Mark as repository session
             
             console.log('Repository coverage improvement session started:', this.sessionId);
             console.log('🔍 Backend returned sessionId:', result.sessionId);
@@ -220,7 +223,12 @@ class FileCoverageClient {
      */
     async applyChanges(sessionId, applyRequest) {
         try {
-            const response = await fetch(`/api/coverage/file/session/${sessionId}/apply`, {
+            // Determine the correct endpoint based on session type
+            const endpoint = this.sessionType === 'repo' 
+                ? `/api/coverage/repo/session/${sessionId}/apply`
+                : `/api/coverage/file/session/${sessionId}/apply`;
+                
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -316,6 +324,9 @@ class FileCoverageClient {
      */
     async handleApplyChanges() {
         try {
+            // Show spinner modal immediately
+            this.showPRSpinnerModal();
+            
             const applyRequest = {
                 createPullRequest: true,
                 prTitle: `Improve coverage for ${this.sessionId}`,
@@ -324,16 +335,168 @@ class FileCoverageClient {
             
             const result = await this.applyChanges(this.sessionId, applyRequest);
             
-            // Show success message
-            alert(`Changes applied successfully! ${result.pullRequest ? 'PR created: ' + result.pullRequest.url : ''}`);
+            // Hide spinner modal
+            this.hidePRSpinnerModal();
             
-            // Close modal
+            // Close current modal first
             const modal = bootstrap.Modal.getInstance(document.getElementById('coverageResultsModal'));
             modal.hide();
             
+            // Show PR success modal if PR was created
+            if (result.pullRequest && result.pullRequest.success) {
+                this.showPullRequestSuccessModal(result.pullRequest);
+            } else if (result.pullRequest && result.pullRequest.prUrl) {
+                // Fallback - sometimes success flag might not be set but PR was created
+                this.showPullRequestSuccessModal(result.pullRequest);
+            } else {
+                // Show error modal instead of alert
+                const errorMsg = result.error || result.pullRequest?.error || 'Pull request creation failed';
+                this.showPRErrorModal(errorMsg);
+            }
+            
         } catch (error) {
-            alert('Error applying changes: ' + error.message);
+            // Hide spinner modal on error
+            this.hidePRSpinnerModal();
+            this.showPRErrorModal('Failed to create pull request: ' + error.message);
         }
+    }
+
+    /**
+     * Show pull request success modal with PR details
+     */
+    showPullRequestSuccessModal(prData) {
+        // Populate modal with PR data
+        document.getElementById('prNumber').textContent = `#${prData.prNumber || 'N/A'}`;
+        document.getElementById('prBranch').textContent = prData.branchName || 'N/A';
+        document.getElementById('prSessionId').textContent = this.sessionId || 'N/A';
+        document.getElementById('prDescription').textContent = 'Generated tests to improve code coverage';
+        
+        // Set up the PR link
+        const prLink = document.getElementById('prLink');
+        if (prData.prUrl) {
+            prLink.href = prData.prUrl;
+            prLink.style.display = 'inline-block';
+        } else {
+            prLink.style.display = 'none';
+        }
+        
+        // Show the modal
+        const prModal = new bootstrap.Modal(document.getElementById('prSuccessModal'));
+        prModal.show();
+    }
+
+    /**
+     * Show spinner modal during PR creation
+     */
+    showPRSpinnerModal() {
+        // Remove any existing spinner modal first
+        const existingSpinnerModal = document.getElementById('prSpinnerModal');
+        if (existingSpinnerModal) {
+            existingSpinnerModal.remove();
+        }
+        
+        const spinnerModal = `
+            <div class="modal fade" id="prSpinnerModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-body text-center py-5">
+                            <div class="mb-4">
+                                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                            <h5 class="mb-3">Creating Pull Request</h5>
+                            <p class="text-muted mb-0">
+                                <i class="bi bi-git me-2"></i>
+                                Applying changes and creating your pull request...
+                            </p>
+                            <div class="mt-3">
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" style="width: 100%"></div>
+                                </div>
+                            </div>
+                            <p class="text-muted mt-3 small">This may take a few moments. Please do not close this window.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', spinnerModal);
+        const spinnerModalInstance = new bootstrap.Modal(document.getElementById('prSpinnerModal'));
+        spinnerModalInstance.show();
+    }
+
+    /**
+     * Hide spinner modal
+     */
+    hidePRSpinnerModal() {
+        const spinnerModal = document.getElementById('prSpinnerModal');
+        if (spinnerModal) {
+            const modalInstance = bootstrap.Modal.getInstance(spinnerModal);
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+            // Remove the modal from DOM after hiding
+            setTimeout(() => {
+                if (spinnerModal && spinnerModal.parentNode) {
+                    spinnerModal.remove();
+                }
+            }, 300); // Wait for hide animation to complete
+        }
+    }
+
+    /**
+     * Show error modal for PR creation failures
+     */
+    showPRErrorModal(errorMessage) {
+        // Remove any existing error modal first
+        const existingErrorModal = document.getElementById('prErrorModal');
+        if (existingErrorModal) {
+            existingErrorModal.remove();
+        }
+        
+        const errorModal = `
+            <div class="modal fade" id="prErrorModal" tabindex="-1" data-bs-backdrop="static">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i> Pull Request Issue</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="text-center mb-3">
+                                <i class="bi bi-exclamation-circle-fill text-warning" style="font-size: 3rem;"></i>
+                                <h4 class="mt-3">Changes Applied Successfully</h4>
+                                <p class="text-muted">Your coverage improvement changes have been applied, but there was an issue with creating the pull request.</p>
+                            </div>
+                            
+                            <div class="alert alert-warning">
+                                <strong>Issue:</strong> ${errorMessage}
+                            </div>
+                            
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i> 
+                                <strong>What you can do:</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li>Check your GitHub token permissions</li>
+                                    <li>Manually create a pull request with the generated changes</li>
+                                    <li>Contact support if the issue persists</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Understood</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', errorModal);
+        const errorModalInstance = new bootstrap.Modal(document.getElementById('prErrorModal'));
+        errorModalInstance.show();
     }
 
     /**
