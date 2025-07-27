@@ -164,6 +164,9 @@ public class AsyncCoverageProcessingService {
             sessionManagementService.updateSessionStatus(sessionId, 
                     CoverageImprovementSession.SessionStatus.READY_FOR_REVIEW);
             
+            // Send completion message after all operations are done
+            sendProgressUpdate(sessionId, 100.0, "File improvement complete! Results are ready for review.", ProgressUpdate.ProgressType.COMPLETION);
+            
             log.info("Background file coverage processing completed for session: {}", sessionId);
             
         } catch (Exception e) {
@@ -290,13 +293,14 @@ public class AsyncCoverageProcessingService {
             
             sessionManagementService.setSessionResults(sessionId, repoResult);
             
-            sendProgressUpdate(sessionId, 100.0, 
-                    String.format("Analysis complete! Successfully improved coverage for %d files", allResults.size()), 
-                    ProgressUpdate.ProgressType.COMPLETION);
-            
             // Update session with final status
             sessionManagementService.updateSessionStatus(sessionId, 
                     CoverageImprovementSession.SessionStatus.READY_FOR_REVIEW);
+            
+            // Send completion message after all operations are done
+            sendProgressUpdate(sessionId, 100.0, 
+                    String.format("Repository improvement complete! Successfully improved coverage for %d files. Results are ready for review.", allResults.size()), 
+                    ProgressUpdate.ProgressType.COMPLETION);
             
             log.info("Background repository coverage processing completed for session: {}. Processed {}/{} files successfully", 
                     sessionId, allResults.size(), processedFiles);

@@ -10,6 +10,7 @@ sonar {
 	properties {
 		property "sonar.projectKey", "devgenie"
 		property "sonar.projectName", "devgenie"
+		property "sonar.coverage.jacoco.xmlReportPaths", "${buildDir}/reports/jacoco/test/jacocoTestReport.xml"// Replace with your SonarQube server URL
 	}
 }
 
