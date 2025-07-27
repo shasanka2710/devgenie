@@ -32,7 +32,7 @@ public class GitService {
     @Value("${git.command:git}")
     private String gitCommand;
 
-    @Value("${github.token:}")
+    @Value("${github.token}")
     private String githubToken;
 
     @Value("${github.api.url:https://api.github.com}")
@@ -58,6 +58,11 @@ public class GitService {
         log.info("Creating pull request for session: {}", sessionId);
 
         try {
+            // Validate GitHub token first
+            if (!validateGitHubToken()) {
+                throw new GitException("GitHub token validation failed. Please check your GITHUB_TOKEN environment variable and ensure it has 'repo' scope permissions.");
+            }
+
             // Create branch
             String branchName = "coverage-improvement-" + sessionId;
             createBranch(branchName);
@@ -215,21 +220,40 @@ public class GitService {
 
     private PullRequestResult createGitHubPullRequest(String branchName, String sessionId, CoverageData finalCoverage) {
         try {
+            // Validate GitHub token
+            if (githubToken == null || githubToken.trim().isEmpty()) {
+                log.error("GitHub token is not configured. Please set GITHUB_TOKEN environment variable.");
+                throw new GitException("GitHub token is not configured");
+            }
+            
+            log.debug("GitHub token configured: {}", githubToken.substring(0, Math.min(githubToken.length(), 8)) + "...");
+            
             String repoInfo = getRepositoryInfo();
             String[] repoParts = repoInfo.split("/");
             String owner = repoParts[0];
             String repo = repoParts[1];
+            
+            log.info("Creating PR for repository: {}/{}", owner, repo);
 
             Map<String, Object> prRequest = createPRRequestBody(branchName, sessionId, finalCoverage);
 
             HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "token " + githubToken);
+            // Use Bearer token format which is preferred over "token" prefix
+            headers.set("Authorization", "Bearer " + githubToken);
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Accept", "application/vnd.github.v3+json");
+            headers.set("X-GitHub-Api-Version", "2022-11-28");
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(prRequest, headers);
 
             String url = githubApiUrl + "/repos/" + owner + "/" + repo + "/pulls";
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+            log.info("Making request to: {}", url);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, 
+                org.springframework.http.HttpMethod.POST, 
+                entity, 
+                new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}
+            );
 
             Map<String, Object> prData = response.getBody();
 
@@ -324,6 +348,47 @@ public class GitService {
         int exitCode = process.waitFor();
         if (exitCode != 0) {
             throw new GitException("Git command failed with exit code: " + exitCode);
+        }
+    }
+
+    /**
+     * Validates the GitHub token by making a test API call
+     * @return true if token is valid, false otherwise
+     */
+    public boolean validateGitHubToken() {
+        if (githubToken == null || githubToken.trim().isEmpty()) {
+            log.error("GitHub token is not configured");
+            return false;
+        }
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + githubToken);
+            headers.set("Accept", "application/vnd.github.v3+json");
+            headers.set("X-GitHub-Api-Version", "2022-11-28");
+
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            
+            // Test with user endpoint
+            String url = githubApiUrl + "/user";
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, 
+                org.springframework.http.HttpMethod.GET, 
+                entity, 
+                new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                Map<String, Object> userData = response.getBody();
+                log.info("GitHub token validated successfully for user: {}", userData.get("login"));
+                return true;
+            } else {
+                log.error("GitHub token validation failed with status: {}", response.getStatusCode());
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("Failed to validate GitHub token", e);
+            return false;
         }
     }
 }
