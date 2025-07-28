@@ -12,6 +12,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,6 +50,26 @@ public class TestGenerationService {
 
         } catch (Exception e) {
             log.error("Failed to generate tests for file: {}", analysis.getFilePath(), e);
+            return TestGenerationResult.failure(analysis.getFilePath(), e.getMessage());
+        }
+    }
+    
+    /**
+     * Generate tests for a file using a specific strategy
+     * This method is used when a strategy has already been determined
+     */
+    public TestGenerationResult generateTestsForFileWithStrategy(FileAnalysisResult analysis, TestGenerationStrategy strategy) {
+        log.info("Generating tests for file: {} using strategy: {}", analysis.getFilePath(), strategy.getStrategy());
+
+        try {
+            String fileContent = fileService.readFile(analysis.getFilePath());
+            
+            // Execute the specified strategy with fallback
+            return executeTestGenerationStrategy(strategy, analysis, fileContent);
+
+        } catch (Exception e) {
+            log.error("Failed to generate tests for file: {} with strategy: {}", 
+                     analysis.getFilePath(), strategy.getStrategy(), e);
             return TestGenerationResult.failure(analysis.getFilePath(), e.getMessage());
         }
     }
@@ -552,14 +574,67 @@ public class TestGenerationService {
     }
 
     private String extractJsonFromResponse(String response) {
+        // First, try to find JSON wrapped in markdown code blocks
+        String markdownJsonPattern = "```json\\s*\\n?(.*)\\n?```";
+        Pattern pattern = Pattern.compile(markdownJsonPattern, Pattern.DOTALL);
+        Matcher matcher = pattern.matcher(response);
+        
+        if (matcher.find()) {
+            String extractedJson = matcher.group(1).trim();
+            log.debug("Extracted JSON from markdown code block, length: {}", extractedJson.length());
+            return extractedJson;
+        }
+        
+        // Fallback to original logic with improved JSON detection
         int startIndex = response.indexOf('{');
-        int endIndex = response.lastIndexOf('}') + 1;
-
-        if (startIndex >= 0 && endIndex > startIndex) {
-            return response.substring(startIndex, endIndex);
+        if (startIndex < 0) {
+            throw new IllegalArgumentException("No valid JSON found in AI response - no opening brace");
+        }
+        
+        // Find the matching closing brace using proper brace counting
+        int braceCount = 0;
+        int endIndex = -1;
+        boolean inString = false;
+        boolean escaped = false;
+        
+        for (int i = startIndex; i < response.length(); i++) {
+            char c = response.charAt(i);
+            
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            
+            if (c == '"' && !escaped) {
+                inString = !inString;
+                continue;
+            }
+            
+            if (!inString) {
+                if (c == '{') {
+                    braceCount++;
+                } else if (c == '}') {
+                    braceCount--;
+                    if (braceCount == 0) {
+                        endIndex = i + 1;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (endIndex > startIndex) {
+            String extractedJson = response.substring(startIndex, endIndex);
+            log.debug("Extracted JSON using brace counting, length: {}", extractedJson.length());
+            return extractedJson;
         }
 
-        throw new IllegalArgumentException("No valid JSON found in AI response");
+        throw new IllegalArgumentException("No valid JSON found in AI response - unable to find matching braces");
     }
 
     /**
@@ -1053,10 +1128,52 @@ public class TestGenerationService {
                                                                    TestGenerationStrategy strategy) {
         try {
             ObjectMapper mapper = new ObjectMapper();
-            JsonNode jsonResponse = mapper.readTree(extractJsonFromResponse(aiResponse));
+            
+            // Extract JSON with improved error handling
+            String jsonString;
+            try {
+                jsonString = extractJsonFromResponse(aiResponse);
+            } catch (Exception e) {
+                log.error("Failed to extract JSON from AI response for {}: {}", analysis.getFilePath(), e.getMessage());
+                log.debug("Raw AI response: {}", aiResponse);
+                return TestGenerationResult.failure(analysis.getFilePath(), "Failed to extract valid JSON from AI response");
+            }
+            
+            // Parse JSON with detailed error information
+            JsonNode jsonResponse;
+            try {
+                jsonResponse = mapper.readTree(jsonString);
+            } catch (Exception e) {
+                log.error("Failed to parse JSON for {}: {}", analysis.getFilePath(), e.getMessage());
+                log.debug("Extracted JSON string: {}", jsonString);
+                
+                // Try to fix common JSON issues
+                String fixedJson = fixCommonJsonIssues(jsonString);
+                try {
+                    jsonResponse = mapper.readTree(fixedJson);
+                    log.info("Successfully parsed JSON after applying fixes for {}", analysis.getFilePath());
+                } catch (Exception e2) {
+                    log.error("Failed to parse JSON even after fixes for {}: {}", analysis.getFilePath(), e2.getMessage());
+                    return TestGenerationResult.failure(analysis.getFilePath(), "Failed to parse AI response JSON: " + e.getMessage());
+                }
+            }
 
-            String rawTestClassContent = jsonResponse.get("testClassContent").asText();
-            String testFilePath = jsonResponse.get("testFilePath").asText();
+            // Extract required fields with null checks
+            JsonNode testClassContentNode = jsonResponse.get("testClassContent");
+            JsonNode testFilePathNode = jsonResponse.get("testFilePath");
+            
+            if (testClassContentNode == null || testClassContentNode.isNull()) {
+                log.error("Missing testClassContent in AI response for {}", analysis.getFilePath());
+                return TestGenerationResult.failure(analysis.getFilePath(), "AI response missing testClassContent field");
+            }
+            
+            if (testFilePathNode == null || testFilePathNode.isNull()) {
+                log.error("Missing testFilePath in AI response for {}", analysis.getFilePath());
+                return TestGenerationResult.failure(analysis.getFilePath(), "AI response missing testFilePath field");
+            }
+            
+            String rawTestClassContent = testClassContentNode.asText();
+            String testFilePath = testFilePathNode.asText();
             
             log.info("=== DEBUG: Raw LLM testClassContent length: {} ===", rawTestClassContent.length());
             log.info("=== DEBUG: Raw LLM testClassContent preview (first 500 chars) ===");
@@ -1101,134 +1218,178 @@ public class TestGenerationService {
     }
     
     /**
-     * Check if content is clearly malformed and needs cleanup
+     * Check if content appears to be clearly malformed
      */
     private boolean isContentClearlyMalformed(String content) {
         if (content == null || content.trim().isEmpty()) {
             return true;
         }
         
-        // Basic checks for clearly malformed content
-        int openBraces = content.length() - content.replace("{", "").length();
-        int closeBraces = content.length() - content.replace("}", "").length();
+        // Check for obvious malformation indicators
+        String trimmed = content.trim();
         
-        // Allow for slight imbalance but flag major issues
-        return Math.abs(openBraces - closeBraces) > 2 ||
-               !content.contains("class ") ||
-               !content.contains("package ");
+        // Check if it starts and ends with proper class structure
+        boolean hasClassDeclaration = trimmed.contains("class ") && trimmed.contains("{");
+        boolean hasProperEnding = trimmed.endsWith("}");
+        
+        // Check for excessive brace mismatches
+        long openBraces = trimmed.chars().filter(ch -> ch == '{').count();
+        long closeBraces = trimmed.chars().filter(ch -> ch == '}').count();
+        boolean bracesMismatch = Math.abs(openBraces - closeBraces) > 2;
+        
+        // Content is malformed if it lacks basic structure or has severe brace mismatches
+        return !hasClassDeclaration || !hasProperEnding || bracesMismatch;
     }
-    
+
     /**
-     * Apply minimal cleanup only for clearly malformed content
+     * Apply minimal cleanup to malformed content
      */
     private String applyMinimalCleanup(String content) {
-        if (content == null) return "";
+        if (content == null || content.trim().isEmpty()) {
+            return content;
+        }
         
         String cleaned = content.trim();
         
-        // Only fix severe brace imbalance
-        int openBraces = cleaned.length() - cleaned.replace("{", "").length();
-        int closeBraces = cleaned.length() - cleaned.replace("}", "").length();
+        // Basic cleanup only - remove obvious markdown artifacts
+        cleaned = cleaned.replaceAll("```java\\s*", "");
+        cleaned = cleaned.replaceAll("```\\s*$", "");
         
-        if (openBraces > closeBraces) {
-            // Add only the essential missing closing braces
-            int toAdd = Math.min(openBraces - closeBraces, 3); // Limit to prevent over-correction
-            for (int i = 0; i < toAdd; i++) {
-                cleaned += "\n}";
-            }
+        // Ensure proper ending if missing
+        if (!cleaned.endsWith("}")) {
+            cleaned += "\n}";
         }
         
         return cleaned;
     }
-    
-    /**
-     * Parse generated tests with sensible defaults
-     */
-    private List<GeneratedTest> parseGeneratedTestsWithDefaults(JsonNode testsNode) {
-        if (testsNode == null || !testsNode.isArray()) {
-            return List.of(); // Return empty list instead of failing
-        }
-        
-        List<GeneratedTest> tests = new ArrayList<>();
-        for (JsonNode testNode : testsNode) {
-            try {
-                tests.add(GeneratedTest.builder()
-                    .methodName(getValueOrDefault(testNode, "methodName", "testMethod"))
-                    .testType(getValueOrDefault(testNode, "testType", "UNIT"))
-                    .description(getValueOrDefault(testNode, "description", "Generated test"))
-                    .targetCodePath(getValueOrDefault(testNode, "targetCodePath", ""))
-                    .coverageImpact(getValueOrDefault(testNode, "coverageImpact", "MEDIUM"))
-                    .build());
-            } catch (Exception e) {
-                log.warn("Failed to parse individual test, skipping: {}", e.getMessage());
-            }
-        }
-        return tests;
-    }
-    
-    /**
-     * Parse string array with defaults
-     */
-    private List<String> parseStringArrayWithDefaults(JsonNode arrayNode) {
-        if (arrayNode == null || !arrayNode.isArray()) {
-            return new ArrayList<>();
-        }
-        
-        List<String> result = new ArrayList<>();
-        for (JsonNode item : arrayNode) {
-            if (item.isTextual()) {
-                result.add(item.asText());
-            }
-        }
-        return result;
-    }
-    
-    /**
-     * Get value from JSON node with default
-     */
-    private String getValueOrDefault(JsonNode node, String fieldName, String defaultValue) {
-        if (node != null && node.has(fieldName) && !node.get(fieldName).isNull()) {
-            return node.get(fieldName).asText();
-        }
-        return defaultValue;
-    }
-    
-    /**
-     * Get double value from JSON node with default
-     */
-    private double getValueOrDefault(JsonNode node, String fieldName, double defaultValue) {
-        if (node != null && node.has(fieldName) && !node.get(fieldName).isNull()) {
-            return node.get(fieldName).asDouble();
-        }
-        return defaultValue;
-    }
-    
+
     /**
      * Extract class name from file path
      */
     private String extractClassNameFromPath(String filePath) {
-        if (filePath == null) return "Unknown";
-        
-        String fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
-        return fileName.replace(".java", "");
-    }
-    
-    /**
-     * Generate tests for a file using a pre-determined strategy (no re-determination)
-     */
-    public TestGenerationResult generateTestsForFileWithStrategy(FileAnalysisResult analysis, 
-                                                               TestGenerationStrategy strategy) {
-        log.info("Generating tests using pre-determined strategy: {} for file: {}", 
-                strategy.getStrategy(), analysis.getFilePath());
-        
-        try {
-            String fileContent = fileService.readFile(analysis.getFilePath());
-            return executeTestGenerationStrategy(strategy, analysis, fileContent);
-        } catch (Exception e) {
-            log.error("Failed to generate tests with strategy {} for file: {}", 
-                     strategy.getStrategy(), analysis.getFilePath(), e);
-            return TestGenerationResult.failure(analysis.getFilePath(), 
-                "Strategy execution failed: " + e.getMessage());
+        if (filePath == null || filePath.isEmpty()) {
+            return "GeneratedTest";
         }
+        
+        String fileName = Paths.get(filePath).getFileName().toString();
+        if (fileName.endsWith(".java")) {
+            return fileName.substring(0, fileName.length() - 5);
+        }
+        return fileName;
+    }
+
+    /**
+     * Get value with default for strings
+     */
+    private String getValueOrDefault(JsonNode node, String fieldName, String defaultValue) {
+        return getJsonFieldWithDefault(node, fieldName, defaultValue);
+    }
+
+    /**
+     * Get value with default for doubles
+     */
+    private double getValueOrDefault(JsonNode node, String fieldName, double defaultValue) {
+        return getJsonNumberWithDefault(node, fieldName, defaultValue);
+    }
+
+    /**
+     * Attempt to fix common JSON issues that might occur in LLM responses
+     */
+    private String fixCommonJsonIssues(String jsonString) {
+        String fixed = jsonString;
+        
+        // Remove any leading/trailing whitespace
+        fixed = fixed.trim();
+        
+        // Fix common issues with quotes in string values
+        // This is a simple approach - more sophisticated fixes could be added
+        
+        // Fix unescaped quotes in string values (basic approach)
+        // This regex looks for quote-comma patterns that might indicate malformed JSON
+        fixed = fixed.replaceAll("\"([^\"]*?)\"([^,}\\]]*?)\"", "\"$1$2\"");
+        
+        // Remove any trailing commas before closing braces/brackets
+        fixed = fixed.replaceAll(",\\s*([}\\]])", "$1");
+        
+        // Ensure proper spacing around colons and commas
+        fixed = fixed.replaceAll("\"\\s*:\\s*", "\": ");
+        fixed = fixed.replaceAll(",\\s*\"", ", \"");
+        
+        // Log if we made changes
+        if (!jsonString.equals(fixed)) {
+            log.debug("Applied JSON fixes, length changed from {} to {}", jsonString.length(), fixed.length());
+        }
+        
+        return fixed;
+    }
+
+    /**
+     * Get JSON field value with default fallback
+     */
+    private String getJsonFieldWithDefault(JsonNode node, String fieldName, String defaultValue) {
+        JsonNode fieldNode = node.get(fieldName);
+        if (fieldNode == null || fieldNode.isNull()) {
+            return defaultValue;
+        }
+        return fieldNode.asText(defaultValue);
+    }
+
+    /**
+     * Get JSON number field value with default fallback
+     */
+    private double getJsonNumberWithDefault(JsonNode node, String fieldName, double defaultValue) {
+        JsonNode fieldNode = node.get(fieldName);
+        if (fieldNode == null || fieldNode.isNull()) {
+            return defaultValue;
+        }
+        return fieldNode.asDouble(defaultValue);
+    }
+
+    /**
+     * Parse string array from JSON with defaults
+     */
+    private List<String> parseStringArrayWithDefaults(JsonNode arrayNode) {
+        List<String> result = new ArrayList<>();
+        if (arrayNode != null && arrayNode.isArray()) {
+            for (JsonNode item : arrayNode) {
+                if (item != null && !item.isNull()) {
+                    result.add(item.asText());
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Parse generated tests with default handling
+     */
+    private List<GeneratedTest> parseGeneratedTestsWithDefaults(JsonNode testsNode) {
+        List<GeneratedTest> tests = new ArrayList<>();
+        if (testsNode != null && testsNode.isArray()) {
+            for (JsonNode testNode : testsNode) {
+                if (testNode != null && !testNode.isNull()) {
+                    try {
+                        GeneratedTest test = GeneratedTest.builder()
+                                .methodName(getJsonFieldWithDefault(testNode, "methodName", "testMethod"))
+                                .testType(getJsonFieldWithDefault(testNode, "testType", "UNIT"))
+                                .description(getJsonFieldWithDefault(testNode, "description", "Generated test"))
+                                .targetCodePath(getJsonFieldWithDefault(testNode, "targetCodePath", "unknown"))
+                                .coverageImpact(getJsonFieldWithDefault(testNode, "coverageImpact", "MEDIUM"))
+                                .build();
+                        tests.add(test);
+                    } catch (Exception e) {
+                        log.warn("Failed to parse test metadata, using defaults: {}", e.getMessage());
+                        tests.add(GeneratedTest.builder()
+                                .methodName("testMethod" + tests.size())
+                                .testType("UNIT")
+                                .description("Generated test")
+                                .targetCodePath("unknown")
+                                .coverageImpact("MEDIUM")
+                                .build());
+                    }
+                }
+            }
+        }
+        return tests;
     }
 }
