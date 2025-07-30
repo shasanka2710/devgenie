@@ -8,9 +8,12 @@ import com.org.devgenie.model.coverage.RepositoryAnalysisResponse;
 import com.org.devgenie.service.metadata.MetadataAnalyzer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -134,6 +137,17 @@ public class RepositoryAnalysisMongoUtil {
         } catch (Exception e) {
             log.error("Error fetching Sonar base component metrics from Mongo", e);
             return null; // Return null on error
+        }
+    }
+
+    public List<RepositoryAnalysis> findRecentAnalysisResults(int limit) {
+        try {
+            // Use MongoDB repository to find recent analysis results
+            Pageable pageable = PageRequest.of(0, limit);
+            return analysisMongoRepository.findTopByOrderByAnalysisTimestampDesc(pageable);
+        } catch (Exception e) {
+            log.error("Error fetching recent analysis results", e);
+            return new ArrayList<>();
         }
     }
 }

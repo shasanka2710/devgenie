@@ -19,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -490,6 +491,60 @@ public class CoverageController {
                 "timestamp", LocalDateTime.now()
             );
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    /**
+     * Get previously analyzed repositories for quick access
+     * Returns repositories that have entries in repositoryAnalysis collection
+     */
+    @GetMapping("/analyzed-repositories")
+    public ResponseEntity<Map<String, Object>> getAnalyzedRepositories(
+            @RequestParam(required = false) String userId,
+            @RequestParam(required = false, defaultValue = "20") int limit) {
+        try {
+            log.info("Fetching analyzed repositories with limit: {}", limit);
+            
+            // Get analyzed repositories from repositoryAnalysisService
+            List<Map<String, Object>> analyzedRepos = repositoryAnalysisService.getAnalyzedRepositories(userId, limit);
+            
+            return ResponseEntity.ok(Map.of(
+                "repositories", analyzedRepos,
+                "count", analyzedRepos.size(),
+                "timestamp", LocalDateTime.now()
+            ));
+        } catch (Exception e) {
+            log.error("Error fetching analyzed repositories", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Search repositories with auto-suggestion support
+     */
+    @GetMapping("/search-repositories")
+    public ResponseEntity<Map<String, Object>> searchRepositories(
+            @RequestParam String query,
+            @RequestParam(required = false) String org,
+            @RequestParam(required = false, defaultValue = "10") int limit) {
+        try {
+            log.info("Searching repositories with query: {}, org: {}, limit: {}", query, org, limit);
+            
+            // Get search results from repositoryService
+            List<Map<String, Object>> results = repositoryService.searchRepositories(query, org, limit);
+            
+            return ResponseEntity.ok(Map.of(
+                "repositories", results,
+                "query", query,
+                "organization", org,
+                "count", results.size(),
+                "timestamp", LocalDateTime.now()
+            ));
+        } catch (Exception e) {
+            log.error("Error searching repositories for query: {}", query, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 
