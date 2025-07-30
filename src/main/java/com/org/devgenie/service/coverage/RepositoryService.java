@@ -16,7 +16,9 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -217,6 +219,39 @@ public class RepositoryService {
         }
 
         return builder.build();
+    }
+
+    /**
+     * Search repositories using GitHub API with auto-suggestion support
+     */
+    public List<Map<String, Object>> searchRepositories(String query, String org, int limit) {
+        try {
+            log.info("Searching repositories with query: {}, org: {}, limit: {}", query, org, limit);
+
+            // Placeholder implementation - would need GitHub token and GitHub API integration
+            // For now, return a mock response to support the frontend development
+            List<Map<String, Object>> results = new ArrayList<>();
+
+            // Mock repository results for testing
+            for (int i = 1; i <= Math.min(limit, 5); i++) {
+                Map<String, Object> repo = new HashMap<>();
+                repo.put("name", query + "-repo-" + i);
+                repo.put("fullName", (org != null ? org : "example") + "/" + query + "-repo-" + i);
+                repo.put("description", "Mock repository matching " + query);
+                repo.put("language", "Java");
+                repo.put("isPrivate", i % 2 == 0);
+                repo.put("htmlUrl", "https://github.com/" + (org != null ? org : "example") + "/" + query + "-repo-" + i);
+                repo.put("updatedAt", LocalDateTime.now().minusDays(i).toString());
+                results.add(repo);
+            }
+
+            log.info("Returning {} mock search results", results.size());
+            return results;
+
+        } catch (Exception e) {
+            log.error("Error searching repositories", e);
+            return new ArrayList<>();
+        }
     }
 
     /**

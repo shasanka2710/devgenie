@@ -18,7 +18,9 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -1111,4 +1113,77 @@ public class RepositoryAnalysisService {
             return createDefaultSimplifiedInsights();
         }
     }
+
+    /**
+     * Get previously analyzed repositories for quick access
+     */
+    public List<Map<String, Object>> getAnalyzedRepositories(String userId, int limit) {
+        try {
+            log.info("Fetching analyzed repositories with limit: {}", limit);
+            
+            // Get analyzed repository data from MongoDB - need to add this method to RepositoryAnalysisMongoUtil
+            List<RepositoryAnalysis> analysisResults = analysisMongoUtil.findRecentAnalysisResults(limit);
+            
+            return analysisResults.stream()
+                    .map(this::convertToAnalyzedRepositoryInfo)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Error fetching analyzed repositories", e);
+            return new ArrayList<>();
+        }
+    }
+    
+    private Map<String, Object> convertToAnalyzedRepositoryInfo(RepositoryAnalysis analysis) {
+        Map<String, Object> repoInfo = new HashMap<>();
+        
+        // Extract repository information
+        String fullName = analysis.getRepositoryUrl();
+        if (fullName.contains("github.com/")) {
+            fullName = fullName.substring(fullName.indexOf("github.com/") + 11);
+            if (fullName.endsWith(".git")) {
+                fullName = fullName.substring(0, fullName.length() - 4);
+            }
+        }
+        
+        String[] parts = fullName.split("/");
+        String owner = parts.length > 0 ? parts[0] : "unknown";
+        String name = parts.length > 1 ? parts[1] : "unknown";
+        
+        repoInfo.put("name", name);
+        repoInfo.put("fullName", fullName);
+        repoInfo.put("owner", owner);
+        repoInfo.put("repositoryUrl", analysis.getRepositoryUrl());
+        repoInfo.put("branch", analysis.getBranch() != null ? analysis.getBranch() : "main");
+        repoInfo.put("lastAnalyzed", analysis.getAnalysisTimestamp());
+        repoInfo.put("language", "Java"); // Default for now
+        
+        // Add coverage information if available - we'll need to get this from the insights
+        if (analysis.getInsights() != null && analysis.getInsights().getRepositorySummary() != null) {
+            String coverageGrade = analysis.getInsights().getRepositorySummary().getCoverageGrade();
+            // Convert grade to approximate percentage
+            double coveragePercent = convertGradeToPercentage(coverageGrade);
+            repoInfo.put("overallCoverage", coveragePercent);
+        } else {
+            repoInfo.put("overallCoverage", null);
+        }
+        
+        repoInfo.put("analysisStatus", analysis.isSuccess() ? "COMPLETED" : "FAILED");
+        repoInfo.put("isAnalyzed", true);
+        
+        return repoInfo;
+    }
+    
+    private double convertGradeToPercentage(String grade) {
+        if (grade == null) return 0.0;
+        switch (grade.toUpperCase()) {
+            case "A": return 90.0;
+            case "B": return 75.0;
+            case "C": return 60.0;
+            case "D": return 45.0;
+            case "F": return 25.0;
+            default: return 0.0;
+        }
+    }
+
+    // ...existing code...
 }
