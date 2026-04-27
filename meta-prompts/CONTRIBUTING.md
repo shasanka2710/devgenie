@@ -38,7 +38,7 @@ tags: [comma-separated tags]
 ```
 
 Allowed `output-format` values: `markdown-table`, `scorecard`, `runbook`, `adr`, `narrative`.  
-Token estimate guideline: low < 1 500 tokens output, medium 1 500–4 000, high > 4 000.
+Token estimate guideline: low < 1,500 tokens output, medium 1,500–4,000, high > 4,000.
 
 ---
 
